@@ -97,6 +97,7 @@ import edu.uci.ics.asterix.runtime.external.ExternalRTreeSearchOperatorDescripto
 import edu.uci.ics.asterix.runtime.formats.FormatUtils;
 import edu.uci.ics.asterix.runtime.formats.NonTaggedDataFormat;
 import edu.uci.ics.asterix.runtime.job.listener.JobEventListenerFactory;
+import edu.uci.ics.asterix.runtime.linearizer.HilbertBTreeSearchOperatorDescriptor;
 import edu.uci.ics.asterix.transaction.management.opcallbacks.PrimaryIndexInstantSearchOperationCallbackFactory;
 import edu.uci.ics.asterix.transaction.management.opcallbacks.PrimaryIndexModificationOperationCallbackFactory;
 import edu.uci.ics.asterix.transaction.management.opcallbacks.PrimaryIndexOperationTrackerProvider;
@@ -631,8 +632,8 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
                     bloomFilterKeyFields[i] = i;
                 }
                 typeTraits = JobGenHelper.variablesToTypeTraits(outputVars, 0, outputVars.size(), typeEnv, context);
-                comparatorFactories = JobGenHelper.variablesToAscBinaryComparatorFactories(outputVars, 0,
-                        outputVars.size(), typeEnv, context);
+                comparatorFactories = getAscBinaryComparatorFactories(outputVars, 0, outputVars.size(), typeEnv,
+                        context);
 
                 if (filterTypeTraits != null) {
                     filterFields = new int[1];
@@ -690,21 +691,38 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
             Pair<ILSMMergePolicyFactory, Map<String, String>> compactionInfo = DatasetUtils.getMergePolicyFactory(
                     dataset, mdTxnCtx);
             AsterixRuntimeComponentsProvider rtcProvider = AsterixRuntimeComponentsProvider.RUNTIME_PROVIDER;
-            BTreeSearchOperatorDescriptor btreeSearchOp;
+            IOperatorDescriptor btreeSearchOp;
             if (dataset.getDatasetType() == DatasetType.INTERNAL) {
-                btreeSearchOp = new BTreeSearchOperatorDescriptor(jobSpec, outputRecDesc,
-                        appContext.getStorageManagerInterface(), appContext.getIndexLifecycleManagerProvider(),
-                        spPc.first, typeTraits, comparatorFactories, bloomFilterKeyFields, lowKeyFields, highKeyFields,
-                        lowKeyInclusive, highKeyInclusive, new LSMBTreeDataflowHelperFactory(
-                                new AsterixVirtualBufferCacheProvider(dataset.getDatasetId()), compactionInfo.first,
-                                compactionInfo.second, isSecondary ? new SecondaryIndexOperationTrackerProvider(
-                                        dataset.getDatasetId()) : new PrimaryIndexOperationTrackerProvider(
-                                        dataset.getDatasetId()), rtcProvider,
-                                LSMBTreeIOOperationCallbackFactory.INSTANCE,
-                                storageProperties.getBloomFilterFalsePositiveRate(), !isSecondary, filterTypeTraits,
-                                filterCmpFactories, btreeFields, filterFields), retainInput, retainNull,
-                        context.getNullWriterFactory(), searchCallbackFactory, minFilterFieldIndexes,
-                        maxFilterFieldIndexes);
+                IAType type = (IAType) typeEnv.getVarType(outputVars.get(0));
+                if (type.getTypeTag() == ATypeTag.POINT) {
+                    btreeSearchOp = new HilbertBTreeSearchOperatorDescriptor(jobSpec, outputRecDesc,
+                            appContext.getStorageManagerInterface(), appContext.getIndexLifecycleManagerProvider(),
+                            spPc.first, typeTraits, comparatorFactories, bloomFilterKeyFields, lowKeyFields,
+                            highKeyFields, lowKeyInclusive, highKeyInclusive, new LSMBTreeDataflowHelperFactory(
+                                    new AsterixVirtualBufferCacheProvider(dataset.getDatasetId()),
+                                    compactionInfo.first, compactionInfo.second,
+                                    isSecondary ? new SecondaryIndexOperationTrackerProvider(dataset.getDatasetId())
+                                            : new PrimaryIndexOperationTrackerProvider(dataset.getDatasetId()),
+                                    rtcProvider, LSMBTreeIOOperationCallbackFactory.INSTANCE,
+                                    storageProperties.getBloomFilterFalsePositiveRate(), !isSecondary,
+                                    filterTypeTraits, filterCmpFactories, btreeFields, filterFields), retainInput,
+                            retainNull, context.getNullWriterFactory(), searchCallbackFactory, minFilterFieldIndexes,
+                            maxFilterFieldIndexes);
+                } else {
+                    btreeSearchOp = new BTreeSearchOperatorDescriptor(jobSpec, outputRecDesc,
+                            appContext.getStorageManagerInterface(), appContext.getIndexLifecycleManagerProvider(),
+                            spPc.first, typeTraits, comparatorFactories, bloomFilterKeyFields, lowKeyFields,
+                            highKeyFields, lowKeyInclusive, highKeyInclusive, new LSMBTreeDataflowHelperFactory(
+                                    new AsterixVirtualBufferCacheProvider(dataset.getDatasetId()),
+                                    compactionInfo.first, compactionInfo.second,
+                                    isSecondary ? new SecondaryIndexOperationTrackerProvider(dataset.getDatasetId())
+                                            : new PrimaryIndexOperationTrackerProvider(dataset.getDatasetId()),
+                                    rtcProvider, LSMBTreeIOOperationCallbackFactory.INSTANCE,
+                                    storageProperties.getBloomFilterFalsePositiveRate(), !isSecondary,
+                                    filterTypeTraits, filterCmpFactories, btreeFields, filterFields), retainInput,
+                            retainNull, context.getNullWriterFactory(), searchCallbackFactory, minFilterFieldIndexes,
+                            maxFilterFieldIndexes);
+                }
             } else {
                 // External dataset <- use the btree with buddy btree->
                 // Be Careful of Key Start Index ?
@@ -726,6 +744,21 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
         } catch (MetadataException me) {
             throw new AlgebricksException(me);
         }
+    }
+
+    private IBinaryComparatorFactory[] getAscBinaryComparatorFactories(List<LogicalVariable> varLogical, int start,
+            int size, IVariableTypeEnvironment env, JobGenContext context) throws AlgebricksException {
+        IBinaryComparatorFactory[] compFactories = new IBinaryComparatorFactory[size];
+        for (int i = 0; i < size; i++) {
+            IAType type = (IAType) env.getVarType(varLogical.get(start + i));
+            if (type.getTypeTag() == ATypeTag.POINT) {
+                compFactories[i] = AqlBinaryComparatorFactoryProvider.INSTANCE.getHilbertBinaryComparatorFactory(type,
+                        true);
+            } else {
+                compFactories[i] = AqlBinaryComparatorFactoryProvider.INSTANCE.getBinaryComparatorFactory(type, true);
+            }
+        }
+        return compFactories;
     }
 
     /* BTreeSearchOperatorDescriptor btreeSearchOp = new BTreeSearchOperatorDescriptor(jobSpec, outputRecDesc,
@@ -1539,8 +1572,13 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
                 Pair<IAType, Boolean> keyPairType = Index.getNonNullableKeyFieldType(secondaryKeyExprs.get(i)
                         .toString(), recType);
                 IAType keyType = keyPairType.first;
-                comparatorFactories[i] = AqlBinaryComparatorFactoryProvider.INSTANCE.getBinaryComparatorFactory(
-                        keyType, true);
+                if (keyType.getTypeTag() == ATypeTag.POINT) {
+                    comparatorFactories[i] = AqlBinaryComparatorFactoryProvider.INSTANCE
+                            .getHilbertBinaryComparatorFactory(keyType, true);
+                } else {
+                    comparatorFactories[i] = AqlBinaryComparatorFactoryProvider.INSTANCE.getBinaryComparatorFactory(
+                            keyType, true);
+                }
                 typeTraits[i] = AqlTypeTraitProvider.INSTANCE.getTypeTrait(keyType);
             }
             List<String> partitioningKeys = DatasetUtils.getPartitioningKeys(dataset);
@@ -1952,7 +1990,7 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
      * Calculate an estimate size of the bloom filter. Note that this is an
      * estimation which assumes that the data is going to be uniformly
      * distributed across all partitions.
-     *
+     * 
      * @param dataset
      * @return Number of elements that will be used to create a bloom filter per
      *         dataset per partition
@@ -2175,7 +2213,7 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
 
     /**
      * Add HDFS scheduler and the cluster location constraint into the scheduler
-     *
+     * 
      * @param properties
      *            the original dataset properties
      * @return a new map containing the original dataset properties and the
@@ -2191,7 +2229,7 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
 
     /**
      * Adapt the original properties to a string-object map
-     *
+     * 
      * @param properties
      *            the original properties
      * @return the new stirng-object map

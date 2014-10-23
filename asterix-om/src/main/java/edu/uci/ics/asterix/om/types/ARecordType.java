@@ -343,6 +343,7 @@ public class ARecordType extends AbstractComplexType {
                         case UUID:
                         case YEARMONTHDURATION:
                         case DAYTIMEDURATION:
+                        case POINT:    
                             break;
                         default:
                             throw new AlgebricksException("The field \"" + fieldName + "\" which is of type "

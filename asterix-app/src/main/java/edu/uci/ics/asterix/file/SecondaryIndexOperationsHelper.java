@@ -46,6 +46,7 @@ import edu.uci.ics.asterix.metadata.external.IndexingConstants;
 import edu.uci.ics.asterix.metadata.feeds.ExternalDataScanOperatorDescriptor;
 import edu.uci.ics.asterix.metadata.utils.DatasetUtils;
 import edu.uci.ics.asterix.om.types.ARecordType;
+import edu.uci.ics.asterix.om.types.ATypeTag;
 import edu.uci.ics.asterix.om.types.IAType;
 import edu.uci.ics.asterix.om.util.AsterixAppContextInfo;
 import edu.uci.ics.asterix.runtime.evaluators.functions.AndDescriptor;
@@ -312,7 +313,12 @@ public abstract class SecondaryIndexOperationsHelper {
             anySecondaryKeyIsNullable = anySecondaryKeyIsNullable || keyTypePair.second;
             ISerializerDeserializer keySerde = serdeProvider.getSerializerDeserializer(keyType);
             secondaryRecFields[i] = keySerde;
-            secondaryComparatorFactories[i] = comparatorFactoryProvider.getBinaryComparatorFactory(keyType, true);
+            if (indexType == IndexType.BTREE && keyType.getTypeTag() == ATypeTag.POINT) {
+                secondaryComparatorFactories[i] = AqlBinaryComparatorFactoryProvider.INSTANCE
+                        .getHilbertBinaryComparatorFactory(keyType, true);
+            } else {
+                secondaryComparatorFactories[i] = comparatorFactoryProvider.getBinaryComparatorFactory(keyType, true);
+            }
             secondaryTypeTraits[i] = typeTraitProvider.getTypeTrait(keyType);
             secondaryBloomFilterKeyFields[i] = i;
         }

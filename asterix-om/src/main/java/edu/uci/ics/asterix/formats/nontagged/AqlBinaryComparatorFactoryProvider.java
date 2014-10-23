@@ -18,6 +18,7 @@ import java.io.Serializable;
 
 import edu.uci.ics.asterix.dataflow.data.nontagged.comparators.ACirclePartialBinaryComparatorFactory;
 import edu.uci.ics.asterix.dataflow.data.nontagged.comparators.ADurationPartialBinaryComparatorFactory;
+import edu.uci.ics.asterix.dataflow.data.nontagged.comparators.AHilbertPointBinaryComparatorFactory;
 import edu.uci.ics.asterix.dataflow.data.nontagged.comparators.AIntervalPartialBinaryComparatorFactory;
 import edu.uci.ics.asterix.dataflow.data.nontagged.comparators.ALinePartialBinaryComparatorFactory;
 import edu.uci.ics.asterix.dataflow.data.nontagged.comparators.AObjectAscBinaryComparatorFactory;
@@ -31,6 +32,7 @@ import edu.uci.ics.asterix.dataflow.data.nontagged.comparators.BooleanBinaryComp
 import edu.uci.ics.asterix.dataflow.data.nontagged.comparators.RawBinaryComparatorFactory;
 import edu.uci.ics.asterix.om.types.ATypeTag;
 import edu.uci.ics.asterix.om.types.IAType;
+import edu.uci.ics.hyracks.algebricks.common.exceptions.AlgebricksException;
 import edu.uci.ics.hyracks.algebricks.data.IBinaryComparatorFactoryProvider;
 import edu.uci.ics.hyracks.api.dataflow.value.IBinaryComparator;
 import edu.uci.ics.hyracks.api.dataflow.value.IBinaryComparatorFactory;
@@ -79,6 +81,23 @@ public class AqlBinaryComparatorFactoryProvider implements IBinaryComparatorFact
             return addOffset(UTF8STRING_LOWERCASE_POINTABLE_INSTANCE, ascending);
         }
         return getBinaryComparatorFactory(type, ascending);
+    }
+
+    public IBinaryComparatorFactory getHilbertBinaryComparatorFactory(Object type, boolean ascending)
+            throws AlgebricksException {
+        if (type == null) {
+            throw new AlgebricksException("Unsupported Hilbert binary comparator for type: null");
+        }
+        ATypeTag typeTag = ((IAType) type).getTypeTag();
+        switch (typeTag) {
+            case POINT: {
+                return addOffset(AHilbertPointBinaryComparatorFactory.INSTANCE, ascending);
+            }
+
+            default: {
+                throw new AlgebricksException("Unsupported Hilbert binary comparator for type: " + typeTag);
+            }
+        }
     }
 
     @Override
@@ -149,7 +168,8 @@ public class AqlBinaryComparatorFactoryProvider implements IBinaryComparatorFact
                 return addOffset(ACirclePartialBinaryComparatorFactory.INSTANCE, ascending);
             }
             case POINT: {
-                return addOffset(APointPartialBinaryComparatorFactory.INSTANCE, ascending);
+                //return addOffset(APointPartialBinaryComparatorFactory.INSTANCE, ascending);
+                return addOffset(AHilbertPointBinaryComparatorFactory.INSTANCE, ascending);
             }
             case POINT3D: {
                 return addOffset(APoint3DPartialBinaryComparatorFactory.INSTANCE, ascending);

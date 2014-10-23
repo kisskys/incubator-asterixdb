@@ -18,6 +18,7 @@ import java.io.DataOutput;
 
 import edu.uci.ics.asterix.dataflow.data.nontagged.comparators.ACirclePartialBinaryComparatorFactory;
 import edu.uci.ics.asterix.dataflow.data.nontagged.comparators.ADurationPartialBinaryComparatorFactory;
+import edu.uci.ics.asterix.dataflow.data.nontagged.comparators.AHilbertPointBinaryComparatorFactory;
 import edu.uci.ics.asterix.dataflow.data.nontagged.comparators.AIntervalPartialBinaryComparatorFactory;
 import edu.uci.ics.asterix.dataflow.data.nontagged.comparators.ALinePartialBinaryComparatorFactory;
 import edu.uci.ics.asterix.dataflow.data.nontagged.comparators.APoint3DPartialBinaryComparatorFactory;
@@ -77,7 +78,9 @@ public abstract class AbstractComparisonEvaluator implements ICopyEvaluator {
             .createBinaryComparator();
     protected IBinaryComparator lineBinaryComparator = ALinePartialBinaryComparatorFactory.INSTANCE
             .createBinaryComparator();
-    protected IBinaryComparator pointBinaryComparator = APointPartialBinaryComparatorFactory.INSTANCE
+//    protected IBinaryComparator pointBinaryComparator = APointPartialBinaryComparatorFactory.INSTANCE
+//            .createBinaryComparator();
+    protected IBinaryComparator pointBinaryComparator = AHilbertPointBinaryComparatorFactory.INSTANCE
             .createBinaryComparator();
     protected IBinaryComparator point3DBinaryComparator = APoint3DPartialBinaryComparatorFactory.INSTANCE
             .createBinaryComparator();

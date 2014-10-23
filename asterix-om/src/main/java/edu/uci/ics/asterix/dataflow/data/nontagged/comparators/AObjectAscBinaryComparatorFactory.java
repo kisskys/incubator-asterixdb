@@ -55,7 +55,9 @@ public class AObjectAscBinaryComparatorFactory implements IBinaryComparatorFacto
             final IBinaryComparator ascIntervalComp = AIntervalPartialBinaryComparatorFactory.INSTANCE
                     .createBinaryComparator();
             final IBinaryComparator ascLineComp = ALinePartialBinaryComparatorFactory.INSTANCE.createBinaryComparator();
-            final IBinaryComparator ascPointComp = APointPartialBinaryComparatorFactory.INSTANCE
+//            final IBinaryComparator ascPointComp = APointPartialBinaryComparatorFactory.INSTANCE
+//                    .createBinaryComparator();
+            final IBinaryComparator ascPointComp = AHilbertPointBinaryComparatorFactory.INSTANCE
                     .createBinaryComparator();
             final IBinaryComparator ascPoint3DComp = APoint3DPartialBinaryComparatorFactory.INSTANCE
                     .createBinaryComparator();

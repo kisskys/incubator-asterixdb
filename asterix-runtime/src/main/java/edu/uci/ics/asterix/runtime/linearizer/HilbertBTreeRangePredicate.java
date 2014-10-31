@@ -26,10 +26,6 @@ import edu.uci.ics.hyracks.storage.am.common.tuples.PermutingFrameTupleReference
 public class HilbertBTreeRangePredicate extends RangePredicate implements ILinearizerSearchPredicate{
     private static final long serialVersionUID = 1L;
 
-//    private double qBottomLeftX;
-//    private double qBottomLeftY;
-//    private double qUpperRightX;
-//    private double qUpperRightY;
     private PermutingFrameTupleReference queryRegion;
 
     public HilbertBTreeRangePredicate(ITupleReference lowKey, ITupleReference highKey, boolean lowKeyInclusive,
@@ -43,27 +39,4 @@ public class HilbertBTreeRangePredicate extends RangePredicate implements ILinea
     public ILinearizerSearchHelper getLinearizerSearchModifier() throws HyracksDataException {
         return new HilbertBTreeSearchHelper(queryRegion);
     }
-//
-//    public void prepareRegionQuery(double x1, double y1, double x2, double y2) {
-//        qBottomLeftX = x1;
-//        qBottomLeftY = y1;
-//        qUpperRightX = x2;
-//        qUpperRightY = y2;
-//    }
-//
-//    public double getQueryBottomLeftX() {
-//        return qBottomLeftX;
-//    }
-//
-//    public double getQueryBottomLeftY() {
-//        return qBottomLeftY;
-//    }
-//
-//    public double getQueryUpperRightX() {
-//        return qUpperRightX;
-//    }
-//
-//    public double getQueryUpperRightY() {
-//        return qUpperRightY;
-//    }
 }

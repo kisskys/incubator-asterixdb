@@ -381,6 +381,7 @@ public class ARecordType extends AbstractComplexType {
                         case UNORDEREDLIST:
                         case ORDEREDLIST:
                         case UNION:
+                        case POINT:
                             break;
                         default:
                             throw new AlgebricksException("The field \"" + fieldName + "\" which is of type "

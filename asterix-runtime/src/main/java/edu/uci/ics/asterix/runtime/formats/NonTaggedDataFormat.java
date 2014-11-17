@@ -210,6 +210,7 @@ import edu.uci.ics.asterix.runtime.evaluators.functions.OrderedListConstructorDe
 import edu.uci.ics.asterix.runtime.evaluators.functions.PrefixLenJaccardDescriptor;
 import edu.uci.ics.asterix.runtime.evaluators.functions.RecordMergeDescriptor;
 import edu.uci.ics.asterix.runtime.evaluators.functions.RegExpDescriptor;
+import edu.uci.ics.asterix.runtime.evaluators.functions.SIFTokensDescriptor;
 import edu.uci.ics.asterix.runtime.evaluators.functions.SimilarityJaccardCheckDescriptor;
 import edu.uci.ics.asterix.runtime.evaluators.functions.SimilarityJaccardDescriptor;
 import edu.uci.ics.asterix.runtime.evaluators.functions.SimilarityJaccardPrefixCheckDescriptor;
@@ -541,6 +542,8 @@ public class NonTaggedDataFormat implements IDataFormat {
         temp.add(GramTokensDescriptor.FACTORY);
         temp.add(HashedGramTokensDescriptor.FACTORY);
         temp.add(CountHashedGramTokensDescriptor.FACTORY);
+        
+        temp.add(SIFTokensDescriptor.FACTORY);
 
         temp.add(EditDistanceDescriptor.FACTORY);
         temp.add(EditDistanceCheckDescriptor.FACTORY);

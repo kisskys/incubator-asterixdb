@@ -18,6 +18,7 @@ import edu.uci.ics.asterix.dataflow.data.common.AListElementTokenFactory;
 import edu.uci.ics.asterix.dataflow.data.common.AOrderedListBinaryTokenizerFactory;
 import edu.uci.ics.asterix.dataflow.data.common.AUnorderedListBinaryTokenizerFactory;
 import edu.uci.ics.asterix.dataflow.data.common.IBinaryTokenizerFactoryProvider;
+import edu.uci.ics.asterix.dataflow.data.common.SIFBinaryTokenizerFactory;
 import edu.uci.ics.asterix.om.types.ATypeTag;
 import edu.uci.ics.hyracks.storage.am.lsm.invertedindex.tokenizers.DelimitedUTF8StringBinaryTokenizerFactory;
 import edu.uci.ics.hyracks.storage.am.lsm.invertedindex.tokenizers.HashedUTF8WordTokenFactory;
@@ -85,5 +86,11 @@ public class AqlBinaryTokenizerFactoryProvider implements IBinaryTokenizerFactor
                 return null;
             }
         }
+    }
+
+    public IBinaryTokenizerFactory getSIFTokenizerFactory(ATypeTag keyType, double bottomLeftX, double bottomLeftY,
+            double topRightX, double topRightY, long xCellNum, long yCellNum, boolean hashedTokens) {
+        return new SIFBinaryTokenizerFactory(bottomLeftX, bottomLeftY, topRightX, topRightY, xCellNum, yCellNum,
+                new UTF8WordTokenFactory(ATypeTag.STRING.serialize(), ATypeTag.INT32.serialize()));
     }
 }

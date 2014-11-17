@@ -91,7 +91,8 @@ public class SecondaryInvertedIndexOperationsHelper extends SecondaryIndexOperat
     @Override
     @SuppressWarnings("rawtypes")
     protected void setSecondaryRecDescAndComparators(IndexType indexType, List<String> secondaryKeyFields,
-            int gramLength, AqlMetadataProvider metadata) throws AlgebricksException, AsterixException {
+            int gramLength, double bottomLeftX, double bottomLeftY, double topRightX, double topRightY, long xCellNum,
+            long yCellNum, AqlMetadataProvider metadata) throws AlgebricksException, AsterixException {
         // Sanity checks.
         if (numPrimaryKeys > 1) {
             throw new AsterixException("Cannot create inverted index on dataset with composite primary key.");
@@ -147,7 +148,7 @@ public class SecondaryInvertedIndexOperationsHelper extends SecondaryIndexOperat
         // TODO: We might want to expose the hashing option at the AQL level,
         // and add the choice to the index metadata.
         tokenizerFactory = NonTaggedFormatUtil.getBinaryTokenizerFactory(secondaryKeyType.getTypeTag(), indexType,
-                gramLength);
+                gramLength, bottomLeftX, bottomLeftY, topRightX, topRightY, xCellNum, yCellNum);
         // Type traits for inverted-list elements. Inverted lists contain
         // primary keys.
         invListsTypeTraits = new ITypeTraits[numPrimaryKeys];
@@ -161,7 +162,7 @@ public class SecondaryInvertedIndexOperationsHelper extends SecondaryIndexOperat
                 + numFilterFields];
         ITypeTraits[] tokenKeyPairTypeTraits = new ITypeTraits[numTokenKeyPairFields];
         tokenKeyPairComparatorFactories = new IBinaryComparatorFactory[numTokenKeyPairFields];
-        tokenKeyPairFields[0] = serdeProvider.getSerializerDeserializer(secondaryKeyType);
+        tokenKeyPairFields[0] = serdeProvider.getSerializerDeserializer(NonTaggedFormatUtil.getTokenType(secondaryKeyType));
         tokenKeyPairTypeTraits[0] = tokenTypeTraits[0];
         tokenKeyPairComparatorFactories[0] = NonTaggedFormatUtil.getTokenBinaryComparatorFactory(secondaryKeyType);
         int pkOff = 1;

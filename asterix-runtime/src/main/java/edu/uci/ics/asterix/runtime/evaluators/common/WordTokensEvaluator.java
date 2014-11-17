@@ -50,8 +50,8 @@ public class WordTokensEvaluator implements ICopyEvaluator {
         argOut.reset();
         stringEval.evaluate(tuple);
         byte[] bytes = argOut.getByteArray();
-        tokenizer.reset(bytes, 0, argOut.getLength());
         try {
+            tokenizer.reset(bytes, 0, argOut.getLength());
             listBuilder.reset(listType);
             while (tokenizer.hasNext()) {
                 tokenizer.next();

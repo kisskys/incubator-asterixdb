@@ -80,10 +80,22 @@ public class AQLParser extends ScopeChecker {
     private static class IndexParams {
       public IndexType type;
       public int gramLength;
+      public double bottomLeftX;
+      public double bottomLeftY;
+      public double topRightX;
+      public double topRightY;
+      public long xCellNum;
+      public long yCellNum;
       
-      public IndexParams(IndexType type, int gramLength) {
+      public IndexParams(IndexType type, int gramLength, double bottomLeftX, double bottomLeftY, double topRightX, double topRightY, long xCellNum, long yCellNum) {
         this.type = type;
         this.gramLength = gramLength;
+        this.bottomLeftX = bottomLeftX;
+        this.bottomLeftY = bottomLeftY;
+        this.topRightX = topRightX;
+        this.topRightY = topRightY;
+        this.xCellNum = xCellNum;
+        this.yCellNum = yCellNum;
       }
     };  
    
@@ -428,6 +440,12 @@ CreateIndexStatement IndexSpecification() throws ParseException:
       if (indexType != null) {
         cis.setIndexType(indexType.type);
         cis.setGramLength(indexType.gramLength);
+        cis.setBottomLeftX(indexType.bottomLeftX);
+        cis.setBottomLeftY(indexType.bottomLeftY);
+        cis.setTopRightX(indexType.topRightX);
+        cis.setTopRightY(indexType.topRightY);
+        cis.setXCellNum(indexType.xCellNum);
+        cis.setYCellNum(indexType.yCellNum);
       }
       return cis;
     }
@@ -459,6 +477,13 @@ IndexParams IndexType() throws ParseException:
 {
   IndexType type = null;
   int gramLength = 0;
+  double bottomLeftX = 0.0;
+  double bottomLeftY = 0.0;
+  double topRightX = 0.0;
+  double topRightY = 0.0;
+  long xCellNum = 0;
+  long yCellNum = 0;
+  boolean negative = false;
 }
 {
   ("btree"
@@ -478,9 +503,102 @@ IndexParams IndexType() throws ParseException:
       type = IndexType.LENGTH_PARTITIONED_NGRAM_INVIX;
       gramLength = Integer.valueOf(token.image);
     }
+  <RIGHTPAREN>
+  | "sif" <LEFTPAREN>
+    ( (<PLUS> | <MINUS>) 
+	{
+		if("-".equals(token.image))
+			negative = true;
+	}
+	)? 
+    <DOUBLE_LITERAL> 
+  	{
+  	  type = IndexType.LENGTH_PARTITIONED_WORD_INVIX;
+      bottomLeftX = Double.valueOf(token.image);
+      if (negative) 
+      {
+      	bottomLeftX *= -1;
+      	negative = false;
+      }
+  	} <COMMA> 
+  	( (<PLUS> | <MINUS>) 
+	{
+		if("-".equals(token.image))
+			negative = true;
+	}
+	)? 
+  	<DOUBLE_LITERAL> 
+  	{
+      bottomLeftY = Double.valueOf(token.image);
+      if (negative) 
+      {
+      	bottomLeftY *= -1;
+      	negative = false;
+      } 
+  	} <COMMA>
+  	( (<PLUS> | <MINUS>) 
+	{
+		if("-".equals(token.image))
+			negative = true;
+	}
+	)? 
+  	 <DOUBLE_LITERAL> 
+  	{
+  	  topRightX = Double.valueOf(token.image);
+  	  if (negative) 
+      {
+      	topRightX *= -1;
+      	negative = false;
+      } 
+  	} <COMMA> 
+  	( (<PLUS> | <MINUS>) 
+	{
+		if("-".equals(token.image))
+			negative = true;
+	}
+	)? 
+  	<DOUBLE_LITERAL> 
+  	{
+  	  topRightY = Double.valueOf(token.image);
+  	  if (negative) 
+      {
+      	topRightY *= -1;
+      	negative = false;
+      } 
+  	} <COMMA>
+  	( (<PLUS> | <MINUS>) 
+	{
+		if("-".equals(token.image))
+			negative = true;
+	}
+	)? 
+  	<INTEGER_LITERAL> 
+  	{
+  	  xCellNum = Long.valueOf(token.image);
+  	  if (negative) 
+      {
+      	xCellNum *= -1;
+      	negative = false;
+      } 
+  	} <COMMA> 
+  	( (<PLUS> | <MINUS>) 
+	{
+		if("-".equals(token.image))
+			negative = true;
+	}
+	)? 
+  	<INTEGER_LITERAL> 
+  	{
+  	  yCellNum = Long.valueOf(token.image);
+  	  if (negative) 
+      {
+      	yCellNum *= -1;
+      	negative = false;
+      } 
+  	}
   <RIGHTPAREN>)
     {
-      return new IndexParams(type, gramLength);
+      return new IndexParams(type, gramLength, bottomLeftX, bottomLeftY, topRightX, topRightY, xCellNum, yCellNum);
     }
 }
 

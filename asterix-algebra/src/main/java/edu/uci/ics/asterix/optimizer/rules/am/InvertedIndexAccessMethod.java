@@ -30,8 +30,10 @@ import edu.uci.ics.asterix.common.config.DatasetConfig.IndexType;
 import edu.uci.ics.asterix.formats.nontagged.AqlBinaryTokenizerFactoryProvider;
 import edu.uci.ics.asterix.metadata.entities.Dataset;
 import edu.uci.ics.asterix.metadata.entities.Index;
+import edu.uci.ics.asterix.om.base.ADouble;
 import edu.uci.ics.asterix.om.base.AFloat;
 import edu.uci.ics.asterix.om.base.AInt32;
+import edu.uci.ics.asterix.om.base.AInt64;
 import edu.uci.ics.asterix.om.base.ANull;
 import edu.uci.ics.asterix.om.base.AString;
 import edu.uci.ics.asterix.om.base.IACollection;
@@ -99,6 +101,7 @@ public class InvertedIndexAccessMethod implements IAccessMethod {
         // For matching similarity-check functions. For example, similarity-jaccard-check returns a list of two items,
         // and the select condition will get the first list-item and check whether it evaluates to true. 
         funcIdents.add(AsterixBuiltinFunctions.GET_ITEM);
+        funcIdents.add(AsterixBuiltinFunctions.SPATIAL_INTERSECT);
     }
 
     // These function identifiers are matched in this AM's analyzeFuncExprArgs(), 
@@ -120,8 +123,9 @@ public class InvertedIndexAccessMethod implements IAccessMethod {
     @Override
     public boolean analyzeFuncExprArgs(AbstractFunctionCallExpression funcExpr,
             List<AbstractLogicalOperator> assignsAndUnnests, AccessMethodAnalysisContext analysisCtx) {
-        
-        if (funcExpr.getFunctionIdentifier() == AsterixBuiltinFunctions.CONTAINS) {
+
+        if (funcExpr.getFunctionIdentifier() == AsterixBuiltinFunctions.CONTAINS
+                || funcExpr.getFunctionIdentifier() == AsterixBuiltinFunctions.SPATIAL_INTERSECT) {
             boolean matches = AccessMethodUtils.analyzeFuncExprArgsForOneConstAndVar(funcExpr, analysisCtx);
             if (!matches) {
                 matches = AccessMethodUtils.analyzeFuncExprArgsForTwoVars(funcExpr, analysisCtx);
@@ -299,9 +303,10 @@ public class InvertedIndexAccessMethod implements IAccessMethod {
             AbstractFunctionCallExpression nonConstFuncExpr = funcExpr;
             if (nonConstArg.getExpressionTag() == LogicalExpressionTag.FUNCTION_CALL) {
                 nonConstFuncExpr = (AbstractFunctionCallExpression) nonConstArg;
-                // TODO: Currently, we're only looking for word and gram tokens (non hashed).
+                // TODO: Currently, we're only looking for word, sif, and gram tokens (non hashed).
                 if (nonConstFuncExpr.getFunctionIdentifier() != AsterixBuiltinFunctions.WORD_TOKENS
-                        && nonConstFuncExpr.getFunctionIdentifier() != AsterixBuiltinFunctions.GRAM_TOKENS) {
+                        && nonConstFuncExpr.getFunctionIdentifier() != AsterixBuiltinFunctions.GRAM_TOKENS
+                        && nonConstFuncExpr.getFunctionIdentifier() != AsterixBuiltinFunctions.SIF_TOKENS) {
                     return null;
                 }
                 // Find the variable that is being tokenized.
@@ -342,6 +347,7 @@ public class InvertedIndexAccessMethod implements IAccessMethod {
             OptimizableOperatorSubTree probeSubTree, Index chosenIndex, IOptimizableFuncExpr optFuncExpr,
             boolean retainInput, boolean retainNull, boolean requiresBroadcast, IOptimizationContext context)
             throws AlgebricksException {
+        boolean useSIF = optFuncExpr.getFuncExpr().getFunctionIdentifier() == AsterixBuiltinFunctions.SPATIAL_INTERSECT;
         Dataset dataset = indexSubTree.dataset;
         ARecordType recordType = indexSubTree.recordType;
         // we made sure indexSubTree has datasource scan
@@ -355,29 +361,170 @@ public class InvertedIndexAccessMethod implements IAccessMethod {
         // Add the type of search key from the optFuncExpr.
         addSearchKeyType(optFuncExpr, indexSubTree, context, jobGenParams);
 
-        // Operator that feeds the secondary-index search.
-        AbstractLogicalOperator inputOp = null;
         // Here we generate vars and funcs for assigning the secondary-index keys to be fed into the secondary-index search.
         // List of variables for the assign.
-        ArrayList<LogicalVariable> keyVarList = new ArrayList<LogicalVariable>();
+        // Operator that feeds the secondary-index search.
+        AbstractLogicalOperator inputOp = null;
+
         // probeSubTree is null if we are dealing with a selection query, and non-null for join queries.
         if (probeSubTree == null) {
-            // List of expressions for the assign.
-            ArrayList<Mutable<ILogicalExpression>> keyExprList = new ArrayList<Mutable<ILogicalExpression>>();
-            // Add key vars and exprs to argument list.
-            addKeyVarsAndExprs(optFuncExpr, keyVarList, keyExprList, context);
-            // Assign operator that sets the secondary-index search-key fields.
-            inputOp = new AssignOperator(keyVarList, keyExprList);
-            // Input to this assign is the EmptyTupleSource (which the dataSourceScan also must have had as input).
-            inputOp.getInputs().add(dataSourceScan.getInputs().get(0));
-            inputOp.setExecutionMode(dataSourceScan.getExecutionMode());
-        } else {
+            if (useSIF) {
+                AssignOperator assignOpRectangle = null;
+                ArrayList<LogicalVariable> assignRectangleKeyVarList = new ArrayList<LogicalVariable>();
+                ArrayList<Mutable<ILogicalExpression>> assignRectangleKeyExprList = new ArrayList<Mutable<ILogicalExpression>>();
+                if (((AsterixConstantValue) optFuncExpr.getConstantVal(0)).getObject().getType().getTypeTag() == ATypeTag.RECTANGLE) {
+                    assignRectangleKeyVarList.add(context.newVar());
+                    assignRectangleKeyExprList.add(new MutableObject<ILogicalExpression>(new ConstantExpression(
+                            optFuncExpr.getConstantVal(0))));
+                    assignOpRectangle = new AssignOperator(assignRectangleKeyVarList, assignRectangleKeyExprList);
+
+                    // Input to this assign is the EmptyTupleSource (which the dataSourceScan also must have had as input).
+                    assignOpRectangle.getInputs().add(dataSourceScan.getInputs().get(0));
+                    assignOpRectangle.setExecutionMode(dataSourceScan.getExecutionMode());
+                } else {
+                    //In order to use the sif index, the input to the inverted index need to form a rectangle which minimally covers a given query region.
+                    //The process is as follows:
+                    //step 1. Using CREATE_MBR function, create an MBR which covers a given query region which could be any two dimensional spatial type.
+                    //   The function generates four doubles, the first two represents bottom left point of the MBR and the last two represents top right point. 
+                    //step 2. Using CREATE_POINT function, create two points using the four points from the MBR function. 
+                    //step 3. Using CREATE_RECTANGLE function, create a rectangle using two points from the step 2.
+
+                    //Only 2 dimensional objects are supported currently.
+                    int numDimensions = 2;
+                    int numMBRs = numDimensions * 2;
+                    // List of variables for the assign.
+                    ArrayList<LogicalVariable> assignMBRKeyVarList = new ArrayList<LogicalVariable>();
+                    // List of expressions for the assign.
+                    ArrayList<Mutable<ILogicalExpression>> assignMBRKeyExprList = new ArrayList<Mutable<ILogicalExpression>>();
+
+                    //step 1.
+                    for (int i = 0; i < numMBRs; i++) {
+                        // The create MBR function "extracts" one field of an MBR around the given spatial object.
+                        AbstractFunctionCallExpression createMBR = new ScalarFunctionCallExpression(
+                                FunctionUtils.getFunctionInfo(AsterixBuiltinFunctions.CREATE_MBR));
+                        // Spatial object is the constant from the func expr we are optimizing.
+                        //createMBR.getArguments().add(new MutableObject<ILogicalExpression>(searchKeyExpr));
+                        // The number of dimensions.
+                        createMBR.getArguments().add(
+                                new MutableObject<ILogicalExpression>(new ConstantExpression(optFuncExpr
+                                        .getConstantVal(0))));
+                        createMBR.getArguments().add(
+                                new MutableObject<ILogicalExpression>(new ConstantExpression(new AsterixConstantValue(
+                                        new AInt32(numDimensions)))));
+                        // Which part of the MBR to extract.
+                        createMBR.getArguments().add(
+                                new MutableObject<ILogicalExpression>(new ConstantExpression(new AsterixConstantValue(
+                                        new AInt32(i)))));
+                        // Add a variable and its expr to the lists which will be passed into an assign op.
+                        assignMBRKeyVarList.add(context.newVar());
+                        assignMBRKeyExprList.add(new MutableObject<ILogicalExpression>(createMBR));
+                    }
+                    AssignOperator assignOpMBR = new AssignOperator(assignMBRKeyVarList, assignMBRKeyExprList);
+
+                    //step 2.
+                    ArrayList<LogicalVariable> assignPointKeyVarList = new ArrayList<LogicalVariable>();
+                    ArrayList<Mutable<ILogicalExpression>> assignPointKeyExprList = new ArrayList<Mutable<ILogicalExpression>>();
+                    AbstractFunctionCallExpression createPoint1 = new ScalarFunctionCallExpression(
+                            FunctionUtils.getFunctionInfo(AsterixBuiltinFunctions.CREATE_POINT));
+                    createPoint1.getArguments().add(
+                            new MutableObject<ILogicalExpression>(new VariableReferenceExpression(assignMBRKeyVarList
+                                    .get(0))));
+                    createPoint1.getArguments().add(
+                            new MutableObject<ILogicalExpression>(new VariableReferenceExpression(assignMBRKeyVarList
+                                    .get(1))));
+                    assignPointKeyVarList.add(context.newVar());
+                    assignPointKeyExprList.add(new MutableObject<ILogicalExpression>(createPoint1));
+                    AbstractFunctionCallExpression createPoint2 = new ScalarFunctionCallExpression(
+                            FunctionUtils.getFunctionInfo(AsterixBuiltinFunctions.CREATE_POINT));
+                    createPoint2.getArguments().add(
+                            new MutableObject<ILogicalExpression>(new VariableReferenceExpression(assignMBRKeyVarList
+                                    .get(2))));
+                    createPoint2.getArguments().add(
+                            new MutableObject<ILogicalExpression>(new VariableReferenceExpression(assignMBRKeyVarList
+                                    .get(3))));
+                    assignPointKeyVarList.add(context.newVar());
+                    assignPointKeyExprList.add(new MutableObject<ILogicalExpression>(createPoint2));
+                    AssignOperator assignOpPoints = new AssignOperator(assignPointKeyVarList, assignPointKeyExprList);
+
+                    //step 3.
+                    //ArrayList<LogicalVariable> assignRectangleKeyVarList = new ArrayList<LogicalVariable>();
+                    //ArrayList<Mutable<ILogicalExpression>> assignRectangleKeyExprList = new ArrayList<Mutable<ILogicalExpression>>();
+                    AbstractFunctionCallExpression createRectangle = new ScalarFunctionCallExpression(
+                            FunctionUtils.getFunctionInfo(AsterixBuiltinFunctions.CREATE_RECTANGLE));
+                    createRectangle.getArguments().add(
+                            new MutableObject<ILogicalExpression>(new VariableReferenceExpression(assignPointKeyVarList
+                                    .get(0))));
+                    createRectangle.getArguments().add(
+                            new MutableObject<ILogicalExpression>(new VariableReferenceExpression(assignPointKeyVarList
+                                    .get(1))));
+                    assignRectangleKeyVarList.add(context.newVar());
+                    assignRectangleKeyExprList.add(new MutableObject<ILogicalExpression>(createRectangle));
+                    assignOpRectangle = new AssignOperator(assignRectangleKeyVarList, assignRectangleKeyExprList);
+
+                    // Input to this assign is the EmptyTupleSource (which the dataSourceScan also must have had as input).
+                    assignOpMBR.getInputs().add(dataSourceScan.getInputs().get(0));
+                    assignOpMBR.setExecutionMode(dataSourceScan.getExecutionMode());
+                    assignOpPoints.getInputs().add(new MutableObject<ILogicalOperator>(assignOpMBR));
+                    assignOpRectangle.getInputs().add(new MutableObject<ILogicalOperator>(assignOpPoints));
+                }
+
+                //add sif-tokens function
+                ArrayList<LogicalVariable> assignSIFKeyVarList = new ArrayList<LogicalVariable>();
+                ArrayList<Mutable<ILogicalExpression>> assignSIFKeyExprList = new ArrayList<Mutable<ILogicalExpression>>();
+                AbstractFunctionCallExpression sifTokens = new ScalarFunctionCallExpression(
+                        FunctionUtils.getFunctionInfo(AsterixBuiltinFunctions.SIF_TOKENS));
+                sifTokens.getArguments().add(
+                        new MutableObject<ILogicalExpression>(new VariableReferenceExpression(assignRectangleKeyVarList
+                                .get(0))));
+                sifTokens.getArguments().add(
+                        new MutableObject<ILogicalExpression>(new ConstantExpression(new AsterixConstantValue(
+                                new ADouble(chosenIndex.getBottomLeftX())))));
+                sifTokens.getArguments().add(
+                        new MutableObject<ILogicalExpression>(new ConstantExpression(new AsterixConstantValue(
+                                new ADouble(chosenIndex.getBottomLeftY())))));
+                sifTokens.getArguments().add(
+                        new MutableObject<ILogicalExpression>(new ConstantExpression(new AsterixConstantValue(
+                                new ADouble(chosenIndex.getTopRightX())))));
+                sifTokens.getArguments().add(
+                        new MutableObject<ILogicalExpression>(new ConstantExpression(new AsterixConstantValue(
+                                new ADouble(chosenIndex.getTopRightY())))));
+                sifTokens.getArguments().add(
+                        new MutableObject<ILogicalExpression>(new ConstantExpression(new AsterixConstantValue(
+                                new AInt64(chosenIndex.getXCellNum())))));
+                sifTokens.getArguments().add(
+                        new MutableObject<ILogicalExpression>(new ConstantExpression(new AsterixConstantValue(
+                                new AInt64(chosenIndex.getYCellNum())))));
+                assignSIFKeyVarList.add(context.newVar());
+                assignSIFKeyExprList.add(new MutableObject<ILogicalExpression>(sifTokens));
+                AssignOperator assignOpSIFTokens = new AssignOperator(assignSIFKeyVarList, assignSIFKeyExprList);
+                assignOpSIFTokens.getInputs().add(new MutableObject<ILogicalOperator>(assignOpRectangle));
+
+                inputOp = assignOpSIFTokens;
+                jobGenParams.setKeyVarList(assignSIFKeyVarList);
+            } else { // non-sif index
+                // List of variables for the assign
+                ArrayList<LogicalVariable> keyVarList = new ArrayList<LogicalVariable>();
+                // List of expressions for the assign.
+                ArrayList<Mutable<ILogicalExpression>> keyExprList = new ArrayList<Mutable<ILogicalExpression>>();
+                // Add key vars and exprs to argument list.
+                addKeyVarsAndExprs(optFuncExpr, keyVarList, keyExprList, context);
+                // Assign operator that sets the secondary-index search-key fields.
+                inputOp = new AssignOperator(keyVarList, keyExprList);
+                // Input to this assign is the EmptyTupleSource (which the dataSourceScan also must have had as input).
+                inputOp.getInputs().add(dataSourceScan.getInputs().get(0));
+                inputOp.setExecutionMode(dataSourceScan.getExecutionMode());
+                jobGenParams.setKeyVarList(keyVarList);
+            }
+
+        } else { //join
             // We are optimizing a join. Add the input variable to the secondaryIndexFuncArgs.
+            ArrayList<LogicalVariable> keyVarList = new ArrayList<LogicalVariable>();
             LogicalVariable inputSearchVariable = getInputSearchVar(optFuncExpr, indexSubTree);
             keyVarList.add(inputSearchVariable);
             inputOp = (AbstractLogicalOperator) probeSubTree.root;
+            jobGenParams.setKeyVarList(keyVarList);
         }
-        jobGenParams.setKeyVarList(keyVarList);
+
         UnnestMapOperator secondaryIndexUnnestOp = AccessMethodUtils.createSecondaryIndexUnnestMap(dataset, recordType,
                 chosenIndex, inputOp, jobGenParams, context, true, retainInput);
 
@@ -758,45 +905,52 @@ public class InvertedIndexAccessMethod implements IAccessMethod {
 
     private void addSearchKeyType(IOptimizableFuncExpr optFuncExpr, OptimizableOperatorSubTree indexSubTree,
             IOptimizationContext context, InvertedIndexJobGenParams jobGenParams) throws AlgebricksException {
-        // If we have two variables in the optFunxExpr, then we are optimizing a join.
-        IAType type = null;
-        ATypeTag typeTag = null;
-        if (optFuncExpr.getNumLogicalVars() == 2) {
-            // Find the type of the variable that is going to feed into the index search.
-            if (optFuncExpr.getOperatorSubTree(0) == indexSubTree) {
-                // If the index is on a dataset in subtree 0, then subtree 1 will feed.
-                type = (IAType) context.getOutputTypeEnvironment(optFuncExpr.getOperatorSubTree(1).root).getVarType(
-                        optFuncExpr.getLogicalVar(1));
-            } else {
-                // If the index is on a dataset in subtree 1, then subtree 0 will feed.
-                type = (IAType) context.getOutputTypeEnvironment(optFuncExpr.getOperatorSubTree(0).root).getVarType(
-                        optFuncExpr.getLogicalVar(0));
-            }
-            typeTag = type.getTypeTag();
+        if (optFuncExpr.getFuncExpr().getFunctionIdentifier() == AsterixBuiltinFunctions.SPATIAL_INTERSECT) {
+            jobGenParams.setSearchKeyType(ATypeTag.ORDEREDLIST);
         } else {
-            // We are optimizing a selection query. Add the type of the search key constant.
-            AsterixConstantValue constVal = (AsterixConstantValue) optFuncExpr.getConstantVal(0);
-            IAObject obj = constVal.getObject();
-            type = obj.getType();
-            typeTag = type.getTypeTag();
-            if (typeTag != ATypeTag.ORDEREDLIST && typeTag != ATypeTag.STRING && typeTag != ATypeTag.UNORDEREDLIST) {
-                throw new AlgebricksException("Only ordered lists, string, and unordered lists types supported.");
+            // If we have two variables in the optFunxExpr, then we are optimizing a join.
+            IAType type = null;
+            ATypeTag typeTag = null;
+            if (optFuncExpr.getNumLogicalVars() == 2) {
+                // Find the type of the variable that is going to feed into the index search.
+                if (optFuncExpr.getOperatorSubTree(0) == indexSubTree) {
+                    // If the index is on a dataset in subtree 0, then subtree 1 will feed.
+                    type = (IAType) context.getOutputTypeEnvironment(optFuncExpr.getOperatorSubTree(1).root)
+                            .getVarType(optFuncExpr.getLogicalVar(1));
+                } else {
+                    // If the index is on a dataset in subtree 1, then subtree 0 will feed.
+                    type = (IAType) context.getOutputTypeEnvironment(optFuncExpr.getOperatorSubTree(0).root)
+                            .getVarType(optFuncExpr.getLogicalVar(0));
+                }
+                typeTag = type.getTypeTag();
+            } else {
+                // We are optimizing a selection query. Add the type of the search key constant.
+                AsterixConstantValue constVal = (AsterixConstantValue) optFuncExpr.getConstantVal(0);
+                IAObject obj = constVal.getObject();
+                type = obj.getType();
+                typeTag = type.getTypeTag();
+                if (typeTag != ATypeTag.ORDEREDLIST && typeTag != ATypeTag.STRING && typeTag != ATypeTag.UNORDEREDLIST) {
+                    throw new AlgebricksException("Only ordered lists, string, and unordered lists types supported.");
+                }
             }
+            jobGenParams.setSearchKeyType(typeTag);
         }
-        jobGenParams.setSearchKeyType(typeTag);
     }
 
     private void addFunctionSpecificArgs(IOptimizableFuncExpr optFuncExpr, InvertedIndexJobGenParams jobGenParams) {
-        if (optFuncExpr.getFuncExpr().getFunctionIdentifier() == AsterixBuiltinFunctions.CONTAINS) {
+        FunctionIdentifier funcId = optFuncExpr.getFuncExpr().getFunctionIdentifier();
+        if (funcId == AsterixBuiltinFunctions.CONTAINS) {
             jobGenParams.setSearchModifierType(SearchModifierType.CONJUNCTIVE);
             jobGenParams.setSimilarityThreshold(new AsterixConstantValue(ANull.NULL));
+            return;
         }
-        if (optFuncExpr.getFuncExpr().getFunctionIdentifier() == AsterixBuiltinFunctions.SIMILARITY_JACCARD_CHECK) {
+        if (funcId == AsterixBuiltinFunctions.SIMILARITY_JACCARD_CHECK) {
             jobGenParams.setSearchModifierType(SearchModifierType.JACCARD);
             // Add the similarity threshold which, by convention, is the last constant value.
             jobGenParams.setSimilarityThreshold(optFuncExpr.getConstantVal(optFuncExpr.getNumConstantVals() - 1));
+            return;
         }
-        if (optFuncExpr.getFuncExpr().getFunctionIdentifier() == AsterixBuiltinFunctions.EDIT_DISTANCE_CHECK
+        if (funcId == AsterixBuiltinFunctions.EDIT_DISTANCE_CHECK
                 || optFuncExpr.getFuncExpr().getFunctionIdentifier() == AsterixBuiltinFunctions.EDIT_DISTANCE_CONTAINS) {
             if (optFuncExpr.containsPartialField()) {
                 jobGenParams.setSearchModifierType(SearchModifierType.CONJUNCTIVE_EDIT_DISTANCE);
@@ -805,6 +959,12 @@ public class InvertedIndexAccessMethod implements IAccessMethod {
             }
             // Add the similarity threshold which, by convention, is the last constant value.
             jobGenParams.setSimilarityThreshold(optFuncExpr.getConstantVal(optFuncExpr.getNumConstantVals() - 1));
+            return;
+        }
+        if (funcId == AsterixBuiltinFunctions.SPATIAL_INTERSECT) {
+            jobGenParams.setSearchModifierType(SearchModifierType.JACCARD);
+            jobGenParams.setSimilarityThreshold(new AsterixConstantValue(new AFloat(0.0f)));
+            return;
         }
     }
 
@@ -837,6 +997,10 @@ public class InvertedIndexAccessMethod implements IAccessMethod {
 
         if (optFuncExpr.getFuncExpr().getFunctionIdentifier() == AsterixBuiltinFunctions.CONTAINS) {
             return isContainsFuncOptimizable(index, optFuncExpr);
+        }
+
+        if (optFuncExpr.getFuncExpr().getFunctionIdentifier() == AsterixBuiltinFunctions.SPATIAL_INTERSECT) {
+            return isSpatialIntersectFuncOptimizable(index, optFuncExpr);
         }
 
         return false;
@@ -932,6 +1096,14 @@ public class InvertedIndexAccessMethod implements IAccessMethod {
             }
         }
 
+        //check whether sif-tokens function is optimizable
+        for (int i = 0; i < variableCount; i++) {
+            funcExpr = findTokensFunc(AsterixBuiltinFunctions.SIF_TOKENS, optFuncExpr, i);
+            if (funcExpr != null) {
+                return isJaccardFuncCompatible(funcExpr, optFuncExpr.getTypeTag(i), index.getIndexType());
+            }
+        }
+
         //check whether a search variable is optimizable
         OptimizableOperatorSubTree subTree = null;
         LogicalVariable targetVar = null;
@@ -990,7 +1162,8 @@ public class InvertedIndexAccessMethod implements IAccessMethod {
         if (nonConstArg.getExpressionTag() == LogicalExpressionTag.FUNCTION_CALL) {
             AbstractFunctionCallExpression nonConstfuncExpr = (AbstractFunctionCallExpression) nonConstArg;
             // We can use this index if the tokenization function matches the index type.
-            if (nonConstfuncExpr.getFunctionIdentifier() == AsterixBuiltinFunctions.WORD_TOKENS
+            if ((nonConstfuncExpr.getFunctionIdentifier() == AsterixBuiltinFunctions.WORD_TOKENS || nonConstfuncExpr
+                    .getFunctionIdentifier() == AsterixBuiltinFunctions.SIF_TOKENS)
                     && (indexType == IndexType.SINGLE_PARTITION_WORD_INVIX || indexType == IndexType.LENGTH_PARTITIONED_WORD_INVIX)) {
                 return true;
             }
@@ -1050,12 +1223,47 @@ public class InvertedIndexAccessMethod implements IAccessMethod {
         return false;
     }
 
+    private boolean isSpatialIntersectFuncOptimizable(Index index, IOptimizableFuncExpr optFuncExpr) {
+        if (optFuncExpr.getNumLogicalVars() == 2) {
+            return isSpatialIntersectFuncJoinOptimizable(index, optFuncExpr);
+        } else {
+            return isSpatialIntersectFuncSelectOptimizable(index, optFuncExpr);
+        }
+    }
+
+    private boolean isSpatialIntersectFuncJoinOptimizable(Index index, IOptimizableFuncExpr optFuncExpr) {
+        return isSpatialIntersectFuncCompatible(optFuncExpr.getTypeTag(0), index.getIndexType());
+    }
+
+    private boolean isSpatialIntersectFuncSelectOptimizable(Index index, IOptimizableFuncExpr optFuncExpr) {
+        AsterixConstantValue strConstVal = (AsterixConstantValue) optFuncExpr.getConstantVal(0);
+        IAObject strObj = strConstVal.getObject();
+        ATypeTag typeTag = strObj.getType().getTypeTag();
+        return isSpatialIntersectFuncCompatible(typeTag, index.getIndexType());
+    }
+
+    private boolean isSpatialIntersectFuncCompatible(ATypeTag typeTag, IndexType indexType) {
+        //We can only optimize contains with ngram indexes.
+        if ((typeTag == ATypeTag.RECTANGLE || typeTag == ATypeTag.CIRCLE || typeTag == ATypeTag.POLYGON)
+                && (indexType == IndexType.SINGLE_PARTITION_WORD_INVIX || indexType == IndexType.LENGTH_PARTITIONED_WORD_INVIX)) {
+            return true;
+        }
+        return false;
+    }
+
     public static IBinaryTokenizerFactory getBinaryTokenizerFactory(SearchModifierType searchModifierType,
             ATypeTag searchKeyType, Index index) throws AlgebricksException {
         switch (index.getIndexType()) {
             case SINGLE_PARTITION_WORD_INVIX:
             case LENGTH_PARTITIONED_WORD_INVIX: {
-                return AqlBinaryTokenizerFactoryProvider.INSTANCE.getWordTokenizerFactory(searchKeyType, false);
+                switch (searchKeyType) {
+                    case POINT:
+                        return AqlBinaryTokenizerFactoryProvider.INSTANCE.getSIFTokenizerFactory(searchKeyType,
+                                index.getBottomLeftX(), index.getBottomLeftY(), index.getTopRightX(),
+                                index.getTopRightY(), index.getXCellNum(), index.getYCellNum(), false);
+                    default:
+                        return AqlBinaryTokenizerFactoryProvider.INSTANCE.getWordTokenizerFactory(searchKeyType, false);
+                }
             }
             case SINGLE_PARTITION_NGRAM_INVIX:
             case LENGTH_PARTITIONED_NGRAM_INVIX: {

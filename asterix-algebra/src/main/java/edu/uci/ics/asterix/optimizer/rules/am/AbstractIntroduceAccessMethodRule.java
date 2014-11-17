@@ -448,7 +448,8 @@ public abstract class AbstractIntroduceAccessMethodRule implements IAlgebraicRew
         if (funcIdent != AsterixBuiltinFunctions.WORD_TOKENS && funcIdent != AsterixBuiltinFunctions.GRAM_TOKENS
                 && funcIdent != AsterixBuiltinFunctions.SUBSTRING
                 && funcIdent != AsterixBuiltinFunctions.SUBSTRING_BEFORE
-                && funcIdent != AsterixBuiltinFunctions.SUBSTRING_AFTER) {
+                && funcIdent != AsterixBuiltinFunctions.SUBSTRING_AFTER
+                && funcIdent != AsterixBuiltinFunctions.SIF_TOKENS) {
             return null;
         }
         // We use a part of the field in edit distance computation

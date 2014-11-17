@@ -1419,7 +1419,9 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
             }
 
             IBinaryTokenizerFactory tokenizerFactory = NonTaggedFormatUtil.getBinaryTokenizerFactory(
-                    secondaryKeyType.getTypeTag(), indexType, secondaryIndex.getGramLength());
+                    secondaryKeyType.getTypeTag(), indexType, secondaryIndex.getGramLength(),
+                    secondaryIndex.getBottomLeftX(), secondaryIndex.getBottomLeftY(), secondaryIndex.getTopRightX(),
+                    secondaryIndex.getTopRightY(), secondaryIndex.getXCellNum(), secondaryIndex.getYCellNum());
 
             Pair<IFileSplitProvider, AlgebricksPartitionConstraint> splitsAndConstraint = splitProviderAndPartitionConstraintsForDataset(
                     dataverseName, datasetName, indexName);
@@ -1438,7 +1440,7 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
             int tokenOffset = recordDesc.getFieldCount();
 
             // #2. Specify the token type
-            tokenKeyPairFields[tokenOffset] = serdeProvider.getSerializerDeserializer(secondaryKeyType);
+            tokenKeyPairFields[tokenOffset] = serdeProvider.getSerializerDeserializer(NonTaggedFormatUtil.getTokenType(secondaryKeyType));
             tokenKeyPairTypeTraits[tokenOffset] = tokenTypeTraits[0];
             tokenOffset++;
 
@@ -1756,7 +1758,9 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
                 tokenTypeTraits[1] = ShortPointable.TYPE_TRAITS;
             }
             IBinaryTokenizerFactory tokenizerFactory = NonTaggedFormatUtil.getBinaryTokenizerFactory(
-                    secondaryKeyType.getTypeTag(), indexType, secondaryIndex.getGramLength());
+                    secondaryKeyType.getTypeTag(), indexType, secondaryIndex.getGramLength(),
+                    secondaryIndex.getBottomLeftX(), secondaryIndex.getBottomLeftY(), secondaryIndex.getTopRightX(),
+                    secondaryIndex.getTopRightY(), secondaryIndex.getXCellNum(), secondaryIndex.getYCellNum());
 
             ITypeTraits[] filterTypeTraits = DatasetUtils.computeFilterTypeTraits(dataset, recType);
             IBinaryComparatorFactory[] filterCmpFactories = DatasetUtils.computeFilterBinaryComparatorFactories(

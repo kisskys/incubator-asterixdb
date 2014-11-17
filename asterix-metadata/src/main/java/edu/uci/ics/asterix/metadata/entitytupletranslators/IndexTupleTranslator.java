@@ -32,7 +32,9 @@ import edu.uci.ics.asterix.metadata.bootstrap.MetadataPrimaryIndexes;
 import edu.uci.ics.asterix.metadata.bootstrap.MetadataRecordTypes;
 import edu.uci.ics.asterix.metadata.entities.Index;
 import edu.uci.ics.asterix.om.base.ABoolean;
+import edu.uci.ics.asterix.om.base.ADouble;
 import edu.uci.ics.asterix.om.base.AInt32;
+import edu.uci.ics.asterix.om.base.AInt64;
 import edu.uci.ics.asterix.om.base.AOrderedList;
 import edu.uci.ics.asterix.om.base.ARecord;
 import edu.uci.ics.asterix.om.base.AString;
@@ -56,8 +58,14 @@ public class IndexTupleTranslator extends AbstractTupleTranslator<Index> {
     public static final int INDEX_INDEXNAME_TUPLE_FIELD_INDEX = 2;
     // Payload field containing serialized Index.
     public static final int INDEX_PAYLOAD_TUPLE_FIELD_INDEX = 3;
-    // Field name of open field.
+    // Field names of open fields.
     public static final String GRAM_LENGTH_FIELD_NAME = "GramLength";
+    public static final String BOTTOM_LEFT_X_FIELD_NAME = "BottomLeftX";
+    public static final String BOTTOM_LEFT_Y_FIELD_NAME = "BottomLeftY";
+    public static final String TOP_RIGHT_X_FIELD_NAME = "TopRightX";
+    public static final String TOP_RIGHT_Y_FIELD_NAME = "TopRightY";
+    public static final String X_CELL_NUM_FIELD_NAME = "XCellNum";
+    public static final String Y_CELL_NUM_FIELD_NAME = "YCellNum";
 
     private OrderedListBuilder listBuilder = new OrderedListBuilder();
     private ArrayBackedValueStorage nameValue = new ArrayBackedValueStorage();
@@ -69,6 +77,12 @@ public class IndexTupleTranslator extends AbstractTupleTranslator<Index> {
     @SuppressWarnings("unchecked")
     private ISerializerDeserializer<ARecord> recordSerde = AqlSerializerDeserializerProvider.INSTANCE
             .getSerializerDeserializer(MetadataRecordTypes.INDEX_RECORDTYPE);
+    @SuppressWarnings("unchecked")
+    protected ISerializerDeserializer<ADouble> doubleSerde = AqlSerializerDeserializerProvider.INSTANCE
+            .getSerializerDeserializer(BuiltinType.ADOUBLE);
+    @SuppressWarnings("unchecked")
+    protected ISerializerDeserializer<AInt64> longSerde = AqlSerializerDeserializerProvider.INSTANCE
+            .getSerializerDeserializer(BuiltinType.AINT64);
 
     public IndexTupleTranslator(boolean getTuple) {
         super(getTuple, MetadataPrimaryIndexes.INDEX_DATASET.getFieldCount());
@@ -102,11 +116,34 @@ public class IndexTupleTranslator extends AbstractTupleTranslator<Index> {
                 .getIntegerValue();
         // Check if there is a gram length as well.
         int gramLength = -1;
-        int gramLenPos = rec.getType().findFieldPosition(GRAM_LENGTH_FIELD_NAME);
-        if (gramLenPos >= 0) {
-            gramLength = ((AInt32) rec.getValueByPos(gramLenPos)).getIntegerValue();
+        int fieldPos = rec.getType().findFieldPosition(GRAM_LENGTH_FIELD_NAME);
+        if (fieldPos >= 0) {
+            gramLength = ((AInt32) rec.getValueByPos(fieldPos)).getIntegerValue();
         }
-        return new Index(dvName, dsName, indexName, indexStructure, searchKey, gramLength, isPrimaryIndex, pendingOp);
+
+        // read optional fields for sif index
+        double bottomLeftX = 0.0;
+        double bottomLeftY = 0.0;
+        double topRightX = 0.0;
+        double topRightY = 0.0;
+        long xCellNum = 0;
+        long yCellNum = 0;
+        fieldPos = rec.getType().findFieldPosition(BOTTOM_LEFT_X_FIELD_NAME);
+        if (fieldPos >= 0) {
+            bottomLeftX = ((ADouble) rec.getValueByPos(fieldPos)).getDoubleValue();
+            bottomLeftY = ((ADouble) rec.getValueByPos(rec.getType().findFieldPosition(BOTTOM_LEFT_Y_FIELD_NAME)))
+                    .getDoubleValue();
+            topRightX = ((ADouble) rec.getValueByPos(rec.getType().findFieldPosition(TOP_RIGHT_X_FIELD_NAME)))
+                    .getDoubleValue();
+            topRightY = ((ADouble) rec.getValueByPos(rec.getType().findFieldPosition(TOP_RIGHT_Y_FIELD_NAME)))
+                    .getDoubleValue();
+            xCellNum = ((AInt64) rec.getValueByPos(rec.getType().findFieldPosition(X_CELL_NUM_FIELD_NAME)))
+                    .getLongValue();
+            yCellNum = ((AInt64) rec.getValueByPos(rec.getType().findFieldPosition(Y_CELL_NUM_FIELD_NAME)))
+                    .getLongValue();
+        }
+        return new Index(dvName, dsName, indexName, indexStructure, searchKey, gramLength, isPrimaryIndex, pendingOp,
+                bottomLeftX, bottomLeftY, topRightX, topRightY, xCellNum, yCellNum);
     }
 
     @Override
@@ -190,6 +227,81 @@ public class IndexTupleTranslator extends AbstractTupleTranslator<Index> {
             aString.setValue(GRAM_LENGTH_FIELD_NAME);
             stringSerde.serialize(aString, nameValue.getDataOutput());
             intSerde.serialize(new AInt32(instance.getGramLength()), fieldValue.getDataOutput());
+            try {
+                recordBuilder.addField(nameValue, fieldValue);
+            } catch (AsterixException e) {
+                throw new MetadataException(e);
+            }
+        }
+
+        //write optional fields for sif index
+        if (instance.getXCellNum() > 0) {
+            //bottomLeftX
+            fieldValue.reset();
+            nameValue.reset();
+            aString.setValue(BOTTOM_LEFT_X_FIELD_NAME);
+            stringSerde.serialize(aString, nameValue.getDataOutput());
+            doubleSerde.serialize(new ADouble(instance.getBottomLeftX()), fieldValue.getDataOutput());
+            try {
+                recordBuilder.addField(nameValue, fieldValue);
+            } catch (AsterixException e) {
+                throw new MetadataException(e);
+            }
+
+            //bottomLeftY
+            fieldValue.reset();
+            nameValue.reset();
+            aString.setValue(BOTTOM_LEFT_Y_FIELD_NAME);
+            stringSerde.serialize(aString, nameValue.getDataOutput());
+            doubleSerde.serialize(new ADouble(instance.getBottomLeftY()), fieldValue.getDataOutput());
+            try {
+                recordBuilder.addField(nameValue, fieldValue);
+            } catch (AsterixException e) {
+                throw new MetadataException(e);
+            }
+
+            //topRightX
+            fieldValue.reset();
+            nameValue.reset();
+            aString.setValue(TOP_RIGHT_X_FIELD_NAME);
+            stringSerde.serialize(aString, nameValue.getDataOutput());
+            doubleSerde.serialize(new ADouble(instance.getTopRightX()), fieldValue.getDataOutput());
+            try {
+                recordBuilder.addField(nameValue, fieldValue);
+            } catch (AsterixException e) {
+                throw new MetadataException(e);
+            }
+
+            //topRightY
+            fieldValue.reset();
+            nameValue.reset();
+            aString.setValue(TOP_RIGHT_Y_FIELD_NAME);
+            stringSerde.serialize(aString, nameValue.getDataOutput());
+            doubleSerde.serialize(new ADouble(instance.getTopRightY()), fieldValue.getDataOutput());
+            try {
+                recordBuilder.addField(nameValue, fieldValue);
+            } catch (AsterixException e) {
+                throw new MetadataException(e);
+            }
+
+            //xCellNum
+            fieldValue.reset();
+            nameValue.reset();
+            aString.setValue(X_CELL_NUM_FIELD_NAME);
+            stringSerde.serialize(aString, nameValue.getDataOutput());
+            longSerde.serialize(new AInt64(instance.getXCellNum()), fieldValue.getDataOutput());
+            try {
+                recordBuilder.addField(nameValue, fieldValue);
+            } catch (AsterixException e) {
+                throw new MetadataException(e);
+            }
+
+            //yCellNum
+            fieldValue.reset();
+            nameValue.reset();
+            aString.setValue(Y_CELL_NUM_FIELD_NAME);
+            stringSerde.serialize(aString, nameValue.getDataOutput());
+            longSerde.serialize(new AInt64(instance.getYCellNum()), fieldValue.getDataOutput());
             try {
                 recordBuilder.addField(nameValue, fieldValue);
             } catch (AsterixException e) {

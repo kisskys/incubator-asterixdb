@@ -193,30 +193,47 @@ public class CompiledStatements {
         public String getDatasetName();
     }
 
-    public static class CompiledCreateIndexStatement implements ICompiledDmlStatement {
-        private final String indexName;
-        private final String dataverseName;
-        private final String datasetName;
-        private final List<String> keyFields;
-        private final IndexType indexType;
+    public static abstract class AbstractCompiledIndexStatement implements ICompiledDmlStatement {
+        protected final String indexName;
+        protected final String dataverseName;
+        protected final String datasetName;
+        protected final List<String> keyFields;
+        protected final IndexType indexType;
 
         // Specific to NGram index.
-        private final int gramLength;
+        protected final int gramLength;
 
-        public CompiledCreateIndexStatement(String indexName, String dataverseName, String datasetName,
-                List<String> keyFields, int gramLength, IndexType indexType) {
+        // Specific to sif index
+        protected final double bottomLeftX;
+        protected final double bottomLeftY;
+        protected final double topRightX;
+        protected final double topRightY;
+        protected final long xCellNum;
+        protected final long yCellNum;
+
+        public AbstractCompiledIndexStatement(String indexName, String dataverseName, String datasetName,
+                List<String> keyFields, int gramLength, IndexType indexType, double bottomLeftX, double bottomLeftY,
+                double topRightX, double topRightY, long xCellNum, long yCellNum) {
             this.indexName = indexName;
             this.dataverseName = dataverseName;
             this.datasetName = datasetName;
             this.keyFields = keyFields;
             this.gramLength = gramLength;
             this.indexType = indexType;
+            this.bottomLeftX = bottomLeftX;
+            this.bottomLeftY = bottomLeftY;
+            this.topRightX = topRightX;
+            this.topRightY = topRightY;
+            this.xCellNum = xCellNum;
+            this.yCellNum = yCellNum;
         }
 
+        @Override
         public String getDatasetName() {
             return datasetName;
         }
 
+        @Override
         public String getDataverseName() {
             return dataverseName;
         }
@@ -237,9 +254,56 @@ public class CompiledStatements {
             return gramLength;
         }
 
+        public double getBottomLeftX() {
+            return bottomLeftX;
+        }
+
+        public double getBottomLeftY() {
+            return bottomLeftY;
+        }
+
+        public double getTopRightX() {
+            return topRightX;
+        }
+
+        public double getTopRightY() {
+            return topRightY;
+        }
+
+        public long getXCellNum() {
+            return xCellNum;
+        }
+
+        public long getYCellNum() {
+            return yCellNum;
+        }
+    }
+
+    public static class CompiledCreateIndexStatement extends AbstractCompiledIndexStatement {
+        public CompiledCreateIndexStatement(String indexName, String dataverseName, String datasetName,
+                List<String> keyFields, int gramLength, IndexType indexType, double bottomLeftX, double bottomLeftY,
+                double topRightX, double topRightY, long xCellNum, long yCellNum) {
+            super(indexName, dataverseName, datasetName, keyFields, gramLength, indexType, bottomLeftX, bottomLeftY,
+                    topRightX, topRightY, xCellNum, yCellNum);
+        }
+
         @Override
         public Kind getKind() {
             return Kind.CREATE_INDEX;
+        }
+    }
+    
+    public static class CompiledIndexCompactStatement extends AbstractCompiledIndexStatement {
+        public CompiledIndexCompactStatement(String dataverseName, String datasetName, String indexName,
+                List<String> keyFields, int gramLength, IndexType indexType, double bottomLeftX, double bottomLeftY,
+                double topRightX, double topRightY, long xCellNum, long yCellNum) {
+            super(indexName, dataverseName, datasetName, keyFields, gramLength, indexType, bottomLeftX, bottomLeftY,
+                    topRightX, topRightY, xCellNum, yCellNum);
+        }
+
+        @Override
+        public Kind getKind() {
+            return Kind.COMPACT;
         }
     }
 
@@ -498,62 +562,4 @@ public class CompiledStatements {
         }
 
     }
-
-    public static class CompiledCompactStatement implements ICompiledStatement {
-        private final String dataverseName;
-        private final String datasetName;
-
-        public CompiledCompactStatement(String dataverseName, String datasetName) {
-            this.dataverseName = dataverseName;
-            this.datasetName = datasetName;
-        }
-
-        public String getDataverseName() {
-            return dataverseName;
-        }
-
-        public String getDatasetName() {
-            return datasetName;
-        }
-
-        @Override
-        public Kind getKind() {
-            return Kind.COMPACT;
-        }
-    }
-
-    public static class CompiledIndexCompactStatement extends CompiledCompactStatement {
-        private final String indexName;
-        private final List<String> keyFields;
-        private final IndexType indexType;
-
-        // Specific to NGram index.
-        private final int gramLength;
-
-        public CompiledIndexCompactStatement(String dataverseName, String datasetName, String indexName,
-                List<String> keyFields, int gramLength, IndexType indexType) {
-            super(dataverseName, datasetName);
-            this.indexName = indexName;
-            this.keyFields = keyFields;
-            this.gramLength = gramLength;
-            this.indexType = indexType;
-        }
-
-        public String getIndexName() {
-            return indexName;
-        }
-
-        public List<String> getKeyFields() {
-            return keyFields;
-        }
-
-        public IndexType getIndexType() {
-            return indexType;
-        }
-
-        public int getGramLength() {
-            return gramLength;
-        }
-    }
-
 }

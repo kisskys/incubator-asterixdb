@@ -188,11 +188,20 @@ public final class NonTaggedFormatUtil {
     }
 
     public static IBinaryTokenizerFactory getBinaryTokenizerFactory(ATypeTag keyType, IndexType indexType,
-            int gramLength) throws AlgebricksException {
+            int gramLength, double bottomLeftX, double bottomLeftY, double topRightX, double topRightY, long xCellNum,
+            long yCellNum) throws AlgebricksException {
         switch (indexType) {
             case SINGLE_PARTITION_WORD_INVIX:
             case LENGTH_PARTITIONED_WORD_INVIX: {
-                return AqlBinaryTokenizerFactoryProvider.INSTANCE.getWordTokenizerFactory(keyType, false);
+                switch (keyType) {
+                    case POINT:
+                        return AqlBinaryTokenizerFactoryProvider.INSTANCE.getSIFTokenizerFactory(keyType, bottomLeftX,
+                                bottomLeftY, topRightX, topRightY, xCellNum, yCellNum, false);
+
+                    default:
+                        return AqlBinaryTokenizerFactoryProvider.INSTANCE.getWordTokenizerFactory(keyType, false);
+                }
+
             }
             case SINGLE_PARTITION_NGRAM_INVIX:
             case LENGTH_PARTITIONED_NGRAM_INVIX: {
@@ -205,33 +214,30 @@ public final class NonTaggedFormatUtil {
         }
     }
 
-    public static IAType getTokenType(IAType keyType)
-            throws AlgebricksException {
+    public static IAType getTokenType(IAType keyType) throws AlgebricksException {
         IAType type = keyType;
         ATypeTag typeTag = keyType.getTypeTag();
         // Extract item type from list.
-        if (typeTag == ATypeTag.UNORDEREDLIST
-                || typeTag == ATypeTag.ORDEREDLIST) {
+        if (typeTag == ATypeTag.UNORDEREDLIST || typeTag == ATypeTag.ORDEREDLIST) {
             AbstractCollectionType listType = (AbstractCollectionType) keyType;
             if (!listType.isTyped()) {
-                throw new AlgebricksException(
-                        "Cannot build an inverted index on untyped lists.)");
+                throw new AlgebricksException("Cannot build an inverted index on untyped lists.)");
             }
             type = listType.getItemType();
+        } else if (typeTag == ATypeTag.POINT) {
+            //for SIF index
+            type = BuiltinType.ASTRING;
         }
         return type;
     }
 
-    public static IBinaryComparatorFactory getTokenBinaryComparatorFactory(
-            IAType keyType) throws AlgebricksException {
+    public static IBinaryComparatorFactory getTokenBinaryComparatorFactory(IAType keyType) throws AlgebricksException {
         IAType type = getTokenType(keyType);
         // Ignore case for string types.
-        return AqlBinaryComparatorFactoryProvider.INSTANCE
-                .getBinaryComparatorFactory(type, true, true);
+        return AqlBinaryComparatorFactoryProvider.INSTANCE.getBinaryComparatorFactory(type, true, true);
     }
 
-    public static ITypeTraits getTokenTypeTrait(IAType keyType)
-            throws AlgebricksException {
+    public static ITypeTraits getTokenTypeTrait(IAType keyType) throws AlgebricksException {
         IAType type = getTokenType(keyType);
         return AqlTypeTraitProvider.INSTANCE.getTypeTrait(type);
     }

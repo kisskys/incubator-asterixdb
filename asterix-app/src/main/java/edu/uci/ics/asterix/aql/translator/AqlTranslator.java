@@ -191,7 +191,7 @@ public class AqlTranslator extends AbstractAqlTranslator {
 
     /**
      * Compiles and submits for execution a list of AQL statements.
-     *
+     * 
      * @param hcc
      *            A Hyracks client connection that is used to submit a jobspec to Hyracks.
      * @param hdc
@@ -802,12 +802,16 @@ public class AqlTranslator extends AbstractAqlTranslator {
             //#. add a new index with PendingAddOp
             Index index = new Index(dataverseName, datasetName, indexName, stmtCreateIndex.getIndexType(),
                     stmtCreateIndex.getFieldExprs(), stmtCreateIndex.getGramLength(), false,
-                    IMetadataEntity.PENDING_ADD_OP);
+                    IMetadataEntity.PENDING_ADD_OP, stmtCreateIndex.getBottomLeftX(), stmtCreateIndex.getBottomLeftY(),
+                    stmtCreateIndex.getTopRightX(), stmtCreateIndex.getTopRightY(), stmtCreateIndex.getXCellNum(),
+                    stmtCreateIndex.getYCellNum());
             MetadataManager.INSTANCE.addIndex(metadataProvider.getMetadataTxnContext(), index);
 
             //#. prepare to create the index artifact in NC.
             CompiledCreateIndexStatement cis = new CompiledCreateIndexStatement(index.getIndexName(), dataverseName,
-                    index.getDatasetName(), index.getKeyFieldNames(), index.getGramLength(), index.getIndexType());
+                    index.getDatasetName(), index.getKeyFieldNames(), index.getGramLength(), index.getIndexType(),
+                    index.getBottomLeftX(), index.getBottomLeftY(), index.getTopRightX(), index.getTopRightY(),
+                    index.getXCellNum(), index.getYCellNum());
             spec = IndexOperations.buildSecondaryIndexCreationJobSpec(cis, metadataProvider);
             if (spec == null) {
                 throw new AsterixException("Failed to create job spec for creating index '"
@@ -826,7 +830,9 @@ public class AqlTranslator extends AbstractAqlTranslator {
 
             //#. load data into the index in NC.
             cis = new CompiledCreateIndexStatement(index.getIndexName(), dataverseName, index.getDatasetName(),
-                    index.getKeyFieldNames(), index.getGramLength(), index.getIndexType());
+                    index.getKeyFieldNames(), index.getGramLength(), index.getIndexType(), index.getBottomLeftX(),
+                    index.getBottomLeftY(), index.getTopRightX(), index.getTopRightY(), index.getXCellNum(),
+                    index.getYCellNum());
             spec = IndexOperations.buildSecondaryIndexLoadingJobSpec(cis, metadataProvider);
             MetadataManager.INSTANCE.commitTransaction(mdTxnCtx);
             bActiveTxn = false;
@@ -1979,7 +1985,10 @@ public class AqlTranslator extends AbstractAqlTranslator {
                     if (indexes.get(j).isSecondaryIndex()) {
                         CompiledIndexCompactStatement cics = new CompiledIndexCompactStatement(dataverseName,
                                 datasetName, indexes.get(j).getIndexName(), indexes.get(j).getKeyFieldNames(), indexes
-                                        .get(j).getGramLength(), indexes.get(j).getIndexType());
+                                        .get(j).getGramLength(), indexes.get(j).getIndexType(), indexes.get(j)
+                                        .getBottomLeftX(), indexes.get(j).getBottomLeftY(), indexes.get(j)
+                                        .getTopRightX(), indexes.get(j).getTopRightY(), indexes.get(j).getXCellNum(),
+                                indexes.get(j).getYCellNum());
                         jobsToExecute
                                 .add(IndexOperations.buildSecondaryIndexCompactJobSpec(cics, metadataProvider, ds));
                     }
@@ -1992,7 +2001,10 @@ public class AqlTranslator extends AbstractAqlTranslator {
                     if (!ExternalIndexingOperations.isFileIndex(indexes.get(j))) {
                         CompiledIndexCompactStatement cics = new CompiledIndexCompactStatement(dataverseName,
                                 datasetName, indexes.get(j).getIndexName(), indexes.get(j).getKeyFieldNames(), indexes
-                                        .get(j).getGramLength(), indexes.get(j).getIndexType());
+                                        .get(j).getGramLength(), indexes.get(j).getIndexType(), indexes.get(j)
+                                        .getBottomLeftX(), indexes.get(j).getBottomLeftY(), indexes.get(j)
+                                        .getTopRightX(), indexes.get(j).getTopRightY(), indexes.get(j).getXCellNum(),
+                                indexes.get(j).getYCellNum());
                         jobsToExecute
                                 .add(IndexOperations.buildSecondaryIndexCompactJobSpec(cics, metadataProvider, ds));
                     }
@@ -2348,8 +2360,8 @@ public class AqlTranslator extends AbstractAqlTranslator {
         return jobIds[0];
     }
 
-    public JobId[] executeJobArray(IHyracksClientConnection hcc, Job[] jobs, PrintWriter out, APIFramework.OutputFormat pdf,
-            boolean waitForCompletion) throws Exception {
+    public JobId[] executeJobArray(IHyracksClientConnection hcc, Job[] jobs, PrintWriter out,
+            APIFramework.OutputFormat pdf, boolean waitForCompletion) throws Exception {
         JobId[] startedJobIds = new JobId[jobs.length];
         for (int i = 0; i < jobs.length; i++) {
             JobSpecification spec = jobs[i].getJobSpec();

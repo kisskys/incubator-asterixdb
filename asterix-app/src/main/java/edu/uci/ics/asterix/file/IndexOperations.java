@@ -54,8 +54,10 @@ public class IndexOperations {
         SecondaryIndexOperationsHelper secondaryIndexHelper = SecondaryIndexOperationsHelper
                 .createIndexOperationsHelper(createIndexStmt.getIndexType(), createIndexStmt.getDataverseName(),
                         createIndexStmt.getDatasetName(), createIndexStmt.getIndexName(),
-                        createIndexStmt.getKeyFields(), createIndexStmt.getGramLength(), metadataProvider,
-                        physicalOptimizationConfig);
+                        createIndexStmt.getKeyFields(), createIndexStmt.getGramLength(),
+                        createIndexStmt.getBottomLeftX(), createIndexStmt.getBottomLeftY(),
+                        createIndexStmt.getTopRightX(), createIndexStmt.getTopRightY(), createIndexStmt.getXCellNum(),
+                        createIndexStmt.getYCellNum(), metadataProvider, physicalOptimizationConfig);
         return secondaryIndexHelper.buildCreationJobSpec();
     }
 
@@ -64,18 +66,23 @@ public class IndexOperations {
         SecondaryIndexOperationsHelper secondaryIndexHelper = SecondaryIndexOperationsHelper
                 .createIndexOperationsHelper(createIndexStmt.getIndexType(), createIndexStmt.getDataverseName(),
                         createIndexStmt.getDatasetName(), createIndexStmt.getIndexName(),
-                        createIndexStmt.getKeyFields(), createIndexStmt.getGramLength(), metadataProvider,
-                        physicalOptimizationConfig);
+                        createIndexStmt.getKeyFields(), createIndexStmt.getGramLength(),
+                        createIndexStmt.getBottomLeftX(), createIndexStmt.getBottomLeftY(),
+                        createIndexStmt.getTopRightX(), createIndexStmt.getTopRightY(), createIndexStmt.getXCellNum(),
+                        createIndexStmt.getYCellNum(), metadataProvider, physicalOptimizationConfig);
         return secondaryIndexHelper.buildLoadingJobSpec();
     }
-    
+
     public static JobSpecification buildSecondaryIndexLoadingJobSpec(CompiledCreateIndexStatement createIndexStmt,
-            AqlMetadataProvider metadataProvider, List<ExternalFile> files) throws AsterixException, AlgebricksException {
+            AqlMetadataProvider metadataProvider, List<ExternalFile> files) throws AsterixException,
+            AlgebricksException {
         SecondaryIndexOperationsHelper secondaryIndexHelper = SecondaryIndexOperationsHelper
                 .createIndexOperationsHelper(createIndexStmt.getIndexType(), createIndexStmt.getDataverseName(),
                         createIndexStmt.getDatasetName(), createIndexStmt.getIndexName(),
-                        createIndexStmt.getKeyFields(), createIndexStmt.getGramLength(), metadataProvider,
-                        physicalOptimizationConfig);
+                        createIndexStmt.getKeyFields(), createIndexStmt.getGramLength(),
+                        createIndexStmt.getBottomLeftX(), createIndexStmt.getBottomLeftY(),
+                        createIndexStmt.getTopRightX(), createIndexStmt.getTopRightY(), createIndexStmt.getXCellNum(),
+                        createIndexStmt.getYCellNum(), metadataProvider, physicalOptimizationConfig);
         secondaryIndexHelper.setExternalFiles(files);
         return secondaryIndexHelper.buildLoadingJobSpec();
     }
@@ -112,7 +119,10 @@ public class IndexOperations {
         SecondaryIndexOperationsHelper secondaryIndexHelper = SecondaryIndexOperationsHelper
                 .createIndexOperationsHelper(indexCompactStmt.getIndexType(), indexCompactStmt.getDataverseName(),
                         indexCompactStmt.getDatasetName(), indexCompactStmt.getIndexName(),
-                        indexCompactStmt.getKeyFields(), indexCompactStmt.getGramLength(), metadataProvider,
+                        indexCompactStmt.getKeyFields(), indexCompactStmt.getGramLength(),
+                        indexCompactStmt.getBottomLeftX(), indexCompactStmt.getBottomLeftY(),
+                        indexCompactStmt.getTopRightX(), indexCompactStmt.getTopRightY(),
+                        indexCompactStmt.getXCellNum(), indexCompactStmt.getYCellNum(), metadataProvider,
                         physicalOptimizationConfig);
         return secondaryIndexHelper.buildCompactJobSpec();
     }

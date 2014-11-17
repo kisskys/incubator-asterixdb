@@ -418,6 +418,8 @@ public class AsterixBuiltinFunctions {
             "hashed-gram-tokens", 3);
     public final static FunctionIdentifier COUNTHASHED_GRAM_TOKENS = new FunctionIdentifier(
             FunctionConstants.ASTERIX_NS, "counthashed-gram-tokens", 3);
+    public final static FunctionIdentifier SIF_TOKENS = new FunctionIdentifier(FunctionConstants.ASTERIX_NS,
+            "sif-tokens", 1);
 
     public final static FunctionIdentifier TID = new FunctionIdentifier(FunctionConstants.ASTERIX_NS, "tid", 0);
     public final static FunctionIdentifier GTID = new FunctionIdentifier(FunctionConstants.ASTERIX_NS, "gtid", 0);
@@ -922,6 +924,13 @@ public class AsterixBuiltinFunctions {
         addPrivateFunction(TYPE_OF, null, true);
         addPrivateFunction(UNORDERED_LIST_CONSTRUCTOR, UnorderedListConstructorResultType.INSTANCE, true);
         addFunction(WORD_TOKENS, new IResultTypeComputer() {
+            @Override
+            public IAType computeType(ILogicalExpression expression, IVariableTypeEnvironment env,
+                    IMetadataProvider<?, ?> mp) throws AlgebricksException {
+                return new AOrderedListType(BuiltinType.ASTRING, "string");
+            }
+        }, true);
+        addFunction(SIF_TOKENS, new IResultTypeComputer() {
             @Override
             public IAType computeType(ILogicalExpression expression, IVariableTypeEnvironment env,
                     IMetadataProvider<?, ?> mp) throws AlgebricksException {

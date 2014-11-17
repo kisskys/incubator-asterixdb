@@ -47,6 +47,14 @@ public class Index implements IMetadataEntity {
     // Type of pending operations with respect to atomic DDL operation
     private int pendingOp;
 
+    // Specific to sif index
+    private final double bottomLeftX;
+    private final double bottomLeftY;
+    private final double topRightX;
+    private final double topRightY;
+    private final long xCellNum;
+    private final long yCellNum;
+
     public Index(String dataverseName, String datasetName, String indexName, IndexType indexType,
             List<String> keyFieldNames, int gramLength, boolean isPrimaryIndex, int pendingOp) {
         this.dataverseName = dataverseName;
@@ -57,6 +65,12 @@ public class Index implements IMetadataEntity {
         this.gramLength = gramLength;
         this.isPrimaryIndex = isPrimaryIndex;
         this.pendingOp = pendingOp;
+        this.bottomLeftX = 0.0;
+        this.bottomLeftY = 0.0;
+        this.topRightX = 0.0;
+        this.topRightY = 0.0;
+        this.xCellNum = 0;
+        this.yCellNum = 0;
     }
 
     public Index(String dataverseName, String datasetName, String indexName, IndexType indexType,
@@ -69,6 +83,30 @@ public class Index implements IMetadataEntity {
         this.gramLength = -1;
         this.isPrimaryIndex = isPrimaryIndex;
         this.pendingOp = pendingOp;
+        this.bottomLeftX = 0.0;
+        this.bottomLeftY = 0.0;
+        this.topRightX = 0.0;
+        this.topRightY = 0.0;
+        this.xCellNum = 0;
+        this.yCellNum = 0;
+    }
+
+    public Index(String dataverseName, String datasetName, String indexName, IndexType indexType,
+            List<String> keyFieldNames, int gramLength, boolean isPrimaryIndex, int pendingOp, double bottomLeftX, double bottomLeftY, double topRightX, double topRightY, long xCellNum, long yCellNum) {
+        this.dataverseName = dataverseName;
+        this.datasetName = datasetName;
+        this.indexName = indexName;
+        this.indexType = indexType;
+        this.keyFieldNames = keyFieldNames;
+        this.gramLength = gramLength;
+        this.isPrimaryIndex = isPrimaryIndex;
+        this.pendingOp = pendingOp;
+        this.bottomLeftX = bottomLeftX;
+        this.bottomLeftY = bottomLeftY;
+        this.topRightX = topRightX;
+        this.topRightY = topRightY;
+        this.xCellNum = xCellNum;
+        this.yCellNum = yCellNum;
     }
 
     public String getDataverseName() {
@@ -168,5 +206,29 @@ public class Index implements IMetadataEntity {
     @Override
     public Object dropFromCache(MetadataCache cache) {
         return cache.dropIndex(this);
+    }
+
+    public double getBottomLeftX() {
+        return bottomLeftX;
+    }
+
+    public double getBottomLeftY() {
+        return bottomLeftY;
+    }
+
+    public double getTopRightX() {
+        return topRightX;
+    }
+
+    public double getTopRightY() {
+        return topRightY;
+    }
+
+    public long getXCellNum() {
+        return xCellNum;
+    }
+
+    public long getYCellNum() {
+        return yCellNum;
     }
 }

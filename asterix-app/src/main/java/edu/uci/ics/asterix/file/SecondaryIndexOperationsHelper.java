@@ -148,7 +148,8 @@ public abstract class SecondaryIndexOperationsHelper {
     }
 
     public static SecondaryIndexOperationsHelper createIndexOperationsHelper(IndexType indexType, String dataverseName,
-            String datasetName, String indexName, List<String> secondaryKeyFields, int gramLength,
+            String datasetName, String indexName, List<String> secondaryKeyFields, int gramLength, double bottomLeftX,
+            double bottomLeftY, double topRightX, double topRightY, long xCellNum, long yCellNum,
             AqlMetadataProvider metadataProvider, PhysicalOptimizationConfig physOptConf) throws AsterixException,
             AlgebricksException {
         IAsterixPropertiesProvider asterixPropertiesProvider = AsterixAppContextInfo.getInstance();
@@ -175,7 +176,7 @@ public abstract class SecondaryIndexOperationsHelper {
             }
         }
         indexOperationsHelper.init(indexType, dataverseName, datasetName, indexName, secondaryKeyFields, gramLength,
-                metadataProvider);
+                bottomLeftX, bottomLeftY, topRightX, topRightY, xCellNum, yCellNum, metadataProvider);
         return indexOperationsHelper;
     }
 
@@ -186,7 +187,8 @@ public abstract class SecondaryIndexOperationsHelper {
     public abstract JobSpecification buildCompactJobSpec() throws AsterixException, AlgebricksException;
 
     protected void init(IndexType indexType, String dvn, String dsn, String in, List<String> secondaryKeyFields,
-            int gramLength, AqlMetadataProvider metadataProvider) throws AsterixException, AlgebricksException {
+            int gramLength, double bottomLeftX, double bottomLeftY, double topRightX, double topRightY, long xCellNum,
+            long yCellNum, AqlMetadataProvider metadataProvider) throws AsterixException, AlgebricksException {
         this.metadataProvider = metadataProvider;
         dataverseName = dvn == null ? metadataProvider.getDefaultDataverseName() : dvn;
         datasetName = dsn;
@@ -221,7 +223,8 @@ public abstract class SecondaryIndexOperationsHelper {
             primaryPartitionConstraint = primarySplitsAndConstraint.second;
             setPrimaryRecDescAndComparators();
         }
-        setSecondaryRecDescAndComparators(indexType, secondaryKeyFields, gramLength, metadataProvider);
+        setSecondaryRecDescAndComparators(indexType, secondaryKeyFields, gramLength, bottomLeftX, bottomLeftY,
+                topRightX, topRightY, xCellNum, yCellNum, metadataProvider);
         numElementsHint = metadataProvider.getCardinalityPerPartitionHint(dataset);
         Pair<ILSMMergePolicyFactory, Map<String, String>> compactionInfo = DatasetUtils.getMergePolicyFactory(dataset,
                 metadataProvider.getMetadataTxnContext());
@@ -288,7 +291,8 @@ public abstract class SecondaryIndexOperationsHelper {
     }
 
     protected void setSecondaryRecDescAndComparators(IndexType indexType, List<String> secondaryKeyFields,
-            int gramLength, AqlMetadataProvider metadataProvider) throws AlgebricksException, AsterixException {
+            int gramLength, double bottomLeftX, double bottomLeftY, double topRightX, double topRightY, long xCellNum,
+            long yCellNum, AqlMetadataProvider metadataProvider) throws AlgebricksException, AsterixException {
         secondaryFieldAccessEvalFactories = new ICopyEvaluatorFactory[numSecondaryKeys + numFilterFields];
         if (indexType == IndexType.RTREE) {
             secondaryComparatorFactories = new IBinaryComparatorFactory[numSecondaryKeys];

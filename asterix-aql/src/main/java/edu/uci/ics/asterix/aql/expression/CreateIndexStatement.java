@@ -35,6 +35,14 @@ public class CreateIndexStatement implements Statement {
     // Specific to NGram indexes.
     private int gramLength;
 
+    // Specific to SIF indexes
+    private double bottomLeftX;
+    private double bottomLeftY;
+    private double topRightX;
+    private double topRightY;
+    private long xCellNum;
+    private long yCellNum;
+
     public CreateIndexStatement() {
     }
 
@@ -107,6 +115,54 @@ public class CreateIndexStatement implements Statement {
     @Override
     public <T> void accept(IAqlVisitorWithVoidReturn<T> visitor, T arg) throws AsterixException {
         visitor.visit(this, arg);
+    }
+
+    public double getBottomLeftX() {
+        return bottomLeftX;
+    }
+
+    public void setBottomLeftX(double bottomLeftX) {
+        this.bottomLeftX = bottomLeftX;
+    }
+
+    public double getBottomLeftY() {
+        return bottomLeftY;
+    }
+
+    public void setBottomLeftY(double bottomLeftY) {
+        this.bottomLeftY = bottomLeftY;
+    }
+
+    public double getTopRightX() {
+        return topRightX;
+    }
+
+    public void setTopRightX(double topRightX) {
+        this.topRightX = topRightX;
+    }
+
+    public double getTopRightY() {
+        return topRightY;
+    }
+
+    public void setTopRightY(double topRightY) {
+        this.topRightY = topRightY;
+    }
+
+    public long getXCellNum() {
+        return xCellNum;
+    }
+
+    public void setXCellNum(long xCellNum) {
+        this.xCellNum = xCellNum;
+    }
+
+    public long getYCellNum() {
+        return yCellNum;
+    }
+
+    public void setYCellNum(long yCellNum) {
+        this.yCellNum = yCellNum;
     }
 
 }

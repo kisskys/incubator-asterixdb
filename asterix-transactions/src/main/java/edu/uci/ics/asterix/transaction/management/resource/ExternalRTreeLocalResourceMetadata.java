@@ -43,10 +43,10 @@ public class ExternalRTreeLocalResourceMetadata extends LSMRTreeLocalResourceMet
     public ExternalRTreeLocalResourceMetadata(ITypeTraits[] typeTraits, IBinaryComparatorFactory[] rtreeCmpFactories,
             IBinaryComparatorFactory[] btreeCmpFactories, IPrimitiveValueProviderFactory[] valueProviderFactories,
             RTreePolicyType rtreePolicyType, ILinearizeComparatorFactory linearizeCmpFactory, int datasetID,
-            ILSMMergePolicyFactory mergePolicyFactory, Map<String, String> mergePolicyProperties, int[] btreeFields) {
+            ILSMMergePolicyFactory mergePolicyFactory, Map<String, String> mergePolicyProperties, int[] btreeFields, boolean isPointMBR) {
         super(typeTraits, rtreeCmpFactories, btreeCmpFactories, valueProviderFactories, rtreePolicyType,
                 linearizeCmpFactory, datasetID, mergePolicyFactory, mergePolicyProperties, null, null, null,
-                btreeFields, null);
+                btreeFields, null, isPointMBR);
     }
 
     @Override
@@ -61,7 +61,7 @@ public class ExternalRTreeLocalResourceMetadata extends LSMRTreeLocalResourceMet
                             runtimeContextProvider.getIndexLifecycleManager()), new BaseOperationTracker(
                             (DatasetLifecycleManager) runtimeContextProvider.getIndexLifecycleManager(), datasetID),
                     runtimeContextProvider.getLSMIOScheduler(), LSMRTreeIOOperationCallbackFactory.INSTANCE
-                            .createIOOperationCallback(), linearizeCmpFactory, btreeFields, -1);
+                            .createIOOperationCallback(), linearizeCmpFactory, btreeFields, -1, isPointMBR);
         } catch (TreeIndexException e) {
             throw new HyracksDataException(e);
         }

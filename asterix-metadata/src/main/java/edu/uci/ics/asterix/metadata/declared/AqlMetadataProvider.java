@@ -25,6 +25,8 @@ import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import javax.security.auth.kerberos.KeyTab;
+
 import edu.uci.ics.asterix.common.config.AsterixStorageProperties;
 import edu.uci.ics.asterix.common.config.DatasetConfig.DatasetType;
 import edu.uci.ics.asterix.common.config.DatasetConfig.ExternalFilePendingOp;
@@ -808,6 +810,7 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
                 throw new AlgebricksException("Could not find field " + secondaryKeyFields.get(0) + " in the schema.");
             }
             int numDimensions = NonTaggedFormatUtil.getNumDimensions(keyType.getTypeTag());
+            boolean isPointMBR = keyType.getTypeTag() == ATypeTag.POINT || keyType.getTypeTag() == ATypeTag.POINT3D;
             int numNestedSecondaryKeyFields = numDimensions * 2;
             IPrimitiveValueProviderFactory[] valueProviderFactories = new IPrimitiveValueProviderFactory[numNestedSecondaryKeyFields];
             for (int i = 0; i < numNestedSecondaryKeyFields; i++) {
@@ -866,10 +869,9 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
                                 LSMRTreeIOOperationCallbackFactory.INSTANCE, proposeLinearizer(
                                         nestedKeyType.getTypeTag(), comparatorFactories.length),
                                 storageProperties.getBloomFilterFalsePositiveRate(), rtreeFields, btreeFields,
-                                filterTypeTraits, filterCmpFactories, filterFields), retainInput, retainNull,
+                                filterTypeTraits, filterCmpFactories, filterFields, isPointMBR), retainInput, retainNull,
                         context.getNullWriterFactory(), searchCallbackFactory, minFilterFieldIndexes,
                         maxFilterFieldIndexes);
-
             } else {
                 // External Dataset
                 ExternalRTreeDataflowHelperFactory indexDataflowHelperFactory = new ExternalRTreeDataflowHelperFactory(
@@ -880,7 +882,7 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
                         proposeLinearizer(nestedKeyType.getTypeTag(), comparatorFactories.length),
                         getStorageProperties().getBloomFilterFalsePositiveRate(),
                         new int[] { numNestedSecondaryKeyFields },
-                        ExternalDatasetsRegistry.INSTANCE.getAndLockDatasetVersion(dataset, this));
+                        ExternalDatasetsRegistry.INSTANCE.getAndLockDatasetVersion(dataset, this), isPointMBR);
                 // Create the operator
                 rtreeSearchOp = new ExternalRTreeSearchOperatorDescriptor(jobSpec, outputRecDesc,
                         appContext.getStorageManagerInterface(), appContext.getIndexLifecycleManagerProvider(),
@@ -1861,6 +1863,7 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
             List<String> secondaryKeyExprs = secondaryIndex.getKeyFieldNames();
             Pair<IAType, Boolean> keyPairType = Index.getNonNullableKeyFieldType(secondaryKeyExprs.get(0), recType);
             IAType spatialType = keyPairType.first;
+            boolean isPointMBR = spatialType.getTypeTag() == ATypeTag.POINT || spatialType.getTypeTag() == ATypeTag.POINT3D;
             int dimension = NonTaggedFormatUtil.getNumDimensions(spatialType.getTypeTag());
             int numSecondaryKeys = dimension * 2;
             int numPrimaryKeys = primaryKeys.size();
@@ -1947,7 +1950,7 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
                     AsterixRuntimeComponentsProvider.RUNTIME_PROVIDER, LSMRTreeIOOperationCallbackFactory.INSTANCE,
                     proposeLinearizer(nestedKeyType.getTypeTag(), comparatorFactories.length),
                     storageProperties.getBloomFilterFalsePositiveRate(), rtreeFields, btreeFields, filterTypeTraits,
-                    filterCmpFactories, filterFields);
+                    filterCmpFactories, filterFields, isPointMBR);
             IOperatorDescriptor op;
             if (bulkload) {
                 long numElementsHint = getCardinalityPerPartitionHint(dataset);
@@ -1967,7 +1970,7 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
                                 LSMRTreeIOOperationCallbackFactory.INSTANCE, proposeLinearizer(
                                         nestedKeyType.getTypeTag(), comparatorFactories.length), storageProperties
                                         .getBloomFilterFalsePositiveRate(), rtreeFields, btreeFields, filterTypeTraits,
-                                filterCmpFactories, filterFields), filterFactory,
+                                filterCmpFactories, filterFields, isPointMBR), filterFactory,
                         modificationCallbackFactory, false, indexName);
             }
             return new Pair<IOperatorDescriptor, AlgebricksPartitionConstraint>(op, splitsAndConstraint.second);

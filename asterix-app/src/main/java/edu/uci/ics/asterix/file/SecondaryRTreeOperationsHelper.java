@@ -26,9 +26,11 @@ import edu.uci.ics.asterix.common.context.AsterixVirtualBufferCacheProvider;
 import edu.uci.ics.asterix.common.exceptions.AsterixException;
 import edu.uci.ics.asterix.common.ioopcallbacks.LSMRTreeIOOperationCallbackFactory;
 import edu.uci.ics.asterix.dataflow.data.nontagged.valueproviders.AqlPrimitiveValueProviderFactory;
+import edu.uci.ics.asterix.formats.nontagged.AqlBinaryBooleanInspectorImpl;
 import edu.uci.ics.asterix.formats.nontagged.AqlBinaryComparatorFactoryProvider;
 import edu.uci.ics.asterix.formats.nontagged.AqlSerializerDeserializerProvider;
 import edu.uci.ics.asterix.formats.nontagged.AqlTypeTraitProvider;
+import edu.uci.ics.asterix.metadata.MetadataException;
 import edu.uci.ics.asterix.metadata.declared.AqlMetadataProvider;
 import edu.uci.ics.asterix.metadata.entities.Index;
 import edu.uci.ics.asterix.metadata.external.IndexingConstants;
@@ -37,6 +39,9 @@ import edu.uci.ics.asterix.metadata.utils.ExternalDatasetsRegistry;
 import edu.uci.ics.asterix.om.types.ATypeTag;
 import edu.uci.ics.asterix.om.types.IAType;
 import edu.uci.ics.asterix.om.util.NonTaggedFormatUtil;
+import edu.uci.ics.asterix.runtime.evaluators.functions.AndDescriptor;
+import edu.uci.ics.asterix.runtime.evaluators.functions.IsNullDescriptor;
+import edu.uci.ics.asterix.runtime.evaluators.functions.NotDescriptor;
 import edu.uci.ics.asterix.transaction.management.opcallbacks.SecondaryIndexOperationTrackerProvider;
 import edu.uci.ics.asterix.transaction.management.resource.ExternalRTreeLocalResourceMetadata;
 import edu.uci.ics.asterix.transaction.management.resource.LSMRTreeLocalResourceMetadata;
@@ -45,12 +50,18 @@ import edu.uci.ics.asterix.transaction.management.service.transaction.AsterixRun
 import edu.uci.ics.hyracks.algebricks.common.constraints.AlgebricksPartitionConstraintHelper;
 import edu.uci.ics.hyracks.algebricks.common.exceptions.AlgebricksException;
 import edu.uci.ics.hyracks.algebricks.common.utils.Pair;
+import edu.uci.ics.hyracks.algebricks.core.algebra.expressions.LogicalExpressionJobGenToExpressionRuntimeProviderAdapter;
 import edu.uci.ics.hyracks.algebricks.core.jobgen.impl.ConnectorPolicyAssignmentPolicy;
 import edu.uci.ics.hyracks.algebricks.core.rewriter.base.PhysicalOptimizationConfig;
+import edu.uci.ics.hyracks.algebricks.runtime.base.ICopyEvaluatorFactory;
 import edu.uci.ics.hyracks.algebricks.runtime.base.IPushRuntimeFactory;
+import edu.uci.ics.hyracks.algebricks.runtime.base.IScalarEvaluatorFactory;
+import edu.uci.ics.hyracks.algebricks.runtime.evaluators.ColumnAccessEvalFactory;
 import edu.uci.ics.hyracks.algebricks.runtime.operators.base.SinkRuntimeFactory;
 import edu.uci.ics.hyracks.algebricks.runtime.operators.meta.AlgebricksMetaOperatorDescriptor;
+import edu.uci.ics.hyracks.algebricks.runtime.operators.std.AssignRuntimeFactory;
 import edu.uci.ics.hyracks.algebricks.runtime.operators.std.EmptyTupleSourceRuntimeFactory;
+import edu.uci.ics.hyracks.algebricks.runtime.operators.std.StreamSelectRuntimeFactory;
 import edu.uci.ics.hyracks.api.dataflow.IOperatorDescriptor;
 import edu.uci.ics.hyracks.api.dataflow.value.IBinaryComparatorFactory;
 import edu.uci.ics.hyracks.api.dataflow.value.ISerializerDeserializer;
@@ -82,6 +93,8 @@ public class SecondaryRTreeOperationsHelper extends SecondaryIndexOperationsHelp
     protected ATypeTag keyType;
     protected int[] primaryKeyFields;
     protected int[] rtreeFields;
+    protected boolean isPointMBR;
+    protected RecordDescriptor secondaryRecDescForPointMBR = null;
 
     protected SecondaryRTreeOperationsHelper(PhysicalOptimizationConfig physOptConf,
             IAsterixPropertiesProvider propertiesProvider) {
@@ -103,7 +116,7 @@ public class SecondaryRTreeOperationsHelper extends SecondaryIndexOperationsHelp
                     RTreePolicyType.RTREE, AqlMetadataProvider.proposeLinearizer(keyType,
                             secondaryComparatorFactories.length), dataset.getDatasetId(), mergePolicyFactory,
                     mergePolicyFactoryProperties, filterTypeTraits, filterCmpFactories, rtreeFields, primaryKeyFields,
-                    secondaryFilterFields);
+                    secondaryFilterFields, isPointMBR);
             localResourceFactoryProvider = new PersistentLocalResourceFactoryProvider(localResourceMetadata,
                     LocalResource.LSMRTreeResource);
             indexDataflowHelperFactory = new LSMRTreeDataflowHelperFactory(valueProviderFactories,
@@ -113,7 +126,7 @@ public class SecondaryRTreeOperationsHelper extends SecondaryIndexOperationsHelp
                     AsterixRuntimeComponentsProvider.RUNTIME_PROVIDER, LSMRTreeIOOperationCallbackFactory.INSTANCE,
                     AqlMetadataProvider.proposeLinearizer(keyType, secondaryComparatorFactories.length),
                     storageProperties.getBloomFilterFalsePositiveRate(), rtreeFields, primaryKeyFields,
-                    filterTypeTraits, filterCmpFactories, secondaryFilterFields);
+                    filterTypeTraits, filterCmpFactories, secondaryFilterFields, isPointMBR);
         } else {
             // External dataset
             // Prepare a LocalResourceMetadata which will be stored in NC's local resource repository
@@ -121,7 +134,7 @@ public class SecondaryRTreeOperationsHelper extends SecondaryIndexOperationsHelp
                     secondaryComparatorFactories, ExternalIndexingOperations.getBuddyBtreeComparatorFactories(),
                     valueProviderFactories, RTreePolicyType.RTREE, AqlMetadataProvider.proposeLinearizer(keyType,
                             secondaryComparatorFactories.length), dataset.getDatasetId(), mergePolicyFactory,
-                    mergePolicyFactoryProperties, primaryKeyFields);
+                    mergePolicyFactoryProperties, primaryKeyFields, isPointMBR);
             localResourceFactoryProvider = new PersistentLocalResourceFactoryProvider(localResourceMetadata,
                     LocalResource.ExternalRTreeResource);
 
@@ -132,7 +145,7 @@ public class SecondaryRTreeOperationsHelper extends SecondaryIndexOperationsHelp
                     LSMRTreeIOOperationCallbackFactory.INSTANCE, AqlMetadataProvider.proposeLinearizer(keyType,
                             secondaryComparatorFactories.length), storageProperties.getBloomFilterFalsePositiveRate(),
                     new int[] { numNestedSecondaryKeyFields },
-                    ExternalDatasetsRegistry.INSTANCE.getDatasetVersion(dataset));
+                    ExternalDatasetsRegistry.INSTANCE.getDatasetVersion(dataset), isPointMBR);
         }
 
         TreeIndexCreateOperatorDescriptor secondaryIndexCreateOp = new TreeIndexCreateOperatorDescriptor(spec,
@@ -168,6 +181,7 @@ public class SecondaryRTreeOperationsHelper extends SecondaryIndexOperationsHelp
         if (spatialType == null) {
             throw new AsterixException("Could not find field " + secondaryKeyFields.get(0) + " in the schema.");
         }
+        isPointMBR = spatialType.getTypeTag() == ATypeTag.POINT || spatialType.getTypeTag() == ATypeTag.POINT3D;
         int numDimensions = NonTaggedFormatUtil.getNumDimensions(spatialType.getTypeTag());
         numNestedSecondaryKeyFields = numDimensions * 2;
         int recordColumn = dataset.getDatasetType() == DatasetType.INTERNAL ? numPrimaryKeys : 0;
@@ -189,7 +203,6 @@ public class SecondaryRTreeOperationsHelper extends SecondaryIndexOperationsHelp
                     nestedKeyType, true);
             secondaryTypeTraits[i] = AqlTypeTraitProvider.INSTANCE.getTypeTrait(nestedKeyType);
             valueProviderFactories[i] = AqlPrimitiveValueProviderFactory.INSTANCE;
-
         }
         // Add serializers and comparators for primary index fields.
         if (dataset.getDatasetType() == DatasetType.INTERNAL) {
@@ -219,10 +232,38 @@ public class SecondaryRTreeOperationsHelper extends SecondaryIndexOperationsHelp
         for (int i = 0; i < primaryKeyFields.length; i++) {
             primaryKeyFields[i] = i + numNestedSecondaryKeyFields;
         }
+        if (isPointMBR) {
+            int numNestedSecondaryKeyFieldForPointMBR = numNestedSecondaryKeyFields / 2;
+            ISerializerDeserializer[] recFieldsForPointMBR = new ISerializerDeserializer[numPrimaryKeys
+                    + numNestedSecondaryKeyFieldForPointMBR + numFilterFields];
+            int idx = 0;
+            for (int i = 0; i < numNestedSecondaryKeyFieldForPointMBR; i++) {
+                recFieldsForPointMBR[idx++] = secondaryRecFields[i];
+            }
+            for (int i = 0; i < numPrimaryKeys + numFilterFields; i++) {
+                recFieldsForPointMBR[idx++] = secondaryRecFields[numNestedSecondaryKeyFields + i];
+            }
+            secondaryRecDescForPointMBR = new RecordDescriptor(recFieldsForPointMBR);
+        }
     }
 
     @Override
     public JobSpecification buildLoadingJobSpec() throws AsterixException, AlgebricksException {
+        /***************************************************
+         * [ About pointMBR Optimization ]
+         * Instead of storing a MBR(4 doubles) for a point(2 doubles) in RTree leaf node, pointMBR concept is introduced.
+         * PointMBR is a way to store a point as 2 doubles in RTree leaf node.
+         * This reduces RTree index size roughly in half.
+         * In order to fully benefit from the pointMBR concept, besides RTree,
+         * external sort operator during bulk-loading (from either data loading or index creation)
+         * must deal with point as 2 doubles instead of 4 doubles. Otherwise, external sort will suffer from twice as
+         * many doubles as it actually requires. For this purpose, pointMBR specific optimization logic is added as follows:
+         * 1) CreateMBR function in assign operator generates 2 doubles, instead of 4 doubles.
+         * 2) External sort operator sorts points represented with 2 doubles.
+         * 3) Bulk-loading in RTree takes 4 doubles by reading 2 doubles twice and then, do the same work as non-point MBR cases.
+         * 
+         * @TODO RTree could be modified to get 2 doubles as an input tuple for point data instead of 4 doubles.
+         ***************************************************/
         JobSpecification spec = JobSpecificationUtils.createJobSpecification();
         if (dataset.getDatasetType() == DatasetType.INTERNAL) {
             // Create dummy key provider for feeding the primary index scan. 
@@ -231,20 +272,22 @@ public class SecondaryRTreeOperationsHelper extends SecondaryIndexOperationsHelp
             // Create primary index scan op.
             BTreeSearchOperatorDescriptor primaryScanOp = createPrimaryIndexScanOp(spec);
 
-            // Assign op.
+            // Assign op for generating pointMBR as 2 doubles. 
             AlgebricksMetaOperatorDescriptor asterixAssignOp = createAssignOp(spec, primaryScanOp,
-                    numNestedSecondaryKeyFields);
+                    isPointMBR ? numNestedSecondaryKeyFields / 2 : numNestedSecondaryKeyFields);
 
             // If any of the secondary fields are nullable, then add a select op that filters nulls.
             AlgebricksMetaOperatorDescriptor selectOp = null;
             if (anySecondaryKeyIsNullable) {
-                selectOp = createFilterNullsSelectOp(spec, numNestedSecondaryKeyFields);
+                selectOp = createFilterNullsSelectOp(spec, isPointMBR ? numNestedSecondaryKeyFields / 2
+                        : numNestedSecondaryKeyFields);
             }
 
             // Sort by secondary keys.
             ExternalSortOperatorDescriptor sortOp = createSortOp(spec,
                     new IBinaryComparatorFactory[] { AqlMetadataProvider.proposeLinearizer(keyType,
-                            secondaryComparatorFactories.length) }, secondaryRecDesc);
+                            secondaryComparatorFactories.length) }, isPointMBR ? secondaryRecDescForPointMBR
+                            : secondaryRecDesc);
 
             AsterixStorageProperties storageProperties = propertiesProvider.getStorageProperties();
             // Create secondary RTree bulk load op.
@@ -259,7 +302,7 @@ public class SecondaryRTreeOperationsHelper extends SecondaryIndexOperationsHelp
                             LSMRTreeIOOperationCallbackFactory.INSTANCE, AqlMetadataProvider.proposeLinearizer(keyType,
                                     secondaryComparatorFactories.length), storageProperties
                                     .getBloomFilterFalsePositiveRate(), rtreeFields, primaryKeyFields,
-                            filterTypeTraits, filterCmpFactories, secondaryFilterFields),
+                            filterTypeTraits, filterCmpFactories, secondaryFilterFields, isPointMBR),
                     GlobalConfig.DEFAULT_TREE_FILL_FACTOR);
             AlgebricksMetaOperatorDescriptor metaOp = new AlgebricksMetaOperatorDescriptor(spec, 1, 0,
                     new IPushRuntimeFactory[] { new SinkRuntimeFactory() }, new RecordDescriptor[] {});
@@ -287,19 +330,21 @@ public class SecondaryRTreeOperationsHelper extends SecondaryIndexOperationsHelp
                     new IPushRuntimeFactory[] { new EmptyTupleSourceRuntimeFactory() }, rDescs);
             // Create external indexing scan operator
             ExternalDataScanOperatorDescriptor primaryScanOp = createExternalIndexingOp(spec);
-            // Assign op.
-            AlgebricksMetaOperatorDescriptor asterixAssignOp = createExternalAssignOp(spec, numNestedSecondaryKeyFields);
+            // Assign op for generating pointMBR as 2 doubles.
+            AlgebricksMetaOperatorDescriptor asterixAssignOp = createExternalAssignOp(spec,
+                    isPointMBR ? numNestedSecondaryKeyFields / 2 : numNestedSecondaryKeyFields);
 
             // If any of the secondary fields are nullable, then add a select op that filters nulls.
             AlgebricksMetaOperatorDescriptor selectOp = null;
             if (anySecondaryKeyIsNullable) {
-                selectOp = createFilterNullsSelectOp(spec, numSecondaryKeys);
+                selectOp = createFilterNullsSelectOp(spec, isPointMBR ? numSecondaryKeys / 2 : numSecondaryKeys);
             }
 
             // Sort by secondary keys.
             ExternalSortOperatorDescriptor sortOp = createSortOp(spec,
                     new IBinaryComparatorFactory[] { AqlMetadataProvider.proposeLinearizer(keyType,
-                            secondaryComparatorFactories.length) }, secondaryRecDesc);
+                            secondaryComparatorFactories.length) }, isPointMBR ? secondaryRecDescForPointMBR
+                            : secondaryRecDesc);
             AsterixStorageProperties storageProperties = propertiesProvider.getStorageProperties();
 
             // Create the dataflow helper factory
@@ -309,7 +354,7 @@ public class SecondaryRTreeOperationsHelper extends SecondaryIndexOperationsHelp
                     AsterixRuntimeComponentsProvider.RUNTIME_PROVIDER, LSMRTreeIOOperationCallbackFactory.INSTANCE,
                     AqlMetadataProvider.proposeLinearizer(keyType, secondaryComparatorFactories.length),
                     storageProperties.getBloomFilterFalsePositiveRate(), new int[] { numNestedSecondaryKeyFields },
-                    ExternalDatasetsRegistry.INSTANCE.getDatasetVersion(dataset));
+                    ExternalDatasetsRegistry.INSTANCE.getDatasetVersion(dataset), isPointMBR);
             // Create secondary RTree bulk load op.
             IOperatorDescriptor root;
             AbstractTreeIndexOperatorDescriptor secondaryBulkLoadOp;
@@ -347,6 +392,141 @@ public class SecondaryRTreeOperationsHelper extends SecondaryIndexOperationsHelp
     }
 
     @Override
+    protected TreeIndexBulkLoadOperatorDescriptor createTreeIndexBulkLoadOp(JobSpecification spec,
+            int numSecondaryKeyFields, IIndexDataflowHelperFactory dataflowHelperFactory, float fillFactor)
+            throws MetadataException, AlgebricksException {
+        int[] fieldPermutation = new int[numSecondaryKeyFields + numPrimaryKeys + numFilterFields];
+        int numSecondaryKeyFieldsForPointMBR = numSecondaryKeyFields / 2;
+        int end = isPointMBR ? numSecondaryKeyFieldsForPointMBR : fieldPermutation.length;
+        for (int i = 0; i < end; i++) {
+            fieldPermutation[i] = i;
+        }
+        if (isPointMBR) {
+            int idx = numSecondaryKeyFieldsForPointMBR;
+            //add the rest of the sk fields for pointMBR
+            for (int i = 0; i < numSecondaryKeyFieldsForPointMBR; i++) {
+                fieldPermutation[idx++] = i;
+            }
+            //add the pk and filter fields
+            end = numSecondaryKeyFieldsForPointMBR + numPrimaryKeys + numFilterFields;
+            for (int i = numSecondaryKeyFieldsForPointMBR; i < end; i++) {
+                fieldPermutation[idx++] = i;
+            }
+        }
+
+        TreeIndexBulkLoadOperatorDescriptor treeIndexBulkLoadOp = new TreeIndexBulkLoadOperatorDescriptor(spec,
+                secondaryRecDesc, AsterixRuntimeComponentsProvider.RUNTIME_PROVIDER,
+                AsterixRuntimeComponentsProvider.RUNTIME_PROVIDER, secondaryFileSplitProvider,
+                secondaryRecDesc.getTypeTraits(), secondaryComparatorFactories, secondaryBloomFilterKeyFields,
+                fieldPermutation, fillFactor, false, numElementsHint, false, dataflowHelperFactory);
+        AlgebricksPartitionConstraintHelper.setPartitionConstraintInJobSpec(spec, treeIndexBulkLoadOp,
+                secondaryPartitionConstraint);
+        return treeIndexBulkLoadOp;
+    }
+
+    @Override
+    protected AlgebricksMetaOperatorDescriptor createAssignOp(JobSpecification spec,
+            BTreeSearchOperatorDescriptor primaryScanOp, int numSecondaryKeyFields) throws AlgebricksException {
+        int[] outColumns = new int[numSecondaryKeyFields + numFilterFields];
+        int[] projectionList = new int[numSecondaryKeyFields + numPrimaryKeys + numFilterFields];
+        for (int i = 0; i < numSecondaryKeyFields + numFilterFields; i++) {
+            outColumns[i] = numPrimaryKeys + i;
+        }
+        int projCount = 0;
+        for (int i = 0; i < numSecondaryKeyFields; i++) {
+            projectionList[projCount++] = numPrimaryKeys + i;
+        }
+        for (int i = 0; i < numPrimaryKeys; i++) {
+            projectionList[projCount++] = i;
+        }
+        if (numFilterFields > 0) {
+            projectionList[projCount++] = numPrimaryKeys + numSecondaryKeyFields;
+        }
+
+        IScalarEvaluatorFactory[] sefs = new IScalarEvaluatorFactory[numSecondaryKeyFields + numFilterFields];
+        //for sk fields
+        for (int i = 0; i < numSecondaryKeyFields; ++i) {
+            sefs[i] = new LogicalExpressionJobGenToExpressionRuntimeProviderAdapter.ScalarEvaluatorFactoryAdapter(
+                    secondaryFieldAccessEvalFactories[i]);
+        }
+        //for filter fields
+        int idx = secondaryFieldAccessEvalFactories.length - numFilterFields;
+        for (int i = 0; i < numFilterFields; ++i) {
+            sefs[numSecondaryKeyFields + i] = new LogicalExpressionJobGenToExpressionRuntimeProviderAdapter.ScalarEvaluatorFactoryAdapter(
+                    secondaryFieldAccessEvalFactories[idx++]);
+        }
+
+        AssignRuntimeFactory assignRuntimeFactory = new AssignRuntimeFactory(outColumns, sefs, projectionList);
+        AlgebricksMetaOperatorDescriptor assignOp = new AlgebricksMetaOperatorDescriptor(spec, 1, 1,
+                new IPushRuntimeFactory[] { assignRuntimeFactory },
+                new RecordDescriptor[] { isPointMBR ? secondaryRecDescForPointMBR : secondaryRecDesc });
+        AlgebricksPartitionConstraintHelper.setPartitionConstraintInJobSpec(spec, assignOp, primaryPartitionConstraint);
+        return assignOp;
+    }
+
+    @Override
+    protected AlgebricksMetaOperatorDescriptor createExternalAssignOp(JobSpecification spec, int numSecondaryKeys)
+            throws AlgebricksException {
+        int[] outColumns = new int[numSecondaryKeys];
+        int[] projectionList = new int[numSecondaryKeys + numPrimaryKeys];
+        for (int i = 0; i < numSecondaryKeys; i++) {
+            outColumns[i] = i + numPrimaryKeys + 1;
+            projectionList[i] = i + numPrimaryKeys + 1;
+        }
+
+        IScalarEvaluatorFactory[] sefs = new IScalarEvaluatorFactory[secondaryFieldAccessEvalFactories.length];
+        for (int i = 0; i < secondaryFieldAccessEvalFactories.length; ++i) {
+            sefs[i] = new LogicalExpressionJobGenToExpressionRuntimeProviderAdapter.ScalarEvaluatorFactoryAdapter(
+                    secondaryFieldAccessEvalFactories[i]);
+        }
+        //add External RIDs to the projection list
+        for (int i = 0; i < numPrimaryKeys; i++) {
+            projectionList[numSecondaryKeys + i] = i + 1;
+        }
+
+        AssignRuntimeFactory assign = new AssignRuntimeFactory(outColumns, sefs, projectionList);
+        AlgebricksMetaOperatorDescriptor asterixAssignOp = new AlgebricksMetaOperatorDescriptor(spec, 1, 1,
+                new IPushRuntimeFactory[] { assign }, new RecordDescriptor[] { isPointMBR ? secondaryRecDescForPointMBR
+                        : secondaryRecDesc });
+        return asterixAssignOp;
+    }
+
+    @Override
+    public AlgebricksMetaOperatorDescriptor createFilterNullsSelectOp(JobSpecification spec, int numSecondaryKeyFields)
+            throws AlgebricksException {
+        ICopyEvaluatorFactory[] andArgsEvalFactories = new ICopyEvaluatorFactory[numSecondaryKeyFields];
+        NotDescriptor notDesc = new NotDescriptor();
+        IsNullDescriptor isNullDesc = new IsNullDescriptor();
+        for (int i = 0; i < numSecondaryKeyFields; i++) {
+            // Access column i, and apply 'is not null'.
+            ColumnAccessEvalFactory columnAccessEvalFactory = new ColumnAccessEvalFactory(i);
+            ICopyEvaluatorFactory isNullEvalFactory = isNullDesc
+                    .createEvaluatorFactory(new ICopyEvaluatorFactory[] { columnAccessEvalFactory });
+            ICopyEvaluatorFactory notEvalFactory = notDesc
+                    .createEvaluatorFactory(new ICopyEvaluatorFactory[] { isNullEvalFactory });
+            andArgsEvalFactories[i] = notEvalFactory;
+        }
+        ICopyEvaluatorFactory selectCond = null;
+        if (numSecondaryKeyFields > 1) {
+            // Create conjunctive condition where all secondary index keys must
+            // satisfy 'is not null'.
+            AndDescriptor andDesc = new AndDescriptor();
+            selectCond = andDesc.createEvaluatorFactory(andArgsEvalFactories);
+        } else {
+            selectCond = andArgsEvalFactories[0];
+        }
+        StreamSelectRuntimeFactory select = new StreamSelectRuntimeFactory(
+                new LogicalExpressionJobGenToExpressionRuntimeProviderAdapter.ScalarEvaluatorFactoryAdapter(selectCond),
+                null, AqlBinaryBooleanInspectorImpl.FACTORY, false, -1, null);
+        AlgebricksMetaOperatorDescriptor asterixSelectOp = new AlgebricksMetaOperatorDescriptor(spec, 1, 1,
+                new IPushRuntimeFactory[] { select }, new RecordDescriptor[] { isPointMBR ? secondaryRecDescForPointMBR
+                        : secondaryRecDesc });
+        AlgebricksPartitionConstraintHelper.setPartitionConstraintInJobSpec(spec, asterixSelectOp,
+                primaryPartitionConstraint);
+        return asterixSelectOp;
+    }
+
+    @Override
     public JobSpecification buildCompactJobSpec() throws AsterixException, AlgebricksException {
         JobSpecification spec = JobSpecificationUtils.createJobSpecification();
 
@@ -364,7 +544,7 @@ public class SecondaryRTreeOperationsHelper extends SecondaryIndexOperationsHelp
                             LSMRTreeIOOperationCallbackFactory.INSTANCE, AqlMetadataProvider.proposeLinearizer(keyType,
                                     secondaryComparatorFactories.length),
                             storageProperties.getBloomFilterFalsePositiveRate(), rtreeFields, primaryKeyFields,
-                            filterTypeTraits, filterCmpFactories, secondaryFilterFields),
+                            filterTypeTraits, filterCmpFactories, secondaryFilterFields, isPointMBR),
                     NoOpOperationCallbackFactory.INSTANCE);
         } else {
             // External dataset
@@ -379,7 +559,7 @@ public class SecondaryRTreeOperationsHelper extends SecondaryIndexOperationsHelp
                             LSMRTreeIOOperationCallbackFactory.INSTANCE, AqlMetadataProvider.proposeLinearizer(keyType,
                                     secondaryComparatorFactories.length), storageProperties
                                     .getBloomFilterFalsePositiveRate(), new int[] { numNestedSecondaryKeyFields },
-                            ExternalDatasetsRegistry.INSTANCE.getDatasetVersion(dataset)),
+                            ExternalDatasetsRegistry.INSTANCE.getDatasetVersion(dataset), isPointMBR),
                     NoOpOperationCallbackFactory.INSTANCE);
         }
 

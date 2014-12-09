@@ -49,13 +49,14 @@ public class LSMRTreeLocalResourceMetadata extends AbstractLSMLocalResourceMetad
     protected final Map<String, String> mergePolicyProperties;
     protected final int[] rtreeFields;
     protected final int[] btreeFields;
+    protected final boolean isPointMBR;
 
     public LSMRTreeLocalResourceMetadata(ITypeTraits[] typeTraits, IBinaryComparatorFactory[] rtreeCmpFactories,
             IBinaryComparatorFactory[] btreeCmpFactories, IPrimitiveValueProviderFactory[] valueProviderFactories,
             RTreePolicyType rtreePolicyType, ILinearizeComparatorFactory linearizeCmpFactory, int datasetID,
             ILSMMergePolicyFactory mergePolicyFactory, Map<String, String> mergePolicyProperties,
             ITypeTraits[] filterTypeTraits, IBinaryComparatorFactory[] filterCmpFactories, int[] rtreeFields,
-            int[] btreeFields, int[] filterFields) {
+            int[] btreeFields, int[] filterFields, boolean isPointMBR) {
         super(datasetID, filterTypeTraits, filterCmpFactories, filterFields);
         this.typeTraits = typeTraits;
         this.rtreeCmpFactories = rtreeCmpFactories;
@@ -67,6 +68,7 @@ public class LSMRTreeLocalResourceMetadata extends AbstractLSMLocalResourceMetad
         this.mergePolicyProperties = mergePolicyProperties;
         this.rtreeFields = rtreeFields;
         this.btreeFields = btreeFields;
+        this.isPointMBR = isPointMBR;
     }
 
     @Override
@@ -83,7 +85,7 @@ public class LSMRTreeLocalResourceMetadata extends AbstractLSMLocalResourceMetad
                             (DatasetLifecycleManager) runtimeContextProvider.getIndexLifecycleManager(), datasetID),
                     runtimeContextProvider.getLSMIOScheduler(), LSMRTreeIOOperationCallbackFactory.INSTANCE
                             .createIOOperationCallback(), linearizeCmpFactory, rtreeFields, btreeFields,
-                    filterTypeTraits, filterCmpFactories, filterFields);
+                    filterTypeTraits, filterCmpFactories, filterFields, isPointMBR);
         } catch (TreeIndexException e) {
             throw new HyracksDataException(e);
         }

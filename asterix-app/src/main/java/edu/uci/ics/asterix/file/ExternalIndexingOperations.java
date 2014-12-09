@@ -577,6 +577,7 @@ public class ExternalIndexingOperations {
                 + numNestedSecondaryKeyFields];
         ITypeTraits[] secondaryTypeTraits = new ITypeTraits[numNestedSecondaryKeyFields + numPrimaryKeys];
         IAType nestedKeyType = NonTaggedFormatUtil.getNestedSpatialType(spatialType.getTypeTag());
+        boolean isPointMBR = spatialType.getTypeTag() == ATypeTag.POINT || spatialType.getTypeTag() == ATypeTag.POINT3D;
         ATypeTag keyType = nestedKeyType.getTypeTag();
 
         keyType = nestedKeyType.getTypeTag();
@@ -606,7 +607,7 @@ public class ExternalIndexingOperations {
                 AsterixRuntimeComponentsProvider.RUNTIME_PROVIDER, LSMRTreeIOOperationCallbackFactory.INSTANCE,
                 AqlMetadataProvider.proposeLinearizer(keyType, secondaryComparatorFactories.length),
                 storageProperties.getBloomFilterFalsePositiveRate(), new int[] { index.getKeyFieldNames().size() },
-                ExternalDatasetsRegistry.INSTANCE.getDatasetVersion(ds));
+                ExternalDatasetsRegistry.INSTANCE.getDatasetVersion(ds), isPointMBR);
     }
 
     public static JobSpecification buildAbortOp(Dataset ds, List<Index> indexes, AqlMetadataProvider metadataProvider)

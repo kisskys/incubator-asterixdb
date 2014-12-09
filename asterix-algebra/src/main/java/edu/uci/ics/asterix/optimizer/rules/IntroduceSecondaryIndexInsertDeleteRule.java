@@ -21,12 +21,10 @@ import java.util.List;
 
 import org.apache.commons.lang3.mutable.Mutable;
 import org.apache.commons.lang3.mutable.MutableObject;
-import org.apache.hadoop.mapred.lib.TotalOrderPartitioner;
 
 import edu.uci.ics.asterix.aql.util.FunctionUtils;
 import edu.uci.ics.asterix.common.config.DatasetConfig.DatasetType;
 import edu.uci.ics.asterix.common.config.DatasetConfig.IndexType;
-import edu.uci.ics.asterix.common.exceptions.AsterixException;
 import edu.uci.ics.asterix.metadata.declared.AqlDataSource;
 import edu.uci.ics.asterix.metadata.declared.AqlIndex;
 import edu.uci.ics.asterix.metadata.declared.AqlMetadataProvider;
@@ -44,7 +42,6 @@ import edu.uci.ics.asterix.om.types.IAType;
 import edu.uci.ics.asterix.om.util.NonTaggedFormatUtil;
 import edu.uci.ics.hyracks.algebricks.common.exceptions.AlgebricksException;
 import edu.uci.ics.hyracks.algebricks.common.utils.Pair;
-import edu.uci.ics.hyracks.algebricks.common.utils.Triple;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.ILogicalExpression;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.ILogicalOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.IOptimizationContext;
@@ -60,17 +57,13 @@ import edu.uci.ics.hyracks.algebricks.core.algebra.functions.FunctionIdentifier;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.AbstractLogicalOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.AbstractLogicalOperator.ExecutionMode;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.AssignOperator;
-import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.DistinctOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.IndexInsertDeleteOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.InsertDeleteOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.ProjectOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.ReplicateOperator;
-import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.SinkOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.TokenizeOperator;
-import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.UnionAllOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.visitors.VariableUtilities;
 import edu.uci.ics.hyracks.algebricks.core.rewriter.base.IAlgebraicRewriteRule;
-import edu.uci.ics.hyracks.storage.am.common.ophelpers.IndexOp;
 
 public class IntroduceSecondaryIndexInsertDeleteRule implements IAlgebraicRewriteRule {
 
@@ -94,6 +87,7 @@ public class IntroduceSecondaryIndexInsertDeleteRule implements IAlgebraicRewrit
         FunctionIdentifier fid = null;
         /** find the record variable */
         InsertDeleteOperator insertOp = (InsertDeleteOperator) op1;
+        boolean isBulkload = insertOp.isBulkload();
         ILogicalExpression recordExpr = insertOp.getPayloadExpression().getValue();
         List<LogicalVariable> recordVar = new ArrayList<LogicalVariable>();
         /** assume the payload is always a single variable expression */
@@ -350,8 +344,9 @@ public class IntroduceSecondaryIndexInsertDeleteRule implements IAlgebraicRewrit
                 Pair<IAType, Boolean> keyPairType = Index
                         .getNonNullableKeyFieldType(secondaryKeyFields.get(0), recType);
                 IAType spatialType = keyPairType.first;
+                boolean isPointMBR = spatialType.getTypeTag() == ATypeTag.POINT || spatialType.getTypeTag() == ATypeTag.POINT3D;
                 int dimension = NonTaggedFormatUtil.getNumDimensions(spatialType.getTypeTag());
-                int numKeys = dimension * 2;
+                int numKeys = (isPointMBR && isBulkload) ? dimension : dimension * 2;
                 List<LogicalVariable> keyVarList = new ArrayList<LogicalVariable>();
                 List<Mutable<ILogicalExpression>> keyExprList = new ArrayList<Mutable<ILogicalExpression>>();
                 for (int i = 0; i < numKeys; i++) {
@@ -370,13 +365,21 @@ public class IntroduceSecondaryIndexInsertDeleteRule implements IAlgebraicRewrit
                                     new AInt32(i)))));
                     keyExprList.add(new MutableObject<ILogicalExpression>(createMBR));
                 }
+                AssignOperator assignCoordinates = new AssignOperator(keyVarList, keyExprList);
+                assignCoordinates.getInputs().add(new MutableObject<ILogicalOperator>(assign));
+                context.computeAndSetTypeEnvironmentForOperator(assignCoordinates);
+                
                 for (LogicalVariable secondaryKeyVar : keyVarList) {
                     secondaryExpressions.add(new MutableObject<ILogicalExpression>(new VariableReferenceExpression(
                             secondaryKeyVar)));
                 }
-                AssignOperator assignCoordinates = new AssignOperator(keyVarList, keyExprList);
-                assignCoordinates.getInputs().add(new MutableObject<ILogicalOperator>(assign));
-                context.computeAndSetTypeEnvironmentForOperator(assignCoordinates);
+                if (isPointMBR && isBulkload) {
+                    for (LogicalVariable secondaryKeyVar : keyVarList) {
+                        secondaryExpressions.add(new MutableObject<ILogicalExpression>(new VariableReferenceExpression(
+                                secondaryKeyVar)));
+                    }
+                }
+                
                 // We must enforce the filter if the originating spatial type is
                 // nullable.
                 boolean forceFilter = keyPairType.second;
@@ -393,9 +396,7 @@ public class IntroduceSecondaryIndexInsertDeleteRule implements IAlgebraicRewrit
 
                 if (insertOp.isBulkload())
                     op0.getInputs().add(new MutableObject<ILogicalOperator>(currentTop));
-
             }
-
         }
         if (!hasSecondaryIndex) {
             return false;
@@ -410,7 +411,8 @@ public class IntroduceSecondaryIndexInsertDeleteRule implements IAlgebraicRewrit
 
     @SuppressWarnings("unchecked")
     private void prepareVarAndExpression(String field, String[] fieldNames, List<LogicalVariable> recordVar,
-            List<Mutable<ILogicalExpression>> expressions, List<LogicalVariable> vars, IOptimizationContext context) throws AlgebricksException {
+            List<Mutable<ILogicalExpression>> expressions, List<LogicalVariable> vars, IOptimizationContext context)
+            throws AlgebricksException {
         Mutable<ILogicalExpression> varRef = new MutableObject<ILogicalExpression>(new VariableReferenceExpression(
                 recordVar.get(0)));
         int pos = -1;
@@ -421,7 +423,8 @@ public class IntroduceSecondaryIndexInsertDeleteRule implements IAlgebraicRewrit
             }
         }
         if (pos == -1) {
-            throw new AlgebricksException("An exception occurred when finding the position of the indexed field -" + field);
+            throw new AlgebricksException("An exception occurred when finding the position of the indexed field -"
+                    + field);
         }
         // Assumes the indexed field is in the closed portion of the type.
         Mutable<ILogicalExpression> indexRef = new MutableObject<ILogicalExpression>(new ConstantExpression(

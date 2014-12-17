@@ -43,6 +43,8 @@ import edu.uci.ics.hyracks.algebricks.runtime.base.ICopyEvaluator;
 import edu.uci.ics.hyracks.algebricks.runtime.base.ICopyEvaluatorFactory;
 import edu.uci.ics.hyracks.api.dataflow.value.IBinaryComparator;
 import edu.uci.ics.hyracks.api.dataflow.value.ISerializerDeserializer;
+import edu.uci.ics.hyracks.data.std.accessors.PointableBinaryComparatorFactory;
+import edu.uci.ics.hyracks.data.std.primitive.ByteArrayPointable;
 import edu.uci.ics.hyracks.data.std.util.ArrayBackedValueStorage;
 import edu.uci.ics.hyracks.dataflow.common.data.accessors.IFrameTupleReference;
 import edu.uci.ics.hyracks.dataflow.common.data.marshalling.FloatSerializerDeserializer;
@@ -55,7 +57,9 @@ public abstract class AbstractComparisonEvaluator implements ICopyEvaluator {
         EQUAL,
         GREATER_THAN,
         UNKNOWN
-    };
+    }
+
+    ;
 
     protected DataOutput out;
     protected ArrayBackedValueStorage outLeft = new ArrayBackedValueStorage();
@@ -87,6 +91,9 @@ public abstract class AbstractComparisonEvaluator implements ICopyEvaluator {
     protected IBinaryComparator polygonBinaryComparator = APolygonPartialBinaryComparatorFactory.INSTANCE
             .createBinaryComparator();
     protected IBinaryComparator rectangleBinaryComparator = ARectanglePartialBinaryComparatorFactory.INSTANCE
+            .createBinaryComparator();
+    protected final IBinaryComparator byteArrayComparator = new PointableBinaryComparatorFactory(
+            ByteArrayPointable.FACTORY)
             .createBinaryComparator();
 
     public AbstractComparisonEvaluator(DataOutput out, ICopyEvaluatorFactory evalLeftFactory,
@@ -145,8 +152,9 @@ public abstract class AbstractComparisonEvaluator implements ICopyEvaluator {
             }
         }
 
-        if (isLeftNull || isRightNull)
+        if (isLeftNull || isRightNull) {
             return ComparisonResult.UNKNOWN;
+        }
 
         switch (typeTag1) {
             case INT8: {
@@ -231,15 +239,20 @@ public abstract class AbstractComparisonEvaluator implements ICopyEvaluator {
                 result = rectangleBinaryComparator.compare(outLeft.getByteArray(), 1, outLeft.getLength() - 1,
                         outRight.getByteArray(), 1, outRight.getLength() - 1);
                 break;
+            case BINARY:
+                result = byteArrayComparator.compare(outLeft.getByteArray(), 1, outLeft.getLength() - 1,
+                        outRight.getByteArray(), 1, outRight.getLength() - 1);
+                break;
             default:
                 throw new AlgebricksException("Comparison for " + actualTypeTag + " is not supported.");
         }
-        if (result == 0)
+        if (result == 0) {
             return ComparisonResult.EQUAL;
-        else if (result < 0)
+        } else if (result < 0) {
             return ComparisonResult.LESS_THAN;
-        else
+        } else {
             return ComparisonResult.GREATER_THAN;
+        }
     }
 
     private ComparisonResult compareBooleanWithArg(ATypeTag typeTag2) throws AlgebricksException {
@@ -255,12 +268,13 @@ public abstract class AbstractComparisonEvaluator implements ICopyEvaluator {
         if (typeTag2 == ATypeTag.STRING) {
             int result = strBinaryComp.compare(outLeft.getByteArray(), 1, outLeft.getLength() - 1,
                     outRight.getByteArray(), 1, outRight.getLength() - 1);
-            if (result == 0)
+            if (result == 0) {
                 return ComparisonResult.EQUAL;
-            else if (result < 0)
+            } else if (result < 0) {
                 return ComparisonResult.LESS_THAN;
-            else
+            } else {
                 return ComparisonResult.GREATER_THAN;
+            }
         }
         throw new AlgebricksException("Comparison is undefined between types AString and " + typeTag2 + " .");
     }

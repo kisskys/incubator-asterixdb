@@ -201,10 +201,9 @@ public class AqlTranslator extends AbstractAqlTranslator {
      * @return A List<QueryResult> containing a QueryResult instance corresponding to each submitted query.
      * @throws Exception
      */
-    public List<QueryResult> compileAndExecute(IHyracksClientConnection hcc, IHyracksDataset hdc,
+    public void compileAndExecute(IHyracksClientConnection hcc, IHyracksDataset hdc,
             ResultDelivery resultDelivery) throws Exception {
         int resultSetIdCounter = 0;
-        List<QueryResult> executionResult = new ArrayList<QueryResult>();
         FileSplit outputFile = null;
         IAWriterFactory writerFactory = PrinterBasedWriterFactory.INSTANCE;
         IResultSerializerFactoryProvider resultSerializerFactoryProvider = ResultSerializerFactoryProvider.INSTANCE;
@@ -313,7 +312,7 @@ public class AqlTranslator extends AbstractAqlTranslator {
                     metadataProvider.setResultSetId(new ResultSetId(resultSetIdCounter++));
                     metadataProvider.setResultAsyncMode(resultDelivery == ResultDelivery.ASYNC
                             || resultDelivery == ResultDelivery.ASYNC_DEFERRED);
-                    executionResult.add(handleQuery(metadataProvider, (Query) stmt, hcc, hdc, resultDelivery));
+                    handleQuery(metadataProvider, (Query) stmt, hcc, hdc, resultDelivery);
                     break;
                 }
 
@@ -337,7 +336,6 @@ public class AqlTranslator extends AbstractAqlTranslator {
                 }
             }
         }
-        return executionResult;
     }
 
     private void handleSetStatement(AqlMetadataProvider metadataProvider, Statement stmt, Map<String, String> config)
@@ -496,13 +494,21 @@ public class AqlTranslator extends AbstractAqlTranslator {
 
                     String ngName = ngNameId != null ? ngNameId.getValue() : configureNodegroupForDataset(dd,
                             dataverseName, mdTxnCtx);
-                    if (compactionPolicy == null) {
-                        compactionPolicy = GlobalConfig.DEFAULT_COMPACTION_POLICY_NAME;
-                        compactionPolicyProperties = GlobalConfig.DEFAULT_COMPACTION_POLICY_PROPERTIES;
-                    } else {
-                        validateCompactionPolicy(compactionPolicy, compactionPolicyProperties, mdTxnCtx, false);
-                    }
                     String filterField = ((InternalDetailsDecl) dd.getDatasetDetailsDecl()).getFilterField();
+                    if (compactionPolicy == null) {
+                        if (filterField != null) {
+                            // If the dataset has a filter and the user didn't specify a merge policy, then we will pick the
+                            // correlated-prefix as the default merge policy.
+                            compactionPolicy = GlobalConfig.DEFAULT_FILTERED_DATASET_COMPACTION_POLICY_NAME;
+                            compactionPolicyProperties = GlobalConfig.DEFAULT_COMPACTION_POLICY_PROPERTIES;
+                        } else {
+                            compactionPolicy = GlobalConfig.DEFAULT_COMPACTION_POLICY_NAME;
+                            compactionPolicyProperties = GlobalConfig.DEFAULT_COMPACTION_POLICY_PROPERTIES;
+                        }
+                    } else {
+                        validateCompactionPolicy(compactionPolicy,
+                                                 compactionPolicyProperties, mdTxnCtx, false);
+                    }
                     if (filterField != null) {
                         aRecordType.validateFilterField(filterField);
                     }
@@ -1736,10 +1742,10 @@ public class AqlTranslator extends AbstractAqlTranslator {
         metadataProvider.setMetadataTxnContext(mdTxnCtx);
         MetadataLockManager.INSTANCE.createFeedBegin(dataverseName, dataverseName + "." + feedName);
 
-        String adaptorName = null;
+        String adapterName = null;
         Feed feed = null;
         try {
-            adaptorName = cfs.getAdaptorName();
+            adapterName = cfs.getAdapterName();
 
             feed = MetadataManager.INSTANCE.getFeed(metadataProvider.getMetadataTxnContext(), dataverseName, feedName);
             if (feed != null) {
@@ -1747,11 +1753,11 @@ public class AqlTranslator extends AbstractAqlTranslator {
                     MetadataManager.INSTANCE.commitTransaction(mdTxnCtx);
                     return;
                 } else {
-                    throw new AlgebricksException("A feed with this name " + adaptorName + " already exists.");
+                    throw new AlgebricksException("A feed with this name " + adapterName + " already exists.");
                 }
             }
 
-            feed = new Feed(dataverseName, feedName, adaptorName, cfs.getAdaptorConfiguration(),
+            feed = new Feed(dataverseName, feedName, adapterName, cfs.getAdapterConfiguration(),
                     cfs.getAppliedFunction());
             MetadataManager.INSTANCE.addFeed(metadataProvider.getMetadataTxnContext(), feed);
             MetadataManager.INSTANCE.commitTransaction(mdTxnCtx);
@@ -2028,7 +2034,7 @@ public class AqlTranslator extends AbstractAqlTranslator {
         }
     }
 
-    private QueryResult handleQuery(AqlMetadataProvider metadataProvider, Query query, IHyracksClientConnection hcc,
+    private void handleQuery(AqlMetadataProvider metadataProvider, Query query, IHyracksClientConnection hcc,
             IHyracksDataset hdc, ResultDelivery resultDelivery) throws Exception {
 
         MetadataTransactionContext mdTxnCtx = MetadataManager.INSTANCE.beginTransaction();
@@ -2039,7 +2045,6 @@ public class AqlTranslator extends AbstractAqlTranslator {
         try {
             compiled = rewriteCompileQuery(metadataProvider, query, null);
 
-            QueryResult queryResult = new QueryResult(query, metadataProvider.getResultSetId());
             MetadataManager.INSTANCE.commitTransaction(mdTxnCtx);
             bActiveTxn = false;
 
@@ -2065,6 +2070,9 @@ public class AqlTranslator extends AbstractAqlTranslator {
                         // In this case (the normal case), we don't use the
                         // "response" JSONObject - just stream the results
                         // to the "out" PrintWriter
+                        if (pdf == OutputFormat.CSV) {
+                            ResultUtils.displayCSVHeader(metadataProvider.findOutputRecordType(), out);
+                        }
                         ResultUtils.displayResults(resultReader, out, pdf);
 
                         hcc.waitForCompletion(jobId);
@@ -2082,10 +2090,7 @@ public class AqlTranslator extends AbstractAqlTranslator {
                         break;
 
                 }
-
             }
-
-            return queryResult;
         } catch (Exception e) {
             e.printStackTrace();
             if (bActiveTxn) {
@@ -2356,12 +2361,12 @@ public class AqlTranslator extends AbstractAqlTranslator {
 
     private JobId runJob(IHyracksClientConnection hcc, JobSpecification spec, boolean waitForCompletion)
             throws Exception {
-        JobId[] jobIds = executeJobArray(hcc, new Job[] { new Job(spec) }, out, pdf, waitForCompletion);
+        JobId[] jobIds = executeJobArray(hcc, new Job[] { new Job(spec) }, out, waitForCompletion);
         return jobIds[0];
     }
 
     public JobId[] executeJobArray(IHyracksClientConnection hcc, Job[] jobs, PrintWriter out,
-            APIFramework.OutputFormat pdf, boolean waitForCompletion) throws Exception {
+            boolean waitForCompletion) throws Exception {
         JobId[] startedJobIds = new JobId[jobs.length];
         for (int i = 0; i < jobs.length; i++) {
             JobSpecification spec = jobs[i].getJobSpec();

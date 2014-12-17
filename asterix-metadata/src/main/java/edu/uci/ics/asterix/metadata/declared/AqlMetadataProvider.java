@@ -281,6 +281,26 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
         return resultSerializerFactoryProvider;
     }
 
+    /**
+     * Retrieve the Output RecordType, as defined by "set outputRecordType".
+     */
+    public ARecordType findOutputRecordType() throws AlgebricksException {
+        String outputRecordType = getPropertyValue("outputRecordType");
+        if (outputRecordType == null) {
+            return null;
+        }
+        String dataverse = getDefaultDataverseName();
+        if (dataverse == null) {
+            throw new AlgebricksException("Cannot declare outputRecordType with no dataverse!");
+        }
+        IAType type = findType(dataverse, outputRecordType);
+        if (!(type instanceof ARecordType)) {
+            throw new AlgebricksException
+                ("Type " + outputRecordType + " is not a record type!");
+        }
+        return (ARecordType) type;
+    }
+
     @Override
     public AqlDataSource findDataSource(AqlSourceId id) throws AlgebricksException {
         AqlSourceId aqlId = (AqlSourceId) id;
@@ -555,10 +575,10 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
                             (ARecordType) adapterOutputType, feedDesc, feedPolicy.getProperties());
                     break;
                 case EXTERNAL:
-                    String libraryName = feedDataSource.getFeed().getAdaptorName().split("#")[0];
+                    String libraryName = feedDataSource.getFeed().getAdapterName().split("#")[0];
                     feedIngestor = new FeedIntakeOperatorDescriptor(jobSpec, feedDataSource.getFeedConnectionId(),
                             libraryName, adapterFactory.getClass().getName(), feedDataSource.getFeed()
-                                    .getAdaptorConfiguration(), (ARecordType) adapterOutputType, feedDesc,
+                                    .getAdapterConfiguration(), (ARecordType) adapterOutputType, feedDesc,
                             feedPolicy.getProperties());
                     break;
             }
@@ -2161,15 +2181,16 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
         }
     }
 
-    public IAType findType(String dataverse, String typeName) {
+    public IAType findType(String dataverse, String typeName) throws AlgebricksException {
         Datatype type;
         try {
             type = MetadataManager.INSTANCE.getDatatype(mdTxnCtx, dataverse, typeName);
-        } catch (Exception e) {
-            throw new IllegalStateException();
+        } catch (MetadataException e) {
+            throw new AlgebricksException("Metadata exception while looking up type '" + typeName +
+                                          "' in dataverse '" + dataverse + "'", e);
         }
         if (type == null) {
-            throw new IllegalStateException();
+            throw new AlgebricksException("Type name '" + typeName + "' unknown in dataverse '" + dataverse +"'");
         }
         return type.getDatatype();
     }

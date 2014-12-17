@@ -107,13 +107,12 @@ public class BTreeAccessMethod implements IAccessMethod {
 
     @Override
     public boolean matchAllIndexExprs() {
-        return true;
+        return false;
     }
 
     @Override
     public boolean matchPrefixIndexExprs() {
-        // TODO: The BTree can support prefix searches. Enable this later and add tests.
-        return false;
+        return true;
     }
 
     @Override
@@ -222,7 +221,12 @@ public class BTreeAccessMethod implements IAccessMethod {
         ARecordType recordType = indexSubTree.recordType;
         // we made sure indexSubTree has datasource scan
         DataSourceScanOperator dataSourceScan = (DataSourceScanOperator) indexSubTree.dataSourceRef.getValue();
-        int numSecondaryKeys = chosenIndex.getKeyFieldNames().size();
+        List<Integer> exprList = analysisCtx.indexExprs.get(chosenIndex);
+        List<IOptimizableFuncExpr> matchedFuncExprs = analysisCtx.matchedFuncExprs;
+        int numSecondaryKeys = analysisCtx.indexNumMatchedKeys.get(chosenIndex);
+        // List of function expressions that will be replaced by the secondary-index search.
+        // These func exprs will be removed from the select condition at the very end of this method.
+        Set<ILogicalExpression> replacedFuncExprs = new HashSet<ILogicalExpression>();
 
         // Info on high and low keys for the BTree search predicate.
         ILogicalExpression[] lowKeyExprs = new ILogicalExpression[numSecondaryKeys];
@@ -232,11 +236,6 @@ public class BTreeAccessMethod implements IAccessMethod {
         boolean[] lowKeyInclusive = new boolean[numSecondaryKeys];
         boolean[] highKeyInclusive = new boolean[numSecondaryKeys];
 
-        List<Integer> exprList = analysisCtx.indexExprs.get(chosenIndex);
-        List<IOptimizableFuncExpr> matchedFuncExprs = analysisCtx.matchedFuncExprs;
-        // List of function expressions that will be replaced by the secondary-index search.
-        // These func exprs will be removed from the select condition at the very end of this method.
-        Set<ILogicalExpression> replacedFuncExprs = new HashSet<ILogicalExpression>();
         // TODO: For now we don't do any sophisticated analysis of the func exprs to come up with "the best" range predicate.
         // If we can't figure out how to integrate a certain funcExpr into the current predicate, we just bail by setting this flag.
         boolean couldntFigureOut = false;

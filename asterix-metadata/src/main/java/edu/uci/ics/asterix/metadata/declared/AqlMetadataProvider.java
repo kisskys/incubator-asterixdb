@@ -1441,9 +1441,7 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
             }
 
             IBinaryTokenizerFactory tokenizerFactory = NonTaggedFormatUtil.getBinaryTokenizerFactory(
-                    secondaryKeyType.getTypeTag(), indexType, secondaryIndex.getGramLength(),
-                    secondaryIndex.getBottomLeftX(), secondaryIndex.getBottomLeftY(), secondaryIndex.getTopRightX(),
-                    secondaryIndex.getTopRightY(), secondaryIndex.getXCellNum(), secondaryIndex.getYCellNum());
+                    secondaryKeyType.getTypeTag(), indexType, secondaryIndex.getIndexTypeProperty());
 
             Pair<IFileSplitProvider, AlgebricksPartitionConstraint> splitsAndConstraint = splitProviderAndPartitionConstraintsForDataset(
                     dataverseName, datasetName, indexName);
@@ -1780,9 +1778,7 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
                 tokenTypeTraits[1] = ShortPointable.TYPE_TRAITS;
             }
             IBinaryTokenizerFactory tokenizerFactory = NonTaggedFormatUtil.getBinaryTokenizerFactory(
-                    secondaryKeyType.getTypeTag(), indexType, secondaryIndex.getGramLength(),
-                    secondaryIndex.getBottomLeftX(), secondaryIndex.getBottomLeftY(), secondaryIndex.getTopRightX(),
-                    secondaryIndex.getTopRightY(), secondaryIndex.getXCellNum(), secondaryIndex.getYCellNum());
+                    secondaryKeyType.getTypeTag(), indexType, secondaryIndex.getIndexTypeProperty());
 
             ITypeTraits[] filterTypeTraits = DatasetUtils.computeFilterTypeTraits(dataset, recType);
             IBinaryComparatorFactory[] filterCmpFactories = DatasetUtils.computeFilterBinaryComparatorFactories(

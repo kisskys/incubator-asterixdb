@@ -292,5 +292,4 @@ public class OMPrintToStringVisitor implements IOMVisitor {
     public void visitAUUID(AUUID obj) throws AsterixException {
         throw new NotImplementedException();
     }
-
 }

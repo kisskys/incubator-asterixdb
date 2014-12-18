@@ -52,24 +52,20 @@ public class IndexOperations {
     public static JobSpecification buildSecondaryIndexCreationJobSpec(CompiledCreateIndexStatement createIndexStmt,
             AqlMetadataProvider metadataProvider) throws AsterixException, AlgebricksException {
         SecondaryIndexOperationsHelper secondaryIndexHelper = SecondaryIndexOperationsHelper
-                .createIndexOperationsHelper(createIndexStmt.getIndexType(), createIndexStmt.getDataverseName(),
-                        createIndexStmt.getDatasetName(), createIndexStmt.getIndexName(),
-                        createIndexStmt.getKeyFields(), createIndexStmt.getGramLength(),
-                        createIndexStmt.getBottomLeftX(), createIndexStmt.getBottomLeftY(),
-                        createIndexStmt.getTopRightX(), createIndexStmt.getTopRightY(), createIndexStmt.getXCellNum(),
-                        createIndexStmt.getYCellNum(), metadataProvider, physicalOptimizationConfig);
+                .createIndexOperationsHelper(createIndexStmt.getIndexType(), createIndexStmt.getIndexTypeProperty(),
+                        createIndexStmt.getDataverseName(), createIndexStmt.getDatasetName(),
+                        createIndexStmt.getIndexName(), createIndexStmt.getKeyFields(),
+                        metadataProvider, physicalOptimizationConfig);
         return secondaryIndexHelper.buildCreationJobSpec();
     }
 
     public static JobSpecification buildSecondaryIndexLoadingJobSpec(CompiledCreateIndexStatement createIndexStmt,
             AqlMetadataProvider metadataProvider) throws AsterixException, AlgebricksException {
         SecondaryIndexOperationsHelper secondaryIndexHelper = SecondaryIndexOperationsHelper
-                .createIndexOperationsHelper(createIndexStmt.getIndexType(), createIndexStmt.getDataverseName(),
-                        createIndexStmt.getDatasetName(), createIndexStmt.getIndexName(),
-                        createIndexStmt.getKeyFields(), createIndexStmt.getGramLength(),
-                        createIndexStmt.getBottomLeftX(), createIndexStmt.getBottomLeftY(),
-                        createIndexStmt.getTopRightX(), createIndexStmt.getTopRightY(), createIndexStmt.getXCellNum(),
-                        createIndexStmt.getYCellNum(), metadataProvider, physicalOptimizationConfig);
+                .createIndexOperationsHelper(createIndexStmt.getIndexType(), createIndexStmt.getIndexTypeProperty(),
+                        createIndexStmt.getDataverseName(), createIndexStmt.getDatasetName(),
+                        createIndexStmt.getIndexName(), createIndexStmt.getKeyFields(),
+                        metadataProvider, physicalOptimizationConfig);
         return secondaryIndexHelper.buildLoadingJobSpec();
     }
 
@@ -77,12 +73,10 @@ public class IndexOperations {
             AqlMetadataProvider metadataProvider, List<ExternalFile> files) throws AsterixException,
             AlgebricksException {
         SecondaryIndexOperationsHelper secondaryIndexHelper = SecondaryIndexOperationsHelper
-                .createIndexOperationsHelper(createIndexStmt.getIndexType(), createIndexStmt.getDataverseName(),
-                        createIndexStmt.getDatasetName(), createIndexStmt.getIndexName(),
-                        createIndexStmt.getKeyFields(), createIndexStmt.getGramLength(),
-                        createIndexStmt.getBottomLeftX(), createIndexStmt.getBottomLeftY(),
-                        createIndexStmt.getTopRightX(), createIndexStmt.getTopRightY(), createIndexStmt.getXCellNum(),
-                        createIndexStmt.getYCellNum(), metadataProvider, physicalOptimizationConfig);
+                .createIndexOperationsHelper(createIndexStmt.getIndexType(), createIndexStmt.getIndexTypeProperty(),
+                        createIndexStmt.getDataverseName(), createIndexStmt.getDatasetName(),
+                        createIndexStmt.getIndexName(), createIndexStmt.getKeyFields(),
+                        metadataProvider, physicalOptimizationConfig);
         secondaryIndexHelper.setExternalFiles(files);
         return secondaryIndexHelper.buildLoadingJobSpec();
     }
@@ -117,13 +111,10 @@ public class IndexOperations {
     public static JobSpecification buildSecondaryIndexCompactJobSpec(CompiledIndexCompactStatement indexCompactStmt,
             AqlMetadataProvider metadataProvider, Dataset dataset) throws AsterixException, AlgebricksException {
         SecondaryIndexOperationsHelper secondaryIndexHelper = SecondaryIndexOperationsHelper
-                .createIndexOperationsHelper(indexCompactStmt.getIndexType(), indexCompactStmt.getDataverseName(),
-                        indexCompactStmt.getDatasetName(), indexCompactStmt.getIndexName(),
-                        indexCompactStmt.getKeyFields(), indexCompactStmt.getGramLength(),
-                        indexCompactStmt.getBottomLeftX(), indexCompactStmt.getBottomLeftY(),
-                        indexCompactStmt.getTopRightX(), indexCompactStmt.getTopRightY(),
-                        indexCompactStmt.getXCellNum(), indexCompactStmt.getYCellNum(), metadataProvider,
-                        physicalOptimizationConfig);
+                .createIndexOperationsHelper(indexCompactStmt.getIndexType(), indexCompactStmt.getIndexTypeProperty(),
+                        indexCompactStmt.getDataverseName(), indexCompactStmt.getDatasetName(),
+                        indexCompactStmt.getIndexName(), indexCompactStmt.getKeyFields(),
+                        metadataProvider, physicalOptimizationConfig);
         return secondaryIndexHelper.buildCompactJobSpec();
     }
 }

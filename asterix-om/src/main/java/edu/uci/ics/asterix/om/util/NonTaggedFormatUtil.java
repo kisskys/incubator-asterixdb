@@ -17,6 +17,7 @@ package edu.uci.ics.asterix.om.util;
 import java.util.List;
 
 import edu.uci.ics.asterix.common.config.DatasetConfig.IndexType;
+import edu.uci.ics.asterix.common.config.DatasetConfig.IndexTypeProperty;
 import edu.uci.ics.asterix.common.exceptions.AsterixException;
 import edu.uci.ics.asterix.dataflow.data.nontagged.serde.AInt16SerializerDeserializer;
 import edu.uci.ics.asterix.dataflow.data.nontagged.serde.AOrderedListSerializerDeserializer;
@@ -190,15 +191,16 @@ public final class NonTaggedFormatUtil {
     }
 
     public static IBinaryTokenizerFactory getBinaryTokenizerFactory(ATypeTag keyType, IndexType indexType,
-            int gramLength, double bottomLeftX, double bottomLeftY, double topRightX, double topRightY, long xCellNum,
-            long yCellNum) throws AlgebricksException {
+            IndexTypeProperty indexTypeProperty) throws AlgebricksException {
         switch (indexType) {
             case SINGLE_PARTITION_WORD_INVIX:
             case LENGTH_PARTITIONED_WORD_INVIX: {
                 switch (keyType) {
                     case POINT:
-                        return AqlBinaryTokenizerFactoryProvider.INSTANCE.getSIFTokenizerFactory(keyType, bottomLeftX,
-                                bottomLeftY, topRightX, topRightY, xCellNum, yCellNum, false);
+                        return AqlBinaryTokenizerFactoryProvider.INSTANCE.getSIFTokenizerFactory(keyType,
+                                indexTypeProperty.bottomLeftX, indexTypeProperty.bottomLeftY,
+                                indexTypeProperty.topRightX, indexTypeProperty.topRightY,
+                                indexTypeProperty.levelDensity, indexTypeProperty.cellsPerObject, false);
 
                     default:
                         return AqlBinaryTokenizerFactoryProvider.INSTANCE.getWordTokenizerFactory(keyType, false);
@@ -207,8 +209,8 @@ public final class NonTaggedFormatUtil {
             }
             case SINGLE_PARTITION_NGRAM_INVIX:
             case LENGTH_PARTITIONED_NGRAM_INVIX: {
-                return AqlBinaryTokenizerFactoryProvider.INSTANCE.getNGramTokenizerFactory(keyType, gramLength, true,
-                        false);
+                return AqlBinaryTokenizerFactoryProvider.INSTANCE.getNGramTokenizerFactory(keyType,
+                        indexTypeProperty.gramLength, true, false);
             }
             default: {
                 throw new AlgebricksException("Tokenizer not applicable to index type '" + indexType + "'.");

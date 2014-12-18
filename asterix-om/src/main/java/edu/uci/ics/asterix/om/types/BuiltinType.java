@@ -523,7 +523,7 @@ public abstract class BuiltinType implements IAType {
             return null;
         }
     };
-
+    
     public final static BuiltinType APOINT = new LowerCaseConstructorType() {
 
         private static final long serialVersionUID = 1L;

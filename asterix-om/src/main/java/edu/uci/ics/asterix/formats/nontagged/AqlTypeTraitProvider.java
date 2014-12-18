@@ -26,6 +26,7 @@ public class AqlTypeTraitProvider implements ITypeTraitProvider {
     private static final ITypeTraits ONEBYTETYPETRAIT = new TypeTrait(1 + 1);
     private static final ITypeTraits TWOBYTETYPETRAIT = new TypeTrait(2 + 1);
     private static final ITypeTraits FOURBYTETYPETRAIT = new TypeTrait(4 + 1);
+    private static final ITypeTraits FIVEBYTETYPETRAIT = new TypeTrait(5 + 1);
     private static final ITypeTraits EIGHTBYTETYPETRAIT = new TypeTrait(8 + 1);
     private static final ITypeTraits SIXTEENBYTETYPETRAIT = new TypeTrait(16 + 1);
     private static final ITypeTraits SEVENTEENBYTETYPETRAIT = new TypeTrait(17 + 1);
@@ -53,6 +54,8 @@ public class AqlTypeTraitProvider implements ITypeTraitProvider {
             case DATE:
             case TIME:
                 return FOURBYTETYPETRAIT;
+            case SPATIALCELLID:
+                return FIVEBYTETYPETRAIT;
             case INT64:
             case DOUBLE:
             case DATETIME:

@@ -18,6 +18,7 @@ package edu.uci.ics.asterix.metadata.entities;
 import java.util.List;
 
 import edu.uci.ics.asterix.common.config.DatasetConfig.IndexType;
+import edu.uci.ics.asterix.common.config.DatasetConfig.IndexTypeProperty;
 import edu.uci.ics.asterix.metadata.MetadataCache;
 import edu.uci.ics.asterix.metadata.api.IMetadataEntity;
 import edu.uci.ics.asterix.om.types.ARecordType;
@@ -40,37 +41,22 @@ public class Index implements IMetadataEntity {
     // Enforced to be unique within a dataverse, dataset combination.
     private final String indexName;
     private final IndexType indexType;
+    private final IndexTypeProperty indexTypeProperty;
     private final List<String> keyFieldNames;
     private final boolean isPrimaryIndex;
-    // Specific to NGRAM indexes.
-    private final int gramLength;
     // Type of pending operations with respect to atomic DDL operation
     private int pendingOp;
 
-    // Specific to sif index
-    private final double bottomLeftX;
-    private final double bottomLeftY;
-    private final double topRightX;
-    private final double topRightY;
-    private final long xCellNum;
-    private final long yCellNum;
-
     public Index(String dataverseName, String datasetName, String indexName, IndexType indexType,
-            List<String> keyFieldNames, int gramLength, boolean isPrimaryIndex, int pendingOp) {
+            IndexTypeProperty indexTypeProperty, List<String> keyFieldNames, boolean isPrimaryIndex, int pendingOp) {
         this.dataverseName = dataverseName;
         this.datasetName = datasetName;
         this.indexName = indexName;
         this.indexType = indexType;
+        this.indexTypeProperty = indexTypeProperty;
         this.keyFieldNames = keyFieldNames;
-        this.gramLength = gramLength;
         this.isPrimaryIndex = isPrimaryIndex;
         this.pendingOp = pendingOp;
-        this.bottomLeftX = 0.0;
-        this.bottomLeftY = 0.0;
-        this.topRightX = 0.0;
-        this.topRightY = 0.0;
-        this.xCellNum = 0;
-        this.yCellNum = 0;
     }
 
     public Index(String dataverseName, String datasetName, String indexName, IndexType indexType,
@@ -79,34 +65,10 @@ public class Index implements IMetadataEntity {
         this.datasetName = datasetName;
         this.indexName = indexName;
         this.indexType = indexType;
+        this.indexTypeProperty = null;
         this.keyFieldNames = keyFieldNames;
-        this.gramLength = -1;
         this.isPrimaryIndex = isPrimaryIndex;
         this.pendingOp = pendingOp;
-        this.bottomLeftX = 0.0;
-        this.bottomLeftY = 0.0;
-        this.topRightX = 0.0;
-        this.topRightY = 0.0;
-        this.xCellNum = 0;
-        this.yCellNum = 0;
-    }
-
-    public Index(String dataverseName, String datasetName, String indexName, IndexType indexType,
-            List<String> keyFieldNames, int gramLength, boolean isPrimaryIndex, int pendingOp, double bottomLeftX, double bottomLeftY, double topRightX, double topRightY, long xCellNum, long yCellNum) {
-        this.dataverseName = dataverseName;
-        this.datasetName = datasetName;
-        this.indexName = indexName;
-        this.indexType = indexType;
-        this.keyFieldNames = keyFieldNames;
-        this.gramLength = gramLength;
-        this.isPrimaryIndex = isPrimaryIndex;
-        this.pendingOp = pendingOp;
-        this.bottomLeftX = bottomLeftX;
-        this.bottomLeftY = bottomLeftY;
-        this.topRightX = topRightX;
-        this.topRightY = topRightY;
-        this.xCellNum = xCellNum;
-        this.yCellNum = yCellNum;
     }
 
     public String getDataverseName() {
@@ -125,12 +87,12 @@ public class Index implements IMetadataEntity {
         return keyFieldNames;
     }
 
-    public int getGramLength() {
-        return gramLength;
-    }
-
     public IndexType getIndexType() {
         return indexType;
+    }
+
+    public IndexTypeProperty getIndexTypeProperty() {
+        return indexTypeProperty;
     }
 
     public boolean isPrimaryIndex() {
@@ -206,29 +168,5 @@ public class Index implements IMetadataEntity {
     @Override
     public Object dropFromCache(MetadataCache cache) {
         return cache.dropIndex(this);
-    }
-
-    public double getBottomLeftX() {
-        return bottomLeftX;
-    }
-
-    public double getBottomLeftY() {
-        return bottomLeftY;
-    }
-
-    public double getTopRightX() {
-        return topRightX;
-    }
-
-    public double getTopRightY() {
-        return topRightY;
-    }
-
-    public long getXCellNum() {
-        return xCellNum;
-    }
-
-    public long getYCellNum() {
-        return yCellNum;
     }
 }

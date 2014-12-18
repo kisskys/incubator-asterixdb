@@ -472,9 +472,8 @@ public class ExternalIndexingOperations {
         }
 
         CompiledCreateIndexStatement ccis = new CompiledCreateIndexStatement(index.getIndexName(),
-                index.getDataverseName(), index.getDatasetName(), index.getKeyFieldNames(), index.getGramLength(),
-                index.getIndexType(), index.getBottomLeftX(), index.getBottomLeftY(), index.getTopRightX(),
-                index.getTopRightY(), index.getXCellNum(), index.getYCellNum());
+                index.getDataverseName(), index.getDatasetName(), index.getKeyFieldNames(), index.getIndexType(),
+                null);
         return IndexOperations.buildSecondaryIndexLoadingJobSpec(ccis, metadataProvider, files);
     }
 

@@ -21,6 +21,7 @@ import edu.uci.ics.asterix.aql.base.Statement;
 import edu.uci.ics.asterix.aql.expression.visitor.IAqlExpressionVisitor;
 import edu.uci.ics.asterix.aql.expression.visitor.IAqlVisitorWithVoidReturn;
 import edu.uci.ics.asterix.common.config.DatasetConfig.IndexType;
+import edu.uci.ics.asterix.common.config.DatasetConfig.IndexTypeProperty;
 import edu.uci.ics.asterix.common.exceptions.AsterixException;
 
 public class CreateIndexStatement implements Statement {
@@ -31,27 +32,9 @@ public class CreateIndexStatement implements Statement {
     private List<String> fieldExprs = new ArrayList<String>();
     private IndexType indexType = IndexType.BTREE;
     private boolean ifNotExists;
-
-    // Specific to NGram indexes.
-    private int gramLength;
-
-    // Specific to SIF indexes
-    private double bottomLeftX;
-    private double bottomLeftY;
-    private double topRightX;
-    private double topRightY;
-    private long xCellNum;
-    private long yCellNum;
+    private IndexTypeProperty indexTypeProperty;
 
     public CreateIndexStatement() {
-    }
-
-    public void setGramLength(int gramLength) {
-        this.gramLength = gramLength;
-    }
-
-    public int getGramLength() {
-        return gramLength;
     }
 
     public Identifier getIndexName() {
@@ -117,52 +100,11 @@ public class CreateIndexStatement implements Statement {
         visitor.visit(this, arg);
     }
 
-    public double getBottomLeftX() {
-        return bottomLeftX;
+    public IndexTypeProperty getIndexTypeProperty() {
+        return indexTypeProperty;
     }
 
-    public void setBottomLeftX(double bottomLeftX) {
-        this.bottomLeftX = bottomLeftX;
+    public void setIndexTypeProperty(IndexTypeProperty indexTypeProperty) {
+        this.indexTypeProperty = indexTypeProperty;
     }
-
-    public double getBottomLeftY() {
-        return bottomLeftY;
-    }
-
-    public void setBottomLeftY(double bottomLeftY) {
-        this.bottomLeftY = bottomLeftY;
-    }
-
-    public double getTopRightX() {
-        return topRightX;
-    }
-
-    public void setTopRightX(double topRightX) {
-        this.topRightX = topRightX;
-    }
-
-    public double getTopRightY() {
-        return topRightY;
-    }
-
-    public void setTopRightY(double topRightY) {
-        this.topRightY = topRightY;
-    }
-
-    public long getXCellNum() {
-        return xCellNum;
-    }
-
-    public void setXCellNum(long xCellNum) {
-        this.xCellNum = xCellNum;
-    }
-
-    public long getYCellNum() {
-        return yCellNum;
-    }
-
-    public void setYCellNum(long yCellNum) {
-        this.yCellNum = yCellNum;
-    }
-
 }

@@ -14,9 +14,11 @@
  */
 package edu.uci.ics.asterix.runtime.evaluators.functions;
 
+import edu.uci.ics.asterix.common.config.DatasetConfig.CellBasedSpatialIndex;
 import edu.uci.ics.asterix.dataflow.data.common.SIFBinaryTokenizer;
 import edu.uci.ics.asterix.dataflow.data.nontagged.serde.ADoubleSerializerDeserializer;
-import edu.uci.ics.asterix.dataflow.data.nontagged.serde.AInt64SerializerDeserializer;
+import edu.uci.ics.asterix.dataflow.data.nontagged.serde.AInt16SerializerDeserializer;
+import edu.uci.ics.asterix.dataflow.data.nontagged.serde.AInt32SerializerDeserializer;
 import edu.uci.ics.asterix.om.functions.AsterixBuiltinFunctions;
 import edu.uci.ics.asterix.om.functions.IFunctionDescriptor;
 import edu.uci.ics.asterix.om.functions.IFunctionDescriptorFactory;
@@ -59,26 +61,33 @@ public class SIFTokensDescriptor extends AbstractScalarFunctionDynamicDescriptor
                 ArrayBackedValueStorage outBottomLeftY = new ArrayBackedValueStorage();
                 ArrayBackedValueStorage outTopRightX = new ArrayBackedValueStorage();
                 ArrayBackedValueStorage outTopRightY = new ArrayBackedValueStorage();
-                ArrayBackedValueStorage outXCellNum = new ArrayBackedValueStorage();
-                ArrayBackedValueStorage outYCellNum = new ArrayBackedValueStorage();
+
+                int maxLevel = CellBasedSpatialIndex.MAX_LEVEL.getValue();
+                short[] levelDensity = new short[maxLevel];
+                ArrayBackedValueStorage[] outLevelDensity = new ArrayBackedValueStorage[maxLevel];
+                ArrayBackedValueStorage outCellsPerObject = new ArrayBackedValueStorage();
 
                 args[1].createEvaluator(outBottomLeftX).evaluate(null);
                 args[2].createEvaluator(outBottomLeftY).evaluate(null);
                 args[3].createEvaluator(outTopRightX).evaluate(null);
                 args[4].createEvaluator(outTopRightY).evaluate(null);
-                args[5].createEvaluator(outXCellNum).evaluate(null);
-                args[6].createEvaluator(outYCellNum).evaluate(null);
+                for (int i = 0; i < maxLevel; i++) {
+                    args[5 + i].createEvaluator(outLevelDensity[i]).evaluate(null);
+                }
+                args[5 + maxLevel].createEvaluator(outCellsPerObject).equals(null);
 
                 double bottomLeftX = ADoubleSerializerDeserializer.getDouble(outBottomLeftX.getByteArray(), 1);
                 double bottomLeftY = ADoubleSerializerDeserializer.getDouble(outBottomLeftY.getByteArray(), 1);
                 double topRightX = ADoubleSerializerDeserializer.getDouble(outTopRightX.getByteArray(), 1);
                 double topRightY = ADoubleSerializerDeserializer.getDouble(outTopRightY.getByteArray(), 1);
-                long xCellNum = AInt64SerializerDeserializer.getLong(outXCellNum.getByteArray(), 1);
-                long yCellNum = AInt64SerializerDeserializer.getLong(outYCellNum.getByteArray(), 1);
+                for (int i = 0; i < maxLevel; i++) {
+                    levelDensity[i] = AInt16SerializerDeserializer.getShort(outLevelDensity[i].getByteArray(), 1);
+                }
+                int cellsPerObject = AInt32SerializerDeserializer.getInt(outCellsPerObject.getByteArray(), 1);
 
                 ITokenFactory tokenFactory = new UTF8WordTokenFactory();
                 IBinaryTokenizer tokenizer = new SIFBinaryTokenizer(bottomLeftX, bottomLeftY, topRightX, topRightY,
-                        xCellNum, yCellNum, tokenFactory);
+                        levelDensity, cellsPerObject, tokenFactory);
                 return new WordTokensEvaluator(args, output, tokenizer, BuiltinType.ASTRING);
             }
         };

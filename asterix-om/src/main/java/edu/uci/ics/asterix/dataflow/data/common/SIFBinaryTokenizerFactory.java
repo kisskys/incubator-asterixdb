@@ -26,22 +26,23 @@ public class SIFBinaryTokenizerFactory implements IBinaryTokenizerFactory {
     private final double bottomLeftY;
     private final double topRightX;
     private final double topRightY;
-    private final long xCellNum;
-    private final long yCellNum;
+    private final short[] levelDensity;
+    private final int cellsPerObject;
 
     public SIFBinaryTokenizerFactory(double bottomLeftX, double bottomLeftY, double topRightX, double topRightY,
-            long xCellNum, long yCellNum, ITokenFactory tokenFactory) {
+            short[] levelDensity, int cellsPerObject, ITokenFactory tokenFactory) {
         this.bottomLeftX = bottomLeftX;
         this.bottomLeftY = bottomLeftY;
         this.topRightX = topRightX;
         this.topRightY = topRightY;
-        this.xCellNum = xCellNum;
-        this.yCellNum = yCellNum;
+        this.levelDensity = levelDensity;
+        this.cellsPerObject = cellsPerObject;
         this.tokenFactory = tokenFactory;
     }
 
     @Override
     public IBinaryTokenizer createTokenizer() {
-        return new SIFBinaryTokenizer(bottomLeftX, bottomLeftY, topRightX, topRightY, xCellNum, yCellNum, tokenFactory);
+        return new SIFBinaryTokenizer(bottomLeftX, bottomLeftY, topRightX, topRightY, levelDensity, cellsPerObject,
+                tokenFactory);
     }
 }

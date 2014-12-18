@@ -106,5 +106,4 @@ public interface IOMVisitor {
     public void visitAUUID(AUUID obj) throws AsterixException;
 
     public void visitShortWithoutTypeInfo(ShortWithoutTypeInfo obj) throws AsterixException;
-
 }

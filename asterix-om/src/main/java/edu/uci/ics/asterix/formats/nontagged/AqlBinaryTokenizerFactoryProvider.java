@@ -89,8 +89,8 @@ public class AqlBinaryTokenizerFactoryProvider implements IBinaryTokenizerFactor
     }
 
     public IBinaryTokenizerFactory getSIFTokenizerFactory(ATypeTag keyType, double bottomLeftX, double bottomLeftY,
-            double topRightX, double topRightY, long xCellNum, long yCellNum, boolean hashedTokens) {
-        return new SIFBinaryTokenizerFactory(bottomLeftX, bottomLeftY, topRightX, topRightY, xCellNum, yCellNum,
+            double topRightX, double topRightY, short[] levelDensity, int cellsPerObject, boolean hashedTokens) {
+        return new SIFBinaryTokenizerFactory(bottomLeftX, bottomLeftY, topRightX, topRightY, levelDensity, cellsPerObject,
                 new UTF8WordTokenFactory(ATypeTag.STRING.serialize(), ATypeTag.INT32.serialize()));
     }
 }

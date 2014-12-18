@@ -806,18 +806,16 @@ public class AqlTranslator extends AbstractAqlTranslator {
             }
 
             //#. add a new index with PendingAddOp
-            Index index = new Index(dataverseName, datasetName, indexName, stmtCreateIndex.getIndexType(),
-                    stmtCreateIndex.getFieldExprs(), stmtCreateIndex.getGramLength(), false,
-                    IMetadataEntity.PENDING_ADD_OP, stmtCreateIndex.getBottomLeftX(), stmtCreateIndex.getBottomLeftY(),
-                    stmtCreateIndex.getTopRightX(), stmtCreateIndex.getTopRightY(), stmtCreateIndex.getXCellNum(),
-                    stmtCreateIndex.getYCellNum());
+            Index index = new Index(dataverseName, datasetName, indexName, stmtCreateIndex.getIndexType(), stmtCreateIndex.getIndexTypeProperty(),
+                    stmtCreateIndex.getFieldExprs(), false,
+                    IMetadataEntity.PENDING_ADD_OP 
+                    
+                    );
             MetadataManager.INSTANCE.addIndex(metadataProvider.getMetadataTxnContext(), index);
 
             //#. prepare to create the index artifact in NC.
             CompiledCreateIndexStatement cis = new CompiledCreateIndexStatement(index.getIndexName(), dataverseName,
-                    index.getDatasetName(), index.getKeyFieldNames(), index.getGramLength(), index.getIndexType(),
-                    index.getBottomLeftX(), index.getBottomLeftY(), index.getTopRightX(), index.getTopRightY(),
-                    index.getXCellNum(), index.getYCellNum());
+                    index.getDatasetName(), index.getKeyFieldNames(), index.getIndexType(), index.getIndexTypeProperty());
             spec = IndexOperations.buildSecondaryIndexCreationJobSpec(cis, metadataProvider);
             if (spec == null) {
                 throw new AsterixException("Failed to create job spec for creating index '"
@@ -836,9 +834,7 @@ public class AqlTranslator extends AbstractAqlTranslator {
 
             //#. load data into the index in NC.
             cis = new CompiledCreateIndexStatement(index.getIndexName(), dataverseName, index.getDatasetName(),
-                    index.getKeyFieldNames(), index.getGramLength(), index.getIndexType(), index.getBottomLeftX(),
-                    index.getBottomLeftY(), index.getTopRightX(), index.getTopRightY(), index.getXCellNum(),
-                    index.getYCellNum());
+                    index.getKeyFieldNames(), index.getIndexType(), index.getIndexTypeProperty());
             spec = IndexOperations.buildSecondaryIndexLoadingJobSpec(cis, metadataProvider);
             MetadataManager.INSTANCE.commitTransaction(mdTxnCtx);
             bActiveTxn = false;
@@ -1990,11 +1986,7 @@ public class AqlTranslator extends AbstractAqlTranslator {
                 for (int j = 0; j < indexes.size(); j++) {
                     if (indexes.get(j).isSecondaryIndex()) {
                         CompiledIndexCompactStatement cics = new CompiledIndexCompactStatement(dataverseName,
-                                datasetName, indexes.get(j).getIndexName(), indexes.get(j).getKeyFieldNames(), indexes
-                                        .get(j).getGramLength(), indexes.get(j).getIndexType(), indexes.get(j)
-                                        .getBottomLeftX(), indexes.get(j).getBottomLeftY(), indexes.get(j)
-                                        .getTopRightX(), indexes.get(j).getTopRightY(), indexes.get(j).getXCellNum(),
-                                indexes.get(j).getYCellNum());
+                                datasetName, indexes.get(j).getIndexName(), indexes.get(j).getKeyFieldNames(), indexes.get(j).getIndexType(), null);
                         jobsToExecute
                                 .add(IndexOperations.buildSecondaryIndexCompactJobSpec(cics, metadataProvider, ds));
                     }
@@ -2006,11 +1998,7 @@ public class AqlTranslator extends AbstractAqlTranslator {
                 for (int j = 0; j < indexes.size(); j++) {
                     if (!ExternalIndexingOperations.isFileIndex(indexes.get(j))) {
                         CompiledIndexCompactStatement cics = new CompiledIndexCompactStatement(dataverseName,
-                                datasetName, indexes.get(j).getIndexName(), indexes.get(j).getKeyFieldNames(), indexes
-                                        .get(j).getGramLength(), indexes.get(j).getIndexType(), indexes.get(j)
-                                        .getBottomLeftX(), indexes.get(j).getBottomLeftY(), indexes.get(j)
-                                        .getTopRightX(), indexes.get(j).getTopRightY(), indexes.get(j).getXCellNum(),
-                                indexes.get(j).getYCellNum());
+                                datasetName, indexes.get(j).getIndexName(), indexes.get(j).getKeyFieldNames(), indexes.get(j).getIndexType(), null);
                         jobsToExecute
                                 .add(IndexOperations.buildSecondaryIndexCompactJobSpec(cics, metadataProvider, ds));
                     }

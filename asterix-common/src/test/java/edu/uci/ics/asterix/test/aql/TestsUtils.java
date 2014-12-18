@@ -374,6 +374,9 @@ public class TestsUtils {
 
         List<CompilationUnit> cUnits = testCaseCtx.getTestCase().getCompilationUnit();
         for (CompilationUnit cUnit : cUnits) {
+//            if (!cUnit.getName().contains("load-with-ngram-index")) {
+//                continue;
+//            }
             LOGGER.info("Starting [TEST]: " + testCaseCtx.getTestCase().getFilePath() + "/" + cUnit.getName() + " ... ");
             testFileCtxs = testCaseCtx.getTestFiles(cUnit);
             expectedResultFileCtxs = testCaseCtx.getExpectedResultFiles(cUnit);

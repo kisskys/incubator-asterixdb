@@ -14,6 +14,8 @@
  */
 package edu.uci.ics.asterix.common.config;
 
+import java.io.Serializable;
+
 public class DatasetConfig {
 
     /*
@@ -27,7 +29,7 @@ public class DatasetConfig {
     public enum DatasetType {
         INTERNAL,
         EXTERNAL
-    }
+    };
 
     public enum IndexType {
         BTREE,
@@ -35,8 +37,10 @@ public class DatasetConfig {
         SINGLE_PARTITION_WORD_INVIX,
         SINGLE_PARTITION_NGRAM_INVIX,
         LENGTH_PARTITIONED_WORD_INVIX,
-        LENGTH_PARTITIONED_NGRAM_INVIX
-    }
+        LENGTH_PARTITIONED_NGRAM_INVIX,
+        SIF,
+        STATIC_HILBERT_BTREE
+    };
 
     public enum ExternalDatasetTransactionState {
         COMMIT,         // The committed state <- nothing is required->
@@ -50,4 +54,29 @@ public class DatasetConfig {
         PENDING_DROP_OP,    // the stored file is part of an ongoing transaction (will be dropped if transaction succeed)
         PENDING_APPEND_OP   // the stored file is part of an ongoing transaction (will be updated if transaction succeed)
     };
+    
+    public enum CellBasedSpatialIndex {
+        MAX_LEVEL(4),
+        MIN_CELLS_PER_OBJECT(256),
+        MAX_CELLS_PER_OBJECT(8192),
+        DEFAULT_CELLS_PER_OBJECT(1024);
+        private final int v;
+        CellBasedSpatialIndex(int v) { this.v = v; }
+        public int getValue() { return v; }
+    }
+    
+    public static class IndexTypeProperty implements Serializable {
+        private static final long serialVersionUID = 1L;
+
+        // Specific to NGram indexes.
+        public int gramLength;
+
+        // Specific to cell-based spatial indexes such as multi-level SIF and static Hilbert btree sptial indexes
+        public double bottomLeftX;
+        public double bottomLeftY;
+        public double topRightX;
+        public double topRightY;
+        public short[] levelDensity = new short[CellBasedSpatialIndex.MAX_LEVEL.getValue()];
+        public int cellsPerObject;
+    }
 }

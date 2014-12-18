@@ -34,6 +34,7 @@ import edu.uci.ics.asterix.aql.expression.VariableExpr;
 import edu.uci.ics.asterix.aql.expression.WhereClause;
 import edu.uci.ics.asterix.aql.literal.StringLiteral;
 import edu.uci.ics.asterix.common.config.DatasetConfig.IndexType;
+import edu.uci.ics.asterix.common.config.DatasetConfig.IndexTypeProperty;
 import edu.uci.ics.asterix.common.functions.FunctionConstants;
 import edu.uci.ics.asterix.common.functions.FunctionSignature;
 import edu.uci.ics.asterix.metadata.declared.AqlMetadataProvider;
@@ -199,33 +200,16 @@ public class CompiledStatements {
         protected final String datasetName;
         protected final List<String> keyFields;
         protected final IndexType indexType;
-
-        // Specific to NGram index.
-        protected final int gramLength;
-
-        // Specific to sif index
-        protected final double bottomLeftX;
-        protected final double bottomLeftY;
-        protected final double topRightX;
-        protected final double topRightY;
-        protected final long xCellNum;
-        protected final long yCellNum;
+        protected final IndexTypeProperty indexTypeProperty;
 
         public AbstractCompiledIndexStatement(String indexName, String dataverseName, String datasetName,
-                List<String> keyFields, int gramLength, IndexType indexType, double bottomLeftX, double bottomLeftY,
-                double topRightX, double topRightY, long xCellNum, long yCellNum) {
+                List<String> keyFields, IndexType indexType, IndexTypeProperty indexTypeProperty) {
             this.indexName = indexName;
             this.dataverseName = dataverseName;
             this.datasetName = datasetName;
             this.keyFields = keyFields;
-            this.gramLength = gramLength;
             this.indexType = indexType;
-            this.bottomLeftX = bottomLeftX;
-            this.bottomLeftY = bottomLeftY;
-            this.topRightX = topRightX;
-            this.topRightY = topRightY;
-            this.xCellNum = xCellNum;
-            this.yCellNum = yCellNum;
+            this.indexTypeProperty = indexTypeProperty;
         }
 
         @Override
@@ -250,41 +234,15 @@ public class CompiledStatements {
             return indexType;
         }
 
-        public int getGramLength() {
-            return gramLength;
-        }
-
-        public double getBottomLeftX() {
-            return bottomLeftX;
-        }
-
-        public double getBottomLeftY() {
-            return bottomLeftY;
-        }
-
-        public double getTopRightX() {
-            return topRightX;
-        }
-
-        public double getTopRightY() {
-            return topRightY;
-        }
-
-        public long getXCellNum() {
-            return xCellNum;
-        }
-
-        public long getYCellNum() {
-            return yCellNum;
+        public IndexTypeProperty getIndexTypeProperty() {
+            return indexTypeProperty;
         }
     }
 
     public static class CompiledCreateIndexStatement extends AbstractCompiledIndexStatement {
         public CompiledCreateIndexStatement(String indexName, String dataverseName, String datasetName,
-                List<String> keyFields, int gramLength, IndexType indexType, double bottomLeftX, double bottomLeftY,
-                double topRightX, double topRightY, long xCellNum, long yCellNum) {
-            super(indexName, dataverseName, datasetName, keyFields, gramLength, indexType, bottomLeftX, bottomLeftY,
-                    topRightX, topRightY, xCellNum, yCellNum);
+                List<String> keyFields, IndexType indexType, IndexTypeProperty indexTypeProperty) {
+            super(indexName, dataverseName, datasetName, keyFields, indexType, indexTypeProperty);
         }
 
         @Override
@@ -292,13 +250,11 @@ public class CompiledStatements {
             return Kind.CREATE_INDEX;
         }
     }
-    
+
     public static class CompiledIndexCompactStatement extends AbstractCompiledIndexStatement {
         public CompiledIndexCompactStatement(String dataverseName, String datasetName, String indexName,
-                List<String> keyFields, int gramLength, IndexType indexType, double bottomLeftX, double bottomLeftY,
-                double topRightX, double topRightY, long xCellNum, long yCellNum) {
-            super(indexName, dataverseName, datasetName, keyFields, gramLength, indexType, bottomLeftX, bottomLeftY,
-                    topRightX, topRightY, xCellNum, yCellNum);
+                List<String> keyFields, IndexType indexType, IndexTypeProperty indexTypeProperty) {
+            super(indexName, dataverseName, datasetName, keyFields, indexType, indexTypeProperty);
         }
 
         @Override

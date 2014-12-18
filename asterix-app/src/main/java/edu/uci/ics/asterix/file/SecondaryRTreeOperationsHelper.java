@@ -20,6 +20,7 @@ import edu.uci.ics.asterix.common.api.ILocalResourceMetadata;
 import edu.uci.ics.asterix.common.config.AsterixStorageProperties;
 import edu.uci.ics.asterix.common.config.DatasetConfig.DatasetType;
 import edu.uci.ics.asterix.common.config.DatasetConfig.IndexType;
+import edu.uci.ics.asterix.common.config.DatasetConfig.IndexTypeProperty;
 import edu.uci.ics.asterix.common.config.GlobalConfig;
 import edu.uci.ics.asterix.common.config.IAsterixPropertiesProvider;
 import edu.uci.ics.asterix.common.context.AsterixVirtualBufferCacheProvider;
@@ -165,9 +166,8 @@ public class SecondaryRTreeOperationsHelper extends SecondaryIndexOperationsHelp
     }
 
     @Override
-    protected void setSecondaryRecDescAndComparators(IndexType indexType, List<String> secondaryKeyFields,
-            int gramLength, double bottomLeftX, double bottomLeftY, double topRightX, double topRightY, long xCellNum,
-            long yCellNum, AqlMetadataProvider metadata) throws AlgebricksException, AsterixException {
+    protected void setSecondaryRecDescAndComparators(IndexType indexType, IndexTypeProperty indexTypeProperty,
+            List<String> secondaryKeyFields, AqlMetadataProvider metadata) throws AlgebricksException, AsterixException {
         int numSecondaryKeys = secondaryKeyFields.size();
         if (numSecondaryKeys != 1) {
             throw new AsterixException(

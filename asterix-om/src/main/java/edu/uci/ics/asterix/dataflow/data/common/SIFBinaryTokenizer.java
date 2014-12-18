@@ -53,13 +53,18 @@ public class SIFBinaryTokenizer implements IBinaryTokenizer {
     private static byte[] OOPS_BYTE_ARRAY;
 
     public SIFBinaryTokenizer(double bottomLeftX, double bottomLeftY, double topRightX, double topRightY,
-            long xCellNum, long yCellNum, ITokenFactory tokenFactory) {
+            short[] levelDensity, int cellsPerObject, ITokenFactory tokenFactory) {
         this.bottomLeftX = bottomLeftX;
         this.bottomLeftY = bottomLeftY;
         this.topRightX = topRightX;
         this.topRightY = topRightY;
-        this.xCellNum = xCellNum;
-        this.yCellNum = yCellNum;
+        long cellNum = 1;
+        for (int i = 0; i < levelDensity.length; i++) {
+            cellNum *= levelDensity[i];
+        }
+        this.xCellNum = cellNum;
+        this.yCellNum = cellNum;
+        
         this.xCellSize = (topRightX - bottomLeftX) / xCellNum;
         this.yCellSize = (topRightX - bottomLeftX) / yCellNum;
         this.cellId = new long[2];

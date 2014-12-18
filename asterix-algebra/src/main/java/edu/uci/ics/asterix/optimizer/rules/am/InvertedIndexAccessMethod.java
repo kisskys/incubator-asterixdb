@@ -26,14 +26,16 @@ import org.apache.commons.lang3.mutable.MutableObject;
 import edu.uci.ics.asterix.algebra.base.LogicalOperatorDeepCopyVisitor;
 import edu.uci.ics.asterix.aql.util.FunctionUtils;
 import edu.uci.ics.asterix.common.annotations.SkipSecondaryIndexSearchExpressionAnnotation;
+import edu.uci.ics.asterix.common.config.DatasetConfig.CellBasedSpatialIndex;
 import edu.uci.ics.asterix.common.config.DatasetConfig.IndexType;
+import edu.uci.ics.asterix.common.config.DatasetConfig.IndexTypeProperty;
 import edu.uci.ics.asterix.formats.nontagged.AqlBinaryTokenizerFactoryProvider;
 import edu.uci.ics.asterix.metadata.entities.Dataset;
 import edu.uci.ics.asterix.metadata.entities.Index;
 import edu.uci.ics.asterix.om.base.ADouble;
 import edu.uci.ics.asterix.om.base.AFloat;
+import edu.uci.ics.asterix.om.base.AInt16;
 import edu.uci.ics.asterix.om.base.AInt32;
-import edu.uci.ics.asterix.om.base.AInt64;
 import edu.uci.ics.asterix.om.base.ANull;
 import edu.uci.ics.asterix.om.base.AString;
 import edu.uci.ics.asterix.om.base.IACollection;
@@ -473,27 +475,30 @@ public class InvertedIndexAccessMethod implements IAccessMethod {
                 ArrayList<Mutable<ILogicalExpression>> assignSIFKeyExprList = new ArrayList<Mutable<ILogicalExpression>>();
                 AbstractFunctionCallExpression sifTokens = new ScalarFunctionCallExpression(
                         FunctionUtils.getFunctionInfo(AsterixBuiltinFunctions.SIF_TOKENS));
+                IndexTypeProperty itp = chosenIndex.getIndexTypeProperty();
                 sifTokens.getArguments().add(
                         new MutableObject<ILogicalExpression>(new VariableReferenceExpression(assignRectangleKeyVarList
                                 .get(0))));
                 sifTokens.getArguments().add(
                         new MutableObject<ILogicalExpression>(new ConstantExpression(new AsterixConstantValue(
-                                new ADouble(chosenIndex.getBottomLeftX())))));
+                                new ADouble(itp.bottomLeftX)))));
                 sifTokens.getArguments().add(
                         new MutableObject<ILogicalExpression>(new ConstantExpression(new AsterixConstantValue(
-                                new ADouble(chosenIndex.getBottomLeftY())))));
+                                new ADouble(itp.bottomLeftY)))));
                 sifTokens.getArguments().add(
                         new MutableObject<ILogicalExpression>(new ConstantExpression(new AsterixConstantValue(
-                                new ADouble(chosenIndex.getTopRightX())))));
+                                new ADouble(itp.topRightX)))));
                 sifTokens.getArguments().add(
                         new MutableObject<ILogicalExpression>(new ConstantExpression(new AsterixConstantValue(
-                                new ADouble(chosenIndex.getTopRightY())))));
+                                new ADouble(itp.topRightY)))));
+                for (int i = 0; i < CellBasedSpatialIndex.MAX_LEVEL.getValue(); i++) {
+                    sifTokens.getArguments().add(
+                            new MutableObject<ILogicalExpression>(new ConstantExpression(new AsterixConstantValue(
+                                    new AInt16(itp.levelDensity[i])))));
+                }
                 sifTokens.getArguments().add(
                         new MutableObject<ILogicalExpression>(new ConstantExpression(new AsterixConstantValue(
-                                new AInt64(chosenIndex.getXCellNum())))));
-                sifTokens.getArguments().add(
-                        new MutableObject<ILogicalExpression>(new ConstantExpression(new AsterixConstantValue(
-                                new AInt64(chosenIndex.getYCellNum())))));
+                                new AInt32(itp.cellsPerObject)))));
                 assignSIFKeyVarList.add(context.newVar());
                 assignSIFKeyExprList.add(new MutableObject<ILogicalExpression>(sifTokens));
                 AssignOperator assignOpSIFTokens = new AssignOperator(assignSIFKeyVarList, assignSIFKeyExprList);
@@ -857,7 +862,7 @@ public class InvertedIndexAccessMethod implements IAccessMethod {
                 isFilterableArgs.add(new MutableObject<ILogicalExpression>(new ConstantExpression(optFuncExpr
                         .getConstantVal(0))));
                 isFilterableArgs.add(new MutableObject<ILogicalExpression>(AccessMethodUtils
-                        .createInt32Constant(chosenIndex.getGramLength())));
+                        .createInt32Constant(chosenIndex.getIndexTypeProperty().gramLength)));
                 boolean usePrePost = optFuncExpr.containsPartialField() ? false : true;
                 isFilterableArgs.add(new MutableObject<ILogicalExpression>(AccessMethodUtils
                         .createBooleanConstant(usePrePost)));
@@ -1051,13 +1056,14 @@ public class InvertedIndexAccessMethod implements IAccessMethod {
 
         if (typeTag == ATypeTag.STRING) {
             AString astr = (AString) listOrStrObj;
+            int gramLength = index.getIndexTypeProperty().gramLength;
             // Compute merge threshold depending on the query grams contain pre- and postfixing
             if (optFuncExpr.containsPartialField()) {
-                mergeThreshold = (astr.getStringValue().length() - index.getGramLength() + 1)
-                        - edThresh.getIntegerValue() * index.getGramLength();
+                mergeThreshold = (astr.getStringValue().length() - gramLength + 1)
+                        - edThresh.getIntegerValue() * gramLength;
             } else {
-                mergeThreshold = (astr.getStringValue().length() + index.getGramLength() - 1)
-                        - edThresh.getIntegerValue() * index.getGramLength();
+                mergeThreshold = (astr.getStringValue().length() + gramLength - 1)
+                        - edThresh.getIntegerValue() * gramLength;
             }
         }
 
@@ -1203,7 +1209,7 @@ public class InvertedIndexAccessMethod implements IAccessMethod {
         // Check that the constant search string has at least gramLength characters.
         if (strObj.getType().getTypeTag() == ATypeTag.STRING) {
             AString astr = (AString) strObj;
-            if (astr.getStringValue().length() >= index.getGramLength()) {
+            if (astr.getStringValue().length() >= index.getIndexTypeProperty().gramLength) {
                 return true;
             }
         }
@@ -1253,14 +1259,15 @@ public class InvertedIndexAccessMethod implements IAccessMethod {
 
     public static IBinaryTokenizerFactory getBinaryTokenizerFactory(SearchModifierType searchModifierType,
             ATypeTag searchKeyType, Index index) throws AlgebricksException {
+        IndexTypeProperty itp = index.getIndexTypeProperty();
         switch (index.getIndexType()) {
             case SINGLE_PARTITION_WORD_INVIX:
             case LENGTH_PARTITIONED_WORD_INVIX: {
                 switch (searchKeyType) {
                     case POINT:
                         return AqlBinaryTokenizerFactoryProvider.INSTANCE.getSIFTokenizerFactory(searchKeyType,
-                                index.getBottomLeftX(), index.getBottomLeftY(), index.getTopRightX(),
-                                index.getTopRightY(), index.getXCellNum(), index.getYCellNum(), false);
+                                itp.bottomLeftX, itp.bottomLeftY, itp.topRightX, itp.topRightY, itp.levelDensity,
+                                itp.cellsPerObject, false);
                     default:
                         return AqlBinaryTokenizerFactoryProvider.INSTANCE.getWordTokenizerFactory(searchKeyType, false);
                 }
@@ -1271,7 +1278,7 @@ public class InvertedIndexAccessMethod implements IAccessMethod {
                 boolean prePost = (searchModifierType == SearchModifierType.CONJUNCTIVE || searchModifierType == SearchModifierType.CONJUNCTIVE_EDIT_DISTANCE) ? false
                         : true;
                 return AqlBinaryTokenizerFactoryProvider.INSTANCE.getNGramTokenizerFactory(searchKeyType,
-                        index.getGramLength(), prePost, false);
+                        itp.gramLength, prePost, false);
             }
             default: {
                 throw new AlgebricksException("Tokenizer not applicable to index kind '" + index.getIndexType() + "'.");
@@ -1297,9 +1304,9 @@ public class InvertedIndexAccessMethod implements IAccessMethod {
                     case LENGTH_PARTITIONED_NGRAM_INVIX: {
                         // Edit distance on strings, filtered with overlapping grams.
                         if (searchModifierType == SearchModifierType.EDIT_DISTANCE) {
-                            return new EditDistanceSearchModifierFactory(index.getGramLength(), edThresh);
+                            return new EditDistanceSearchModifierFactory(index.getIndexTypeProperty().gramLength, edThresh);
                         } else {
-                            return new ConjunctiveEditDistanceSearchModifierFactory(index.getGramLength(), edThresh);
+                            return new ConjunctiveEditDistanceSearchModifierFactory(index.getIndexTypeProperty().gramLength, edThresh);
                         }
                     }
                     case SINGLE_PARTITION_WORD_INVIX:

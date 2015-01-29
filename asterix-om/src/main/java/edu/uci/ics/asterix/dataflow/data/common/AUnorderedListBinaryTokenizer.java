@@ -16,7 +16,7 @@ package edu.uci.ics.asterix.dataflow.data.common;
 
 import edu.uci.ics.asterix.common.exceptions.AsterixException;
 import edu.uci.ics.asterix.dataflow.data.nontagged.serde.AUnorderedListSerializerDeserializer;
-import edu.uci.ics.hyracks.storage.am.lsm.invertedindex.tokenizers.ITokenFactory;
+import edu.uci.ics.hyracks.storage.am.common.api.ITokenFactory;
 
 public class AUnorderedListBinaryTokenizer extends AOrderedListBinaryTokenizer {
 

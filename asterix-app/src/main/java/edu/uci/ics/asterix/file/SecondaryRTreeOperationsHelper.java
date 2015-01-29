@@ -166,7 +166,7 @@ public class SecondaryRTreeOperationsHelper extends SecondaryIndexOperationsHelp
     }
 
     @Override
-    protected void setSecondaryRecDescAndComparators(IndexType indexType, IndexTypeProperty indexTypeProperty,
+    public void setSecondaryRecDescAndComparators(IndexType indexType, IndexTypeProperty indexTypeProperty,
             List<String> secondaryKeyFields, AqlMetadataProvider metadata) throws AlgebricksException, AsterixException {
         int numSecondaryKeys = secondaryKeyFields.size();
         if (numSecondaryKeys != 1) {

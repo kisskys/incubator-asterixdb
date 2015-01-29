@@ -24,6 +24,7 @@ import edu.uci.ics.asterix.common.transactions.IAsterixAppRuntimeContextProvider
 import edu.uci.ics.hyracks.api.dataflow.value.IBinaryComparatorFactory;
 import edu.uci.ics.hyracks.api.dataflow.value.ITypeTraits;
 import edu.uci.ics.hyracks.api.io.FileReference;
+import edu.uci.ics.hyracks.storage.am.common.api.IBinaryTokenizerFactory;
 import edu.uci.ics.hyracks.storage.am.lsm.btree.impls.LSMBTree;
 import edu.uci.ics.hyracks.storage.am.lsm.btree.util.LSMBTreeUtils;
 import edu.uci.ics.hyracks.storage.am.lsm.common.api.ILSMIndex;
@@ -35,9 +36,9 @@ public class ExternalBTreeLocalResourceMetadata extends LSMBTreeLocalResourceMet
 
     public ExternalBTreeLocalResourceMetadata(ITypeTraits[] typeTraits, IBinaryComparatorFactory[] cmpFactories,
             int[] bloomFilterKeyFields, boolean isPrimary, int datasetID, ILSMMergePolicyFactory mergePolicyFactory,
-            Map<String, String> mergePolicyProperties) {
+            Map<String, String> mergePolicyProperties, IBinaryTokenizerFactory tokenizerFactory) {
         super(typeTraits, cmpFactories, bloomFilterKeyFields, isPrimary, datasetID, mergePolicyFactory,
-                mergePolicyProperties, null, null, null, null);
+                mergePolicyProperties, null, null, null, null, tokenizerFactory);
     }
 
     @Override
@@ -50,7 +51,7 @@ public class ExternalBTreeLocalResourceMetadata extends LSMBTreeLocalResourceMet
                         mergePolicyProperties, runtimeContextProvider.getIndexLifecycleManager()),
                 new BaseOperationTracker((DatasetLifecycleManager) runtimeContextProvider.getIndexLifecycleManager(),
                         datasetID), runtimeContextProvider.getLSMIOScheduler(),
-                LSMBTreeIOOperationCallbackFactory.INSTANCE.createIOOperationCallback(), -1);
+                LSMBTreeIOOperationCallbackFactory.INSTANCE.createIOOperationCallback(), -1, tokenizerFactory);
         return lsmBTree;
     }
 }

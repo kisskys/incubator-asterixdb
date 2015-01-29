@@ -14,17 +14,29 @@
  */
 package edu.uci.ics.asterix.file;
 
+import java.util.List;
+
 import edu.uci.ics.asterix.common.api.ILocalResourceMetadata;
 import edu.uci.ics.asterix.common.config.AsterixStorageProperties;
 import edu.uci.ics.asterix.common.config.DatasetConfig.DatasetType;
+import edu.uci.ics.asterix.common.config.DatasetConfig.IndexType;
+import edu.uci.ics.asterix.common.config.DatasetConfig.IndexTypeProperty;
 import edu.uci.ics.asterix.common.config.GlobalConfig;
 import edu.uci.ics.asterix.common.config.IAsterixPropertiesProvider;
+import edu.uci.ics.asterix.common.config.OptimizationConfUtil;
 import edu.uci.ics.asterix.common.context.AsterixVirtualBufferCacheProvider;
 import edu.uci.ics.asterix.common.exceptions.AsterixException;
 import edu.uci.ics.asterix.common.ioopcallbacks.LSMBTreeIOOperationCallbackFactory;
 import edu.uci.ics.asterix.common.ioopcallbacks.LSMBTreeWithBuddyIOOperationCallbackFactory;
+import edu.uci.ics.asterix.dataflow.data.common.SpatialCellBinaryTokenizerFactory;
+import edu.uci.ics.asterix.formats.nontagged.AqlBinaryComparatorFactoryProvider;
+import edu.uci.ics.asterix.metadata.declared.AqlMetadataProvider;
+import edu.uci.ics.asterix.metadata.entities.Index;
+import edu.uci.ics.asterix.metadata.external.IndexingConstants;
 import edu.uci.ics.asterix.metadata.feeds.ExternalDataScanOperatorDescriptor;
 import edu.uci.ics.asterix.metadata.utils.ExternalDatasetsRegistry;
+import edu.uci.ics.asterix.om.types.ATypeTag;
+import edu.uci.ics.asterix.om.types.IAType;
 import edu.uci.ics.asterix.transaction.management.opcallbacks.SecondaryIndexOperationTrackerProvider;
 import edu.uci.ics.asterix.transaction.management.resource.ExternalBTreeWithBuddyLocalResourceMetadata;
 import edu.uci.ics.asterix.transaction.management.resource.LSMBTreeLocalResourceMetadata;
@@ -32,25 +44,34 @@ import edu.uci.ics.asterix.transaction.management.resource.PersistentLocalResour
 import edu.uci.ics.asterix.transaction.management.service.transaction.AsterixRuntimeComponentsProvider;
 import edu.uci.ics.hyracks.algebricks.common.constraints.AlgebricksPartitionConstraintHelper;
 import edu.uci.ics.hyracks.algebricks.common.exceptions.AlgebricksException;
+import edu.uci.ics.hyracks.algebricks.common.utils.Pair;
 import edu.uci.ics.hyracks.algebricks.core.jobgen.impl.ConnectorPolicyAssignmentPolicy;
 import edu.uci.ics.hyracks.algebricks.core.rewriter.base.PhysicalOptimizationConfig;
+import edu.uci.ics.hyracks.algebricks.data.IBinaryComparatorFactoryProvider;
+import edu.uci.ics.hyracks.algebricks.data.ISerializerDeserializerProvider;
+import edu.uci.ics.hyracks.algebricks.data.ITypeTraitProvider;
+import edu.uci.ics.hyracks.algebricks.runtime.base.ICopyEvaluatorFactory;
 import edu.uci.ics.hyracks.algebricks.runtime.base.IPushRuntimeFactory;
 import edu.uci.ics.hyracks.algebricks.runtime.operators.base.SinkRuntimeFactory;
 import edu.uci.ics.hyracks.algebricks.runtime.operators.meta.AlgebricksMetaOperatorDescriptor;
 import edu.uci.ics.hyracks.algebricks.runtime.operators.std.EmptyTupleSourceRuntimeFactory;
 import edu.uci.ics.hyracks.api.dataflow.IOperatorDescriptor;
+import edu.uci.ics.hyracks.api.dataflow.value.IBinaryComparatorFactory;
 import edu.uci.ics.hyracks.api.dataflow.value.ISerializerDeserializer;
+import edu.uci.ics.hyracks.api.dataflow.value.ITypeTraits;
 import edu.uci.ics.hyracks.api.dataflow.value.RecordDescriptor;
 import edu.uci.ics.hyracks.api.job.JobSpecification;
 import edu.uci.ics.hyracks.dataflow.std.base.AbstractOperatorDescriptor;
 import edu.uci.ics.hyracks.dataflow.std.connectors.OneToOneConnectorDescriptor;
 import edu.uci.ics.hyracks.dataflow.std.sort.ExternalSortOperatorDescriptor;
 import edu.uci.ics.hyracks.storage.am.btree.dataflow.BTreeSearchOperatorDescriptor;
+import edu.uci.ics.hyracks.storage.am.common.api.IBinaryTokenizerFactory;
 import edu.uci.ics.hyracks.storage.am.common.dataflow.AbstractTreeIndexOperatorDescriptor;
 import edu.uci.ics.hyracks.storage.am.common.dataflow.IIndexDataflowHelperFactory;
 import edu.uci.ics.hyracks.storage.am.common.dataflow.TreeIndexBulkLoadOperatorDescriptor;
 import edu.uci.ics.hyracks.storage.am.common.dataflow.TreeIndexCreateOperatorDescriptor;
 import edu.uci.ics.hyracks.storage.am.common.impls.NoOpOperationCallbackFactory;
+import edu.uci.ics.hyracks.storage.am.common.tokenizer.NonTaggedByteArrayTokenFactory;
 import edu.uci.ics.hyracks.storage.am.lsm.btree.dataflow.ExternalBTreeWithBuddyDataflowHelperFactory;
 import edu.uci.ics.hyracks.storage.am.lsm.btree.dataflow.LSMBTreeDataflowHelperFactory;
 import edu.uci.ics.hyracks.storage.am.lsm.common.dataflow.LSMTreeIndexCompactOperatorDescriptor;
@@ -59,24 +80,100 @@ import edu.uci.ics.hyracks.storage.common.file.LocalResource;
 
 public class SecondaryBTreeOperationsHelper extends SecondaryIndexOperationsHelper {
 
+    private IBinaryTokenizerFactory tokenizerFactory = null;
+
     protected SecondaryBTreeOperationsHelper(PhysicalOptimizationConfig physOptConf,
             IAsterixPropertiesProvider propertiesProvider) {
         super(physOptConf, propertiesProvider);
     }
 
     @Override
+    public void setSecondaryRecDescAndComparators(IndexType indexType, IndexTypeProperty indexTypeProperty,
+            List<String> secondaryKeyFields, AqlMetadataProvider metadataProvider) throws AlgebricksException,
+            AsterixException {
+        if (indexType == IndexType.STATIC_HILBERT_BTREE) {
+            tokenizerFactory = new SpatialCellBinaryTokenizerFactory(indexTypeProperty.bottomLeftX,
+                    indexTypeProperty.bottomLeftY, indexTypeProperty.topRightX, indexTypeProperty.topRightY,
+                    indexTypeProperty.levelDensity, indexTypeProperty.cellsPerObject,
+                    new NonTaggedByteArrayTokenFactory(), OptimizationConfUtil.getPhysicalOptimizationConfig()
+                            .getFrameSize(), false);
+        }
+        secondaryFieldAccessEvalFactories = new ICopyEvaluatorFactory[numSecondaryKeys + numFilterFields];
+        if (indexType == IndexType.RTREE) {
+            secondaryComparatorFactories = new IBinaryComparatorFactory[numSecondaryKeys];
+        } else {
+            secondaryComparatorFactories = new IBinaryComparatorFactory[numSecondaryKeys + numPrimaryKeys];
+        }
+        secondaryBloomFilterKeyFields = new int[numSecondaryKeys];
+        ISerializerDeserializer[] secondaryRecFields = new ISerializerDeserializer[numPrimaryKeys + numSecondaryKeys
+                + numFilterFields];
+        secondaryTypeTraits = new ITypeTraits[numSecondaryKeys + numPrimaryKeys];
+        ISerializerDeserializerProvider serdeProvider = metadataProvider.getFormat().getSerdeProvider();
+        ITypeTraitProvider typeTraitProvider = metadataProvider.getFormat().getTypeTraitProvider();
+        IBinaryComparatorFactoryProvider comparatorFactoryProvider = metadataProvider.getFormat()
+                .getBinaryComparatorFactoryProvider();
+        // Record column is 0 for external datasets, numPrimaryKeys for internal ones
+        int recordColumn = dataset.getDatasetType() == DatasetType.INTERNAL ? numPrimaryKeys : 0;
+        for (int i = 0; i < numSecondaryKeys; i++) {
+            secondaryFieldAccessEvalFactories[i] = metadataProvider.getFormat().getFieldAccessEvaluatorFactory(
+                    itemType, secondaryKeyFields.get(i), recordColumn);
+            Pair<IAType, Boolean> keyTypePair = Index.getNonNullableKeyFieldType(secondaryKeyFields.get(i), itemType);
+            IAType keyType = keyTypePair.first;
+            anySecondaryKeyIsNullable = anySecondaryKeyIsNullable || keyTypePair.second;
+            ISerializerDeserializer keySerde = serdeProvider.getSerializerDeserializer(keyType);
+            secondaryRecFields[i] = keySerde;
+            if (indexType == IndexType.BTREE && keyType.getTypeTag() == ATypeTag.POINT) {
+                secondaryComparatorFactories[i] = AqlBinaryComparatorFactoryProvider.INSTANCE
+                        .getHilbertBinaryComparatorFactory(keyType, true);
+            } else {
+                secondaryComparatorFactories[i] = comparatorFactoryProvider.getBinaryComparatorFactory(keyType, true);
+            }
+            secondaryTypeTraits[i] = typeTraitProvider.getTypeTrait(keyType);
+            secondaryBloomFilterKeyFields[i] = i;
+        }
+        if (dataset.getDatasetType() == DatasetType.INTERNAL) {
+            // Add serializers and comparators for primary index fields.
+            for (int i = 0; i < numPrimaryKeys; i++) {
+                secondaryRecFields[numSecondaryKeys + i] = primaryRecDesc.getFields()[i];
+                secondaryTypeTraits[numSecondaryKeys + i] = primaryRecDesc.getTypeTraits()[i];
+                if (indexType != IndexType.RTREE) {
+                    secondaryComparatorFactories[numSecondaryKeys + i] = primaryComparatorFactories[i];
+                }
+            }
+        } else {
+            // Add serializers and comparators for RID fields.
+            for (int i = 0; i < numPrimaryKeys; i++) {
+                secondaryRecFields[numSecondaryKeys + i] = IndexingConstants.getSerializerDeserializer(i);
+                secondaryTypeTraits[numSecondaryKeys + i] = IndexingConstants.getTypeTraits(i);
+                if (indexType != IndexType.RTREE) {
+                    secondaryComparatorFactories[numSecondaryKeys + i] = IndexingConstants.getComparatorFactory(i);
+                }
+            }
+        }
+        if (numFilterFields > 0) {
+            secondaryFieldAccessEvalFactories[numSecondaryKeys] = metadataProvider.getFormat()
+                    .getFieldAccessEvaluatorFactory(itemType, filterFieldName, numPrimaryKeys);
+            Pair<IAType, Boolean> keyTypePair = Index.getNonNullableKeyFieldType(filterFieldName, itemType);
+            IAType type = keyTypePair.first;
+            ISerializerDeserializer serde = serdeProvider.getSerializerDeserializer(type);
+            secondaryRecFields[numPrimaryKeys + numSecondaryKeys] = serde;
+        }
+        secondaryRecDesc = new RecordDescriptor(secondaryRecFields);
+    }
+
+    @Override
     public JobSpecification buildCreationJobSpec() throws AsterixException, AlgebricksException {
         JobSpecification spec = JobSpecificationUtils.createJobSpecification();
-
         AsterixStorageProperties storageProperties = propertiesProvider.getStorageProperties();
         ILocalResourceFactoryProvider localResourceFactoryProvider;
         IIndexDataflowHelperFactory indexDataflowHelperFactory;
+
         if (dataset.getDatasetType() == DatasetType.INTERNAL) {
             //prepare a LocalResourceMetadata which will be stored in NC's local resource repository
             ILocalResourceMetadata localResourceMetadata = new LSMBTreeLocalResourceMetadata(secondaryTypeTraits,
                     secondaryComparatorFactories, secondaryBloomFilterKeyFields, true, dataset.getDatasetId(),
                     mergePolicyFactory, mergePolicyFactoryProperties, filterTypeTraits, filterCmpFactories,
-                    secondaryBTreeFields, secondaryFilterFields);
+                    secondaryBTreeFields, secondaryFilterFields, tokenizerFactory);
             localResourceFactoryProvider = new PersistentLocalResourceFactoryProvider(localResourceMetadata,
                     LocalResource.LSMBTreeResource);
             indexDataflowHelperFactory = new LSMBTreeDataflowHelperFactory(new AsterixVirtualBufferCacheProvider(
@@ -84,13 +181,13 @@ public class SecondaryBTreeOperationsHelper extends SecondaryIndexOperationsHelp
                     new SecondaryIndexOperationTrackerProvider(dataset.getDatasetId()),
                     AsterixRuntimeComponentsProvider.RUNTIME_PROVIDER, LSMBTreeIOOperationCallbackFactory.INSTANCE,
                     storageProperties.getBloomFilterFalsePositiveRate(), false, filterTypeTraits, filterCmpFactories,
-                    secondaryBTreeFields, secondaryFilterFields);
+                    secondaryBTreeFields, secondaryFilterFields, tokenizerFactory);
         } else {
             // External dataset local resource and dataflow helper
             int[] buddyBreeFields = new int[] { numSecondaryKeys };
             ILocalResourceMetadata localResourceMetadata = new ExternalBTreeWithBuddyLocalResourceMetadata(
                     dataset.getDatasetId(), secondaryComparatorFactories, secondaryTypeTraits, mergePolicyFactory,
-                    mergePolicyFactoryProperties, buddyBreeFields);
+                    mergePolicyFactoryProperties, buddyBreeFields, tokenizerFactory);
             localResourceFactoryProvider = new PersistentLocalResourceFactoryProvider(localResourceMetadata,
                     LocalResource.ExternalBTreeWithBuddyResource);
             indexDataflowHelperFactory = new ExternalBTreeWithBuddyDataflowHelperFactory(mergePolicyFactory,
@@ -98,7 +195,7 @@ public class SecondaryBTreeOperationsHelper extends SecondaryIndexOperationsHelp
                     AsterixRuntimeComponentsProvider.RUNTIME_PROVIDER,
                     LSMBTreeWithBuddyIOOperationCallbackFactory.INSTANCE,
                     storageProperties.getBloomFilterFalsePositiveRate(), buddyBreeFields,
-                    ExternalDatasetsRegistry.INSTANCE.getDatasetVersion(dataset));
+                    ExternalDatasetsRegistry.INSTANCE.getDatasetVersion(dataset), tokenizerFactory);
         }
         TreeIndexCreateOperatorDescriptor secondaryIndexCreateOp = new TreeIndexCreateOperatorDescriptor(spec,
                 AsterixRuntimeComponentsProvider.RUNTIME_PROVIDER, AsterixRuntimeComponentsProvider.RUNTIME_PROVIDER,
@@ -148,7 +245,7 @@ public class SecondaryBTreeOperationsHelper extends SecondaryIndexOperationsHelp
                             dataset.getDatasetId()), AsterixRuntimeComponentsProvider.RUNTIME_PROVIDER,
                     LSMBTreeWithBuddyIOOperationCallbackFactory.INSTANCE,
                     storageProperties.getBloomFilterFalsePositiveRate(), new int[] { numSecondaryKeys },
-                    ExternalDatasetsRegistry.INSTANCE.getDatasetVersion(dataset));
+                    ExternalDatasetsRegistry.INSTANCE.getDatasetVersion(dataset), tokenizerFactory);
             IOperatorDescriptor root;
             if (externalFiles != null) {
                 // Transaction load
@@ -210,7 +307,8 @@ public class SecondaryBTreeOperationsHelper extends SecondaryIndexOperationsHelp
                             AsterixRuntimeComponentsProvider.RUNTIME_PROVIDER,
                             LSMBTreeIOOperationCallbackFactory.INSTANCE, storageProperties
                                     .getBloomFilterFalsePositiveRate(), false, filterTypeTraits, filterCmpFactories,
-                            secondaryBTreeFields, secondaryFilterFields), GlobalConfig.DEFAULT_TREE_FILL_FACTOR);
+                            secondaryBTreeFields, secondaryFilterFields, tokenizerFactory),
+                    GlobalConfig.DEFAULT_TREE_FILL_FACTOR);
 
             AlgebricksMetaOperatorDescriptor metaOp = new AlgebricksMetaOperatorDescriptor(spec, 1, 0,
                     new IPushRuntimeFactory[] { new SinkRuntimeFactory() }, new RecordDescriptor[] { secondaryRecDesc });
@@ -251,7 +349,7 @@ public class SecondaryBTreeOperationsHelper extends SecondaryIndexOperationsHelp
                                     dataset.getDatasetId()), AsterixRuntimeComponentsProvider.RUNTIME_PROVIDER,
                             LSMBTreeIOOperationCallbackFactory.INSTANCE,
                             storageProperties.getBloomFilterFalsePositiveRate(), false, filterTypeTraits,
-                            filterCmpFactories, secondaryBTreeFields, secondaryFilterFields),
+                            filterCmpFactories, secondaryBTreeFields, secondaryFilterFields, tokenizerFactory),
                     NoOpOperationCallbackFactory.INSTANCE);
         } else {
             // External dataset
@@ -264,7 +362,7 @@ public class SecondaryBTreeOperationsHelper extends SecondaryIndexOperationsHelp
                             AsterixRuntimeComponentsProvider.RUNTIME_PROVIDER,
                             LSMBTreeWithBuddyIOOperationCallbackFactory.INSTANCE, storageProperties
                                     .getBloomFilterFalsePositiveRate(), new int[] { numSecondaryKeys },
-                            ExternalDatasetsRegistry.INSTANCE.getDatasetVersion(dataset)),
+                            ExternalDatasetsRegistry.INSTANCE.getDatasetVersion(dataset), tokenizerFactory),
                     NoOpOperationCallbackFactory.INSTANCE);
         }
         AlgebricksPartitionConstraintHelper.setPartitionConstraintInJobSpec(spec, compactOp,

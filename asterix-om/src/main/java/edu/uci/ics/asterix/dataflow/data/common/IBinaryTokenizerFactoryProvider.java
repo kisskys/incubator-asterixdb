@@ -15,7 +15,7 @@
 package edu.uci.ics.asterix.dataflow.data.common;
 
 import edu.uci.ics.asterix.om.types.ATypeTag;
-import edu.uci.ics.hyracks.storage.am.lsm.invertedindex.tokenizers.IBinaryTokenizerFactory;
+import edu.uci.ics.hyracks.storage.am.common.api.IBinaryTokenizerFactory;
 
 public interface IBinaryTokenizerFactoryProvider {
     public IBinaryTokenizerFactory getWordTokenizerFactory(ATypeTag typeTag, boolean hashedTokens);

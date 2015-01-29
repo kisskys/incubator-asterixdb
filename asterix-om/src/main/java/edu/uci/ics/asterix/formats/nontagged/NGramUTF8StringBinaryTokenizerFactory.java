@@ -15,10 +15,10 @@
 
 package edu.uci.ics.asterix.formats.nontagged;
 
-import edu.uci.ics.hyracks.storage.am.lsm.invertedindex.tokenizers.IBinaryTokenizer;
-import edu.uci.ics.hyracks.storage.am.lsm.invertedindex.tokenizers.IBinaryTokenizerFactory;
-import edu.uci.ics.hyracks.storage.am.lsm.invertedindex.tokenizers.ITokenFactory;
-import edu.uci.ics.hyracks.storage.am.lsm.invertedindex.tokenizers.NGramUTF8StringBinaryTokenizer;
+import edu.uci.ics.hyracks.storage.am.common.api.IBinaryTokenizer;
+import edu.uci.ics.hyracks.storage.am.common.api.IBinaryTokenizerFactory;
+import edu.uci.ics.hyracks.storage.am.common.api.ITokenFactory;
+import edu.uci.ics.hyracks.storage.am.common.tokenizer.NGramUTF8StringBinaryTokenizer;
 
 // TODO: Should be moved into Hyracks with the rest of the tokenizer code.
 public class NGramUTF8StringBinaryTokenizerFactory implements IBinaryTokenizerFactory {

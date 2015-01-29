@@ -101,7 +101,6 @@ import edu.uci.ics.hyracks.storage.am.lsm.common.api.ILSMMergePolicyFactory;
 // not just for creation.
 public abstract class SecondaryIndexOperationsHelper {
     protected final PhysicalOptimizationConfig physOptConf;
-
     protected int numPrimaryKeys;
     protected int numSecondaryKeys;
     protected AqlMetadataProvider metadataProvider;
@@ -155,7 +154,8 @@ public abstract class SecondaryIndexOperationsHelper {
         IAsterixPropertiesProvider asterixPropertiesProvider = AsterixAppContextInfo.getInstance();
         SecondaryIndexOperationsHelper indexOperationsHelper = null;
         switch (indexType) {
-            case BTREE: {
+            case BTREE: 
+            case STATIC_HILBERT_BTREE: {
                 indexOperationsHelper = new SecondaryBTreeOperationsHelper(physOptConf, asterixPropertiesProvider);
                 break;
             }
@@ -179,6 +179,9 @@ public abstract class SecondaryIndexOperationsHelper {
                 metadataProvider);
         return indexOperationsHelper;
     }
+    
+    public abstract void setSecondaryRecDescAndComparators(IndexType indexType, IndexTypeProperty indexTypeProperty,
+            List<String> secondaryKeyFields, AqlMetadataProvider metadataProvider) throws AlgebricksException, AsterixException;
 
     public abstract JobSpecification buildCreationJobSpec() throws AsterixException, AlgebricksException;
 
@@ -288,70 +291,6 @@ public abstract class SecondaryIndexOperationsHelper {
         primaryRecDesc = new RecordDescriptor(primaryRecFields, primaryTypeTraits);
     }
 
-    protected void setSecondaryRecDescAndComparators(IndexType indexType, IndexTypeProperty indexTypeProperty,
-            List<String> secondaryKeyFields, AqlMetadataProvider metadataProvider) throws AlgebricksException, AsterixException {
-        secondaryFieldAccessEvalFactories = new ICopyEvaluatorFactory[numSecondaryKeys + numFilterFields];
-        if (indexType == IndexType.RTREE) {
-            secondaryComparatorFactories = new IBinaryComparatorFactory[numSecondaryKeys];
-        } else {
-            secondaryComparatorFactories = new IBinaryComparatorFactory[numSecondaryKeys + numPrimaryKeys];
-        }
-        secondaryBloomFilterKeyFields = new int[numSecondaryKeys];
-        ISerializerDeserializer[] secondaryRecFields = new ISerializerDeserializer[numPrimaryKeys + numSecondaryKeys
-                + numFilterFields];
-        secondaryTypeTraits = new ITypeTraits[numSecondaryKeys + numPrimaryKeys];
-        ISerializerDeserializerProvider serdeProvider = metadataProvider.getFormat().getSerdeProvider();
-        ITypeTraitProvider typeTraitProvider = metadataProvider.getFormat().getTypeTraitProvider();
-        IBinaryComparatorFactoryProvider comparatorFactoryProvider = metadataProvider.getFormat()
-                .getBinaryComparatorFactoryProvider();
-        // Record column is 0 for external datasets, numPrimaryKeys for internal ones
-        int recordColumn = dataset.getDatasetType() == DatasetType.INTERNAL ? numPrimaryKeys : 0;
-        for (int i = 0; i < numSecondaryKeys; i++) {
-            secondaryFieldAccessEvalFactories[i] = metadataProvider.getFormat().getFieldAccessEvaluatorFactory(
-                    itemType, secondaryKeyFields.get(i), recordColumn);
-            Pair<IAType, Boolean> keyTypePair = Index.getNonNullableKeyFieldType(secondaryKeyFields.get(i), itemType);
-            IAType keyType = keyTypePair.first;
-            anySecondaryKeyIsNullable = anySecondaryKeyIsNullable || keyTypePair.second;
-            ISerializerDeserializer keySerde = serdeProvider.getSerializerDeserializer(keyType);
-            secondaryRecFields[i] = keySerde;
-            if (indexType == IndexType.BTREE && keyType.getTypeTag() == ATypeTag.POINT) {
-                secondaryComparatorFactories[i] = AqlBinaryComparatorFactoryProvider.INSTANCE
-                        .getHilbertBinaryComparatorFactory(keyType, true);
-            } else {
-                secondaryComparatorFactories[i] = comparatorFactoryProvider.getBinaryComparatorFactory(keyType, true);
-            }
-            secondaryTypeTraits[i] = typeTraitProvider.getTypeTrait(keyType);
-            secondaryBloomFilterKeyFields[i] = i;
-        }
-        if (dataset.getDatasetType() == DatasetType.INTERNAL) {
-            // Add serializers and comparators for primary index fields.
-            for (int i = 0; i < numPrimaryKeys; i++) {
-                secondaryRecFields[numSecondaryKeys + i] = primaryRecDesc.getFields()[i];
-                secondaryTypeTraits[numSecondaryKeys + i] = primaryRecDesc.getTypeTraits()[i];
-                if (indexType != IndexType.RTREE) {
-                    secondaryComparatorFactories[numSecondaryKeys + i] = primaryComparatorFactories[i];
-                }
-            }
-        } else {
-            // Add serializers and comparators for RID fields.
-            for (int i = 0; i < numPrimaryKeys; i++) {
-                secondaryRecFields[numSecondaryKeys + i] = IndexingConstants.getSerializerDeserializer(i);
-                secondaryTypeTraits[numSecondaryKeys + i] = IndexingConstants.getTypeTraits(i);
-                if (indexType != IndexType.RTREE) {
-                    secondaryComparatorFactories[numSecondaryKeys + i] = IndexingConstants.getComparatorFactory(i);
-                }
-            }
-        }
-        if (numFilterFields > 0) {
-            secondaryFieldAccessEvalFactories[numSecondaryKeys] = metadataProvider.getFormat()
-                    .getFieldAccessEvaluatorFactory(itemType, filterFieldName, numPrimaryKeys);
-            Pair<IAType, Boolean> keyTypePair = Index.getNonNullableKeyFieldType(filterFieldName, itemType);
-            IAType type = keyTypePair.first;
-            ISerializerDeserializer serde = serdeProvider.getSerializerDeserializer(type);
-            secondaryRecFields[numPrimaryKeys + numSecondaryKeys] = serde;
-        }
-        secondaryRecDesc = new RecordDescriptor(secondaryRecFields);
-    }
 
     protected AbstractOperatorDescriptor createDummyKeyProviderOp(JobSpecification spec) throws AsterixException,
             AlgebricksException {
@@ -401,7 +340,7 @@ public abstract class SecondaryIndexOperationsHelper {
                                 dataset.getDatasetId()), AsterixRuntimeComponentsProvider.RUNTIME_PROVIDER,
                         LSMBTreeIOOperationCallbackFactory.INSTANCE, storageProperties
                                 .getBloomFilterFalsePositiveRate(), true, filterTypeTraits, filterCmpFactories,
-                        primaryBTreeFields, primaryFilterFields), false, false, null,
+                        primaryBTreeFields, primaryFilterFields, null), false, false, null,
                 searchCallbackFactory, null, null);
 
         AlgebricksPartitionConstraintHelper.setPartitionConstraintInJobSpec(spec, primarySearchOp,

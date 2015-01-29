@@ -28,19 +28,19 @@ import edu.uci.ics.hyracks.data.std.util.ArrayBackedValueStorage;
 import edu.uci.ics.hyracks.dataflow.common.data.accessors.IFrameTupleReference;
 import edu.uci.ics.hyracks.storage.am.common.api.IBinaryTokenizer;
 
-public class WordTokensEvaluator implements ICopyEvaluator {
+public class SpatialCellTokensEvaluator implements ICopyEvaluator {
     private final DataOutput out;
     private final ArrayBackedValueStorage argOut = new ArrayBackedValueStorage();
-    private final ICopyEvaluator stringEval;
+    private final ICopyEvaluator binaryEval;
 
     private final IBinaryTokenizer tokenizer;
     private final OrderedListBuilder listBuilder = new OrderedListBuilder();
     private final AOrderedListType listType;
 
-    public WordTokensEvaluator(ICopyEvaluatorFactory[] args, IDataOutputProvider output, IBinaryTokenizer tokenizer,
+    public SpatialCellTokensEvaluator(ICopyEvaluatorFactory[] args, IDataOutputProvider output, IBinaryTokenizer tokenizer,
             BuiltinType itemType) throws AlgebricksException {
         out = output.getDataOutput();
-        stringEval = args[0].createEvaluator(argOut);
+        binaryEval = args[0].createEvaluator(argOut);
         this.tokenizer = tokenizer;
         this.listType = new AOrderedListType(itemType, null);
     }
@@ -48,7 +48,7 @@ public class WordTokensEvaluator implements ICopyEvaluator {
     @Override
     public void evaluate(IFrameTupleReference tuple) throws AlgebricksException {
         argOut.reset();
-        stringEval.evaluate(tuple);
+        binaryEval.evaluate(tuple);
         byte[] bytes = argOut.getByteArray();
         try {
             tokenizer.reset(bytes, 0, argOut.getLength());

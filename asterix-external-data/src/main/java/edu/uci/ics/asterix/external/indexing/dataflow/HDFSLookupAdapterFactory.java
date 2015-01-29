@@ -146,7 +146,7 @@ public class HDFSLookupAdapterFactory implements IControlledAdapterFactory {
                         dataset.getDatasetId()), AsterixRuntimeComponentsProvider.RUNTIME_PROVIDER,
                 LSMBTreeIOOperationCallbackFactory.INSTANCE, metadataProvider.getStorageProperties()
                         .getBloomFilterFalsePositiveRate(), ExternalDatasetsRegistry.INSTANCE.getAndLockDatasetVersion(
-                        dataset, metadataProvider));
+                        dataset, metadataProvider), null);
 
         // Create the out record descriptor, appContext and fileSplitProvider for the files index
         RecordDescriptor outRecDesc = JobGenHelper.mkRecordDescriptor(typeEnv, opSchema, context);

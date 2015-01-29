@@ -14,9 +14,9 @@
  */
 package edu.uci.ics.asterix.dataflow.data.common;
 
-import edu.uci.ics.hyracks.storage.am.lsm.invertedindex.tokenizers.IBinaryTokenizer;
-import edu.uci.ics.hyracks.storage.am.lsm.invertedindex.tokenizers.IBinaryTokenizerFactory;
-import edu.uci.ics.hyracks.storage.am.lsm.invertedindex.tokenizers.ITokenFactory;
+import edu.uci.ics.hyracks.storage.am.common.api.IBinaryTokenizer;
+import edu.uci.ics.hyracks.storage.am.common.api.IBinaryTokenizerFactory;
+import edu.uci.ics.hyracks.storage.am.common.api.ITokenFactory;
 
 public class AUnorderedListBinaryTokenizerFactory implements IBinaryTokenizerFactory {
 

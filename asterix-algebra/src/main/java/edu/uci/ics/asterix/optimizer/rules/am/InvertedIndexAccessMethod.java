@@ -29,6 +29,7 @@ import edu.uci.ics.asterix.common.annotations.SkipSecondaryIndexSearchExpression
 import edu.uci.ics.asterix.common.config.DatasetConfig.CellBasedSpatialIndex;
 import edu.uci.ics.asterix.common.config.DatasetConfig.IndexType;
 import edu.uci.ics.asterix.common.config.DatasetConfig.IndexTypeProperty;
+import edu.uci.ics.asterix.common.config.OptimizationConfUtil;
 import edu.uci.ics.asterix.formats.nontagged.AqlBinaryTokenizerFactoryProvider;
 import edu.uci.ics.asterix.metadata.entities.Dataset;
 import edu.uci.ics.asterix.metadata.entities.Index;
@@ -74,6 +75,7 @@ import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.UnionAllOpe
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.UnnestMapOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.UnnestOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.visitors.VariableUtilities;
+import edu.uci.ics.hyracks.storage.am.common.api.IBinaryTokenizerFactory;
 import edu.uci.ics.hyracks.storage.am.lsm.invertedindex.api.IInvertedIndexSearchModifierFactory;
 import edu.uci.ics.hyracks.storage.am.lsm.invertedindex.search.ConjunctiveEditDistanceSearchModifierFactory;
 import edu.uci.ics.hyracks.storage.am.lsm.invertedindex.search.ConjunctiveListEditDistanceSearchModifierFactory;
@@ -81,7 +83,6 @@ import edu.uci.ics.hyracks.storage.am.lsm.invertedindex.search.ConjunctiveSearch
 import edu.uci.ics.hyracks.storage.am.lsm.invertedindex.search.EditDistanceSearchModifierFactory;
 import edu.uci.ics.hyracks.storage.am.lsm.invertedindex.search.JaccardSearchModifierFactory;
 import edu.uci.ics.hyracks.storage.am.lsm.invertedindex.search.ListEditDistanceSearchModifierFactory;
-import edu.uci.ics.hyracks.storage.am.lsm.invertedindex.tokenizers.IBinaryTokenizerFactory;
 
 /**
  * Class for helping rewrite rules to choose and apply inverted indexes.
@@ -499,6 +500,9 @@ public class InvertedIndexAccessMethod implements IAccessMethod {
                 sifTokens.getArguments().add(
                         new MutableObject<ILogicalExpression>(new ConstantExpression(new AsterixConstantValue(
                                 new AInt32(itp.cellsPerObject)))));
+                sifTokens.getArguments().add(
+                        new MutableObject<ILogicalExpression>(new ConstantExpression(new AsterixConstantValue(
+                                new AInt32(OptimizationConfUtil.getPhysicalOptimizationConfig().getFrameSize())))));
                 assignSIFKeyVarList.add(context.newVar());
                 assignSIFKeyExprList.add(new MutableObject<ILogicalExpression>(sifTokens));
                 AssignOperator assignOpSIFTokens = new AssignOperator(assignSIFKeyVarList, assignSIFKeyExprList);
@@ -1059,11 +1063,11 @@ public class InvertedIndexAccessMethod implements IAccessMethod {
             int gramLength = index.getIndexTypeProperty().gramLength;
             // Compute merge threshold depending on the query grams contain pre- and postfixing
             if (optFuncExpr.containsPartialField()) {
-                mergeThreshold = (astr.getStringValue().length() - gramLength + 1)
-                        - edThresh.getIntegerValue() * gramLength;
+                mergeThreshold = (astr.getStringValue().length() - gramLength + 1) - edThresh.getIntegerValue()
+                        * gramLength;
             } else {
-                mergeThreshold = (astr.getStringValue().length() + gramLength - 1)
-                        - edThresh.getIntegerValue() * gramLength;
+                mergeThreshold = (astr.getStringValue().length() + gramLength - 1) - edThresh.getIntegerValue()
+                        * gramLength;
             }
         }
 
@@ -1304,9 +1308,11 @@ public class InvertedIndexAccessMethod implements IAccessMethod {
                     case LENGTH_PARTITIONED_NGRAM_INVIX: {
                         // Edit distance on strings, filtered with overlapping grams.
                         if (searchModifierType == SearchModifierType.EDIT_DISTANCE) {
-                            return new EditDistanceSearchModifierFactory(index.getIndexTypeProperty().gramLength, edThresh);
+                            return new EditDistanceSearchModifierFactory(index.getIndexTypeProperty().gramLength,
+                                    edThresh);
                         } else {
-                            return new ConjunctiveEditDistanceSearchModifierFactory(index.getIndexTypeProperty().gramLength, edThresh);
+                            return new ConjunctiveEditDistanceSearchModifierFactory(
+                                    index.getIndexTypeProperty().gramLength, edThresh);
                         }
                     }
                     case SINGLE_PARTITION_WORD_INVIX:

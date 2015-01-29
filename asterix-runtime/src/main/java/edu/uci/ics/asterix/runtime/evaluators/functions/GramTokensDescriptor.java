@@ -25,9 +25,9 @@ import edu.uci.ics.hyracks.algebricks.core.algebra.functions.FunctionIdentifier;
 import edu.uci.ics.hyracks.algebricks.runtime.base.ICopyEvaluator;
 import edu.uci.ics.hyracks.algebricks.runtime.base.ICopyEvaluatorFactory;
 import edu.uci.ics.hyracks.data.std.api.IDataOutputProvider;
-import edu.uci.ics.hyracks.storage.am.lsm.invertedindex.tokenizers.ITokenFactory;
-import edu.uci.ics.hyracks.storage.am.lsm.invertedindex.tokenizers.NGramUTF8StringBinaryTokenizer;
-import edu.uci.ics.hyracks.storage.am.lsm.invertedindex.tokenizers.UTF8NGramTokenFactory;
+import edu.uci.ics.hyracks.storage.am.common.api.ITokenFactory;
+import edu.uci.ics.hyracks.storage.am.common.tokenizer.NGramUTF8StringBinaryTokenizer;
+import edu.uci.ics.hyracks.storage.am.common.tokenizer.UTF8NGramTokenFactory;
 
 public class GramTokensDescriptor extends AbstractScalarFunctionDynamicDescriptor {
 

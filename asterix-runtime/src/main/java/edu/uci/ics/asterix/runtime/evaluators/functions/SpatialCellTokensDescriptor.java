@@ -16,7 +16,7 @@ package edu.uci.ics.asterix.runtime.evaluators.functions;
 
 import edu.uci.ics.asterix.common.config.DatasetConfig.CellBasedSpatialIndex;
 import edu.uci.ics.asterix.common.config.OptimizationConfUtil;
-import edu.uci.ics.asterix.dataflow.data.common.SIFBinaryTokenizer;
+import edu.uci.ics.asterix.dataflow.data.common.SpatialCellBinaryTokenizer;
 import edu.uci.ics.asterix.dataflow.data.nontagged.serde.ADoubleSerializerDeserializer;
 import edu.uci.ics.asterix.dataflow.data.nontagged.serde.AInt16SerializerDeserializer;
 import edu.uci.ics.asterix.dataflow.data.nontagged.serde.AInt32SerializerDeserializer;
@@ -25,7 +25,7 @@ import edu.uci.ics.asterix.om.functions.IFunctionDescriptor;
 import edu.uci.ics.asterix.om.functions.IFunctionDescriptorFactory;
 import edu.uci.ics.asterix.om.types.BuiltinType;
 import edu.uci.ics.asterix.runtime.evaluators.base.AbstractScalarFunctionDynamicDescriptor;
-import edu.uci.ics.asterix.runtime.evaluators.common.WordTokensEvaluator;
+import edu.uci.ics.asterix.runtime.evaluators.common.SpatialCellTokensEvaluator;
 import edu.uci.ics.hyracks.algebricks.common.exceptions.AlgebricksException;
 import edu.uci.ics.hyracks.algebricks.core.algebra.functions.FunctionIdentifier;
 import edu.uci.ics.hyracks.algebricks.runtime.base.ICopyEvaluator;
@@ -34,20 +34,20 @@ import edu.uci.ics.hyracks.data.std.api.IDataOutputProvider;
 import edu.uci.ics.hyracks.data.std.util.ArrayBackedValueStorage;
 import edu.uci.ics.hyracks.storage.am.common.api.IBinaryTokenizer;
 import edu.uci.ics.hyracks.storage.am.common.api.ITokenFactory;
-import edu.uci.ics.hyracks.storage.am.common.tokenizer.UTF8WordTokenFactory;
+import edu.uci.ics.hyracks.storage.am.common.tokenizer.NonTaggedByteArrayTokenFactory;
 
-public class SIFTokensDescriptor extends AbstractScalarFunctionDynamicDescriptor {
+public class SpatialCellTokensDescriptor extends AbstractScalarFunctionDynamicDescriptor {
 
     private static final long serialVersionUID = 1L;
     public static final IFunctionDescriptorFactory FACTORY = new IFunctionDescriptorFactory() {
         public IFunctionDescriptor createFunctionDescriptor() {
-            return new SIFTokensDescriptor();
+            return new SpatialCellTokensDescriptor();
         }
     };
 
     @Override
     public FunctionIdentifier getIdentifier() {
-        return AsterixBuiltinFunctions.SIF_TOKENS;
+        return AsterixBuiltinFunctions.SPATIAL_CELL_TOKENS;
     }
 
     @Override
@@ -67,17 +67,16 @@ public class SIFTokensDescriptor extends AbstractScalarFunctionDynamicDescriptor
                 short[] levelDensity = new short[maxLevel];
                 ArrayBackedValueStorage[] outLevelDensity = new ArrayBackedValueStorage[maxLevel];
                 ArrayBackedValueStorage outCellsPerObject = new ArrayBackedValueStorage();
-                ArrayBackedValueStorage outFrameSize = new ArrayBackedValueStorage();
 
                 args[1].createEvaluator(outBottomLeftX).evaluate(null);
                 args[2].createEvaluator(outBottomLeftY).evaluate(null);
                 args[3].createEvaluator(outTopRightX).evaluate(null);
                 args[4].createEvaluator(outTopRightY).evaluate(null);
                 for (int i = 0; i < maxLevel; i++) {
+                    outLevelDensity[i] = new ArrayBackedValueStorage();
                     args[5 + i].createEvaluator(outLevelDensity[i]).evaluate(null);
                 }
                 args[5 + maxLevel].createEvaluator(outCellsPerObject).equals(null);
-                args[5 + maxLevel+1].createEvaluator(outFrameSize).equals(null);
 
                 double bottomLeftX = ADoubleSerializerDeserializer.getDouble(outBottomLeftX.getByteArray(), 1);
                 double bottomLeftY = ADoubleSerializerDeserializer.getDouble(outBottomLeftY.getByteArray(), 1);
@@ -87,12 +86,11 @@ public class SIFTokensDescriptor extends AbstractScalarFunctionDynamicDescriptor
                     levelDensity[i] = AInt16SerializerDeserializer.getShort(outLevelDensity[i].getByteArray(), 1);
                 }
                 int cellsPerObject = AInt32SerializerDeserializer.getInt(outCellsPerObject.getByteArray(), 1);
-                int frameSize = AInt32SerializerDeserializer.getInt(outFrameSize.getByteArray(), 1);
-
-                ITokenFactory tokenFactory = new UTF8WordTokenFactory();
-                IBinaryTokenizer tokenizer = new SIFBinaryTokenizer(bottomLeftX, bottomLeftY, topRightX, topRightY,
-                        levelDensity, cellsPerObject, tokenFactory, frameSize);
-                return new WordTokensEvaluator(args, output, tokenizer, BuiltinType.ASTRING);
+                ITokenFactory tokenFactory = new NonTaggedByteArrayTokenFactory();
+                IBinaryTokenizer tokenizer = new SpatialCellBinaryTokenizer(bottomLeftX, bottomLeftY, topRightX,
+                        topRightY, levelDensity, cellsPerObject, tokenFactory, OptimizationConfUtil
+                                .getPhysicalOptimizationConfig().getFrameSize(), true);
+                return new SpatialCellTokensEvaluator(args, output, tokenizer, BuiltinType.ABINARY);
             }
         };
     }

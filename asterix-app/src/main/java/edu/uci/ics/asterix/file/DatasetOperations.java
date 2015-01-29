@@ -118,7 +118,7 @@ public class DatasetOperations {
                         new PrimaryIndexOperationTrackerProvider(dataset.getDatasetId()),
                         AsterixRuntimeComponentsProvider.RUNTIME_PROVIDER, LSMBTreeIOOperationCallbackFactory.INSTANCE,
                         storageProperties.getBloomFilterFalsePositiveRate(), true, filterTypeTraits,
-                        filterCmpFactories, btreeFields, filterFields));
+                        filterCmpFactories, btreeFields, filterFields, null));
         AlgebricksPartitionConstraintHelper.setPartitionConstraintInJobSpec(specPrimary, primaryBtreeDrop,
                 splitsAndConstraint.second);
 
@@ -168,7 +168,7 @@ public class DatasetOperations {
         //prepare a LocalResourceMetadata which will be stored in NC's local resource repository
         ILocalResourceMetadata localResourceMetadata = new LSMBTreeLocalResourceMetadata(typeTraits,
                 comparatorFactories, bloomFilterKeyFields, true, dataset.getDatasetId(), compactionInfo.first,
-                compactionInfo.second, filterTypeTraits, filterCmpFactories, btreeFields, filterFields);
+                compactionInfo.second, filterTypeTraits, filterCmpFactories, btreeFields, filterFields, null);
         ILocalResourceFactoryProvider localResourceFactoryProvider = new PersistentLocalResourceFactoryProvider(
                 localResourceMetadata, LocalResource.LSMBTreeResource);
 
@@ -180,7 +180,7 @@ public class DatasetOperations {
                                 .getDatasetId()), AsterixRuntimeComponentsProvider.RUNTIME_PROVIDER,
                         LSMBTreeIOOperationCallbackFactory.INSTANCE, storageProperties
                                 .getBloomFilterFalsePositiveRate(), true, filterTypeTraits, filterCmpFactories,
-                        btreeFields, filterFields), localResourceFactoryProvider,
+                        btreeFields, filterFields, null), localResourceFactoryProvider,
                 NoOpOperationCallbackFactory.INSTANCE);
         AlgebricksPartitionConstraintHelper.setPartitionConstraintInJobSpec(spec, indexCreateOp,
                 splitsAndConstraint.second);
@@ -233,7 +233,7 @@ public class DatasetOperations {
                                 dataset.getDatasetId()), AsterixRuntimeComponentsProvider.RUNTIME_PROVIDER,
                         LSMBTreeIOOperationCallbackFactory.INSTANCE,
                         storageProperties.getBloomFilterFalsePositiveRate(), true, filterTypeTraits,
-                        filterCmpFactories, btreeFields, filterFields), NoOpOperationCallbackFactory.INSTANCE);
+                        filterCmpFactories, btreeFields, filterFields, null), NoOpOperationCallbackFactory.INSTANCE);
         AlgebricksPartitionConstraintHelper
                 .setPartitionConstraintInJobSpec(spec, compactOp, splitsAndConstraint.second);
 

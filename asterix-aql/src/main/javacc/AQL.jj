@@ -590,7 +590,7 @@ IndexParams IndexType() throws ParseException:
   	  	tp.levelDensity[3] = 16;
   	  }
   	}	
-  	(<INTEGER_LITERAL>
+  	(<COMMA> <INTEGER_LITERAL>
     {
       tp.cellsPerObject = Integer.valueOf(token.image);
       if (tp.cellsPerObject > CellBasedSpatialIndex.MAX_CELLS_PER_OBJECT.getValue())

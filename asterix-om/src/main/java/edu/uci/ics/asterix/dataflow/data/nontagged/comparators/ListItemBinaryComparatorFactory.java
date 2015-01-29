@@ -21,7 +21,11 @@ import edu.uci.ics.asterix.om.types.EnumDeserializer;
 import edu.uci.ics.hyracks.api.dataflow.value.IBinaryComparator;
 import edu.uci.ics.hyracks.api.dataflow.value.IBinaryComparatorFactory;
 import edu.uci.ics.hyracks.data.std.accessors.PointableBinaryComparatorFactory;
-import edu.uci.ics.hyracks.data.std.primitive.*;
+import edu.uci.ics.hyracks.data.std.primitive.ByteArrayPointable;
+import edu.uci.ics.hyracks.data.std.primitive.DoublePointable;
+import edu.uci.ics.hyracks.data.std.primitive.FloatPointable;
+import edu.uci.ics.hyracks.data.std.primitive.IntegerPointable;
+import edu.uci.ics.hyracks.data.std.primitive.UTF8StringPointable;
 
 public class ListItemBinaryComparatorFactory implements IBinaryComparatorFactory {
 
@@ -61,8 +65,8 @@ public class ListItemBinaryComparatorFactory implements IBinaryComparatorFactory
             final IBinaryComparator ascIntervalComp = AIntervalPartialBinaryComparatorFactory.INSTANCE
                     .createBinaryComparator();
             final IBinaryComparator ascLineComp = ALinePartialBinaryComparatorFactory.INSTANCE.createBinaryComparator();
-//          final IBinaryComparator ascPointComp = APointPartialBinaryComparatorFactory.INSTANCE
-//          .createBinaryComparator();
+            //          final IBinaryComparator ascPointComp = APointPartialBinaryComparatorFactory.INSTANCE
+            //          .createBinaryComparator();
             final IBinaryComparator ascPointComp = AHilbertPointBinaryComparatorFactory.INSTANCE
                     .createBinaryComparator();
             final IBinaryComparator ascPoint3DComp = APoint3DPartialBinaryComparatorFactory.INSTANCE

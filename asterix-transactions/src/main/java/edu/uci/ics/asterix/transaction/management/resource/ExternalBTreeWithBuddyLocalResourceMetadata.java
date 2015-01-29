@@ -25,6 +25,8 @@ import edu.uci.ics.hyracks.api.dataflow.value.IBinaryComparatorFactory;
 import edu.uci.ics.hyracks.api.dataflow.value.ITypeTraits;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.api.io.FileReference;
+import edu.uci.ics.hyracks.storage.am.common.api.IBinaryTokenizerFactory;
+import edu.uci.ics.hyracks.storage.am.common.api.ITokenizingTupleIterator;
 import edu.uci.ics.hyracks.storage.am.lsm.btree.util.LSMBTreeUtils;
 import edu.uci.ics.hyracks.storage.am.lsm.common.api.ILSMIndex;
 import edu.uci.ics.hyracks.storage.am.lsm.common.api.ILSMMergePolicyFactory;
@@ -41,16 +43,18 @@ public class ExternalBTreeWithBuddyLocalResourceMetadata extends AbstractLSMLoca
     private final ILSMMergePolicyFactory mergePolicyFactory;
     private final Map<String, String> mergePolicyProperties;
     private final int[] buddyBtreeFields;
+    private final IBinaryTokenizerFactory tokenizerFactory;
 
     public ExternalBTreeWithBuddyLocalResourceMetadata(int datasetID, IBinaryComparatorFactory[] btreeCmpFactories,
             ITypeTraits[] typeTraits, ILSMMergePolicyFactory mergePolicyFactory,
-            Map<String, String> mergePolicyProperties, int[] buddyBtreeFields) {
+            Map<String, String> mergePolicyProperties, int[] buddyBtreeFields, IBinaryTokenizerFactory tokenizerFactory) {
         super(datasetID, null, null, null);
         this.btreeCmpFactories = btreeCmpFactories;
         this.typeTraits = typeTraits;
         this.mergePolicyFactory = mergePolicyFactory;
         this.mergePolicyProperties = mergePolicyProperties;
         this.buddyBtreeFields = buddyBtreeFields;
+        this.tokenizerFactory = tokenizerFactory;
     }
 
     @Override
@@ -63,6 +67,6 @@ public class ExternalBTreeWithBuddyLocalResourceMetadata extends AbstractLSMLoca
                         runtimeContextProvider.getIndexLifecycleManager()), new BaseOperationTracker(
                         (DatasetLifecycleManager) runtimeContextProvider.getIndexLifecycleManager(), datasetID),
                 runtimeContextProvider.getLSMIOScheduler(), LSMBTreeWithBuddyIOOperationCallbackFactory.INSTANCE
-                        .createIOOperationCallback(), buddyBtreeFields, -1);
+                        .createIOOperationCallback(), buddyBtreeFields, -1, tokenizerFactory);
     }
 }

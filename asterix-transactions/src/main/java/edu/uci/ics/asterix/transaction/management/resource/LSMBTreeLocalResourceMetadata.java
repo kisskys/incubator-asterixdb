@@ -25,6 +25,7 @@ import edu.uci.ics.asterix.common.transactions.IAsterixAppRuntimeContextProvider
 import edu.uci.ics.hyracks.api.dataflow.value.IBinaryComparatorFactory;
 import edu.uci.ics.hyracks.api.dataflow.value.ITypeTraits;
 import edu.uci.ics.hyracks.api.io.FileReference;
+import edu.uci.ics.hyracks.storage.am.common.api.IBinaryTokenizerFactory;
 import edu.uci.ics.hyracks.storage.am.lsm.btree.impls.LSMBTree;
 import edu.uci.ics.hyracks.storage.am.lsm.btree.util.LSMBTreeUtils;
 import edu.uci.ics.hyracks.storage.am.lsm.common.api.ILSMIndex;
@@ -42,11 +43,13 @@ public class LSMBTreeLocalResourceMetadata extends AbstractLSMLocalResourceMetad
     protected final ILSMMergePolicyFactory mergePolicyFactory;
     protected final Map<String, String> mergePolicyProperties;
     protected final int[] btreeFields;
+    protected final IBinaryTokenizerFactory tokenizerFactory;
 
     public LSMBTreeLocalResourceMetadata(ITypeTraits[] typeTraits, IBinaryComparatorFactory[] cmpFactories,
             int[] bloomFilterKeyFields, boolean isPrimary, int datasetID, ILSMMergePolicyFactory mergePolicyFactory,
             Map<String, String> mergePolicyProperties, ITypeTraits[] filterTypeTraits,
-            IBinaryComparatorFactory[] filterCmpFactories, int[] btreeFields, int[] filterFields) {
+            IBinaryComparatorFactory[] filterCmpFactories, int[] btreeFields, int[] filterFields,
+            IBinaryTokenizerFactory tokenizerFactory) {
         super(datasetID, filterTypeTraits, filterCmpFactories, filterFields);
         this.typeTraits = typeTraits;
         this.cmpFactories = cmpFactories;
@@ -55,6 +58,7 @@ public class LSMBTreeLocalResourceMetadata extends AbstractLSMLocalResourceMetad
         this.mergePolicyFactory = mergePolicyFactory;
         this.mergePolicyProperties = mergePolicyProperties;
         this.btreeFields = btreeFields;
+        this.tokenizerFactory = tokenizerFactory;
     }
 
     @Override
@@ -70,7 +74,7 @@ public class LSMBTreeLocalResourceMetadata extends AbstractLSMLocalResourceMetad
                         (DatasetLifecycleManager) runtimeContextProvider.getIndexLifecycleManager(), datasetID),
                 runtimeContextProvider.getLSMIOScheduler(), LSMBTreeIOOperationCallbackFactory.INSTANCE
                         .createIOOperationCallback(), isPrimary, filterTypeTraits, filterCmpFactories, btreeFields,
-                filterFields);
+                filterFields, tokenizerFactory);
         return lsmBTree;
     }
 

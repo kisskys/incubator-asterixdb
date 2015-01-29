@@ -75,7 +75,7 @@ public class ARecordType extends AbstractComplexType {
         this.fieldTypes = fieldTypes;
         this.isOpen = isOpen;
 
-        fieldNameComparator = new PointableBinaryComparatorFactory(UTF8StringPointable.FACTORY)
+        fieldNameComparator = new PointableBinaryComparatorFactory(UTF8StringPointable.FACTORY, null)
                 .createBinaryComparator();
         fieldNameHashFunction = new PointableBinaryHashFunctionFactory(UTF8StringPointable.FACTORY)
                 .createBinaryHashFunction();
@@ -119,7 +119,7 @@ public class ARecordType extends AbstractComplexType {
 
     private void readObject(ObjectInputStream ois) throws IOException, ClassNotFoundException {
         ois.defaultReadObject();
-        fieldNameComparator = new PointableBinaryComparatorFactory(UTF8StringPointable.FACTORY)
+        fieldNameComparator = new PointableBinaryComparatorFactory(UTF8StringPointable.FACTORY, null)
                 .createBinaryComparator();
         fieldNameHashFunction = new PointableBinaryHashFunctionFactory(UTF8StringPointable.FACTORY)
                 .createBinaryHashFunction();
@@ -411,6 +411,15 @@ public class ARecordType extends AbstractComplexType {
                         default:
                             throw new AlgebricksException("The field \"" + fieldName + "\" which is of type "
                                     + fieldType.getTypeTag() + " cannot be indexed using the Keyword index.");
+                    }
+                    break;
+                case STATIC_HILBERT_BTREE:
+                    switch (fieldType.getTypeTag()) {
+                        case POINT:
+                            break;
+                        default:
+                            throw new AlgebricksException("The field \"" + fieldName + "\" which is of type "
+                                    + fieldType.getTypeTag() + " cannot be indexed using the Static Hilbert BTree index.");
                     }
                     break;
                 default:

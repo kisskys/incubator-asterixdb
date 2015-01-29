@@ -79,7 +79,7 @@ public class RecordBuilder implements IARecordBuilder {
 
         this.utf8HashFunction = new PointableBinaryHashFunctionFactory(UTF8StringPointable.FACTORY)
                 .createBinaryHashFunction();
-        this.utf8Comparator = new PointableBinaryComparatorFactory(UTF8StringPointable.FACTORY)
+        this.utf8Comparator = new PointableBinaryComparatorFactory(UTF8StringPointable.FACTORY, null)
                 .createBinaryComparator();
 
         this.openPartOffsetArray = null;

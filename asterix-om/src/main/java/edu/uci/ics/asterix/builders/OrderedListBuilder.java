@@ -17,7 +17,7 @@ package edu.uci.ics.asterix.builders;
 import java.io.IOException;
 
 import edu.uci.ics.asterix.om.types.ATypeTag;
-import edu.uci.ics.hyracks.storage.am.lsm.invertedindex.tokenizers.IToken;
+import edu.uci.ics.hyracks.storage.am.common.api.IToken;
 
 public class OrderedListBuilder extends AbstractListBuilder {
 

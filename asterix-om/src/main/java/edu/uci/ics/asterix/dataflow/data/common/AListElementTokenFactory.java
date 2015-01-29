@@ -14,8 +14,8 @@
  */
 package edu.uci.ics.asterix.dataflow.data.common;
 
-import edu.uci.ics.hyracks.storage.am.lsm.invertedindex.tokenizers.IToken;
-import edu.uci.ics.hyracks.storage.am.lsm.invertedindex.tokenizers.ITokenFactory;
+import edu.uci.ics.hyracks.storage.am.common.api.IToken;
+import edu.uci.ics.hyracks.storage.am.common.api.ITokenFactory;
 
 public class AListElementTokenFactory implements ITokenFactory {
 

@@ -40,6 +40,7 @@ import edu.uci.ics.asterix.om.constants.AsterixConstantValue;
 import edu.uci.ics.asterix.om.functions.AsterixBuiltinFunctions;
 import edu.uci.ics.asterix.om.types.ARecordType;
 import edu.uci.ics.asterix.om.types.ATypeTag;
+import edu.uci.ics.asterix.om.types.BuiltinType;
 import edu.uci.ics.asterix.om.types.IAType;
 import edu.uci.ics.asterix.om.util.NonTaggedFormatUtil;
 import edu.uci.ics.hyracks.algebricks.common.exceptions.AlgebricksException;
@@ -167,6 +168,7 @@ public class AccessMethodUtils {
     public static int getNumSecondaryKeys(Index index, ARecordType recordType) throws AlgebricksException {
         switch (index.getIndexType()) {
             case BTREE:
+            case STATIC_HILBERT_BTREE:
             case SINGLE_PARTITION_WORD_INVIX:
             case SINGLE_PARTITION_NGRAM_INVIX:
             case LENGTH_PARTITIONED_WORD_INVIX:
@@ -202,6 +204,10 @@ public class AccessMethodUtils {
                     }
                     break;
                 }
+                case STATIC_HILBERT_BTREE:
+                    dest.add(BuiltinType.ABINARY);
+                    break;
+                    
                 case RTREE: {
                     Pair<IAType, Boolean> keyPairType = Index.getNonNullableKeyFieldType(index.getKeyFieldNames()
                             .get(0), recordType);

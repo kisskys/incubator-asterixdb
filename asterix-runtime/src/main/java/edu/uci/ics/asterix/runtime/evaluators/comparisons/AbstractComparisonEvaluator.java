@@ -22,7 +22,6 @@ import edu.uci.ics.asterix.dataflow.data.nontagged.comparators.AHilbertPointBina
 import edu.uci.ics.asterix.dataflow.data.nontagged.comparators.AIntervalPartialBinaryComparatorFactory;
 import edu.uci.ics.asterix.dataflow.data.nontagged.comparators.ALinePartialBinaryComparatorFactory;
 import edu.uci.ics.asterix.dataflow.data.nontagged.comparators.APoint3DPartialBinaryComparatorFactory;
-import edu.uci.ics.asterix.dataflow.data.nontagged.comparators.APointPartialBinaryComparatorFactory;
 import edu.uci.ics.asterix.dataflow.data.nontagged.comparators.APolygonPartialBinaryComparatorFactory;
 import edu.uci.ics.asterix.dataflow.data.nontagged.comparators.ARectanglePartialBinaryComparatorFactory;
 import edu.uci.ics.asterix.dataflow.data.nontagged.serde.ADoubleSerializerDeserializer;
@@ -82,8 +81,8 @@ public abstract class AbstractComparisonEvaluator implements ICopyEvaluator {
             .createBinaryComparator();
     protected IBinaryComparator lineBinaryComparator = ALinePartialBinaryComparatorFactory.INSTANCE
             .createBinaryComparator();
-//    protected IBinaryComparator pointBinaryComparator = APointPartialBinaryComparatorFactory.INSTANCE
-//            .createBinaryComparator();
+    //    protected IBinaryComparator pointBinaryComparator = APointPartialBinaryComparatorFactory.INSTANCE
+    //            .createBinaryComparator();
     protected IBinaryComparator pointBinaryComparator = AHilbertPointBinaryComparatorFactory.INSTANCE
             .createBinaryComparator();
     protected IBinaryComparator point3DBinaryComparator = APoint3DPartialBinaryComparatorFactory.INSTANCE
@@ -93,8 +92,7 @@ public abstract class AbstractComparisonEvaluator implements ICopyEvaluator {
     protected IBinaryComparator rectangleBinaryComparator = ARectanglePartialBinaryComparatorFactory.INSTANCE
             .createBinaryComparator();
     protected final IBinaryComparator byteArrayComparator = new PointableBinaryComparatorFactory(
-            ByteArrayPointable.FACTORY)
-            .createBinaryComparator();
+            ByteArrayPointable.FACTORY).createBinaryComparator();
 
     public AbstractComparisonEvaluator(DataOutput out, ICopyEvaluatorFactory evalLeftFactory,
             ICopyEvaluatorFactory evalRightFactory) throws AlgebricksException {

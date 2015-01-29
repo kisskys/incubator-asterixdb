@@ -14,17 +14,20 @@
  */
 package edu.uci.ics.asterix.formats.nontagged;
 
+import edu.uci.ics.asterix.common.config.OptimizationConfUtil;
 import edu.uci.ics.asterix.dataflow.data.common.AListElementTokenFactory;
 import edu.uci.ics.asterix.dataflow.data.common.AOrderedListBinaryTokenizerFactory;
 import edu.uci.ics.asterix.dataflow.data.common.AUnorderedListBinaryTokenizerFactory;
 import edu.uci.ics.asterix.dataflow.data.common.IBinaryTokenizerFactoryProvider;
 import edu.uci.ics.asterix.dataflow.data.common.SIFBinaryTokenizerFactory;
+import edu.uci.ics.asterix.dataflow.data.common.SpatialCellBinaryTokenizerFactory;
 import edu.uci.ics.asterix.om.types.ATypeTag;
-import edu.uci.ics.hyracks.storage.am.lsm.invertedindex.tokenizers.DelimitedUTF8StringBinaryTokenizerFactory;
-import edu.uci.ics.hyracks.storage.am.lsm.invertedindex.tokenizers.HashedUTF8WordTokenFactory;
-import edu.uci.ics.hyracks.storage.am.lsm.invertedindex.tokenizers.IBinaryTokenizerFactory;
-import edu.uci.ics.hyracks.storage.am.lsm.invertedindex.tokenizers.UTF8NGramTokenFactory;
-import edu.uci.ics.hyracks.storage.am.lsm.invertedindex.tokenizers.UTF8WordTokenFactory;
+import edu.uci.ics.hyracks.storage.am.common.api.IBinaryTokenizerFactory;
+import edu.uci.ics.hyracks.storage.am.common.tokenizer.DelimitedUTF8StringBinaryTokenizerFactory;
+import edu.uci.ics.hyracks.storage.am.common.tokenizer.HashedUTF8WordTokenFactory;
+import edu.uci.ics.hyracks.storage.am.common.tokenizer.NonTaggedByteArrayTokenFactory;
+import edu.uci.ics.hyracks.storage.am.common.tokenizer.UTF8NGramTokenFactory;
+import edu.uci.ics.hyracks.storage.am.common.tokenizer.UTF8WordTokenFactory;
 
 public class AqlBinaryTokenizerFactoryProvider implements IBinaryTokenizerFactoryProvider {
 
@@ -90,7 +93,16 @@ public class AqlBinaryTokenizerFactoryProvider implements IBinaryTokenizerFactor
 
     public IBinaryTokenizerFactory getSIFTokenizerFactory(ATypeTag keyType, double bottomLeftX, double bottomLeftY,
             double topRightX, double topRightY, short[] levelDensity, int cellsPerObject, boolean hashedTokens) {
-        return new SIFBinaryTokenizerFactory(bottomLeftX, bottomLeftY, topRightX, topRightY, levelDensity, cellsPerObject,
-                new UTF8WordTokenFactory(ATypeTag.STRING.serialize(), ATypeTag.INT32.serialize()));
+        return new SIFBinaryTokenizerFactory(bottomLeftX, bottomLeftY, topRightX, topRightY, levelDensity,
+                cellsPerObject, new UTF8WordTokenFactory(ATypeTag.STRING.serialize(), ATypeTag.INT32.serialize()),
+                OptimizationConfUtil.getPhysicalOptimizationConfig().getFrameSize());
+    }
+
+    public IBinaryTokenizerFactory getSpatialCellTokenizerFactory(ATypeTag keyType, double bottomLeftX,
+            double bottomLeftY, double topRightX, double topRightY, short[] levelDensity, int cellsPerObject,
+            boolean hashedTokens) {
+        return new SpatialCellBinaryTokenizerFactory(bottomLeftX, bottomLeftY, topRightX, topRightY, levelDensity,
+                cellsPerObject, new NonTaggedByteArrayTokenFactory(), OptimizationConfUtil
+                        .getPhysicalOptimizationConfig().getFrameSize(), false);
     }
 }

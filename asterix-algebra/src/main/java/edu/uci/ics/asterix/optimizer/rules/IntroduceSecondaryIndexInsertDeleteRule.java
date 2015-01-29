@@ -247,11 +247,13 @@ public class IntroduceSecondaryIndexInsertDeleteRule implements IAlgebraicRewrit
             context.computeAndSetTypeEnvironmentForOperator(assign);
 
             // BTree, Keyword, or n-gram index case
-            if (index.getIndexType() == IndexType.BTREE
-                    || index.getIndexType() == IndexType.SINGLE_PARTITION_WORD_INVIX
-                    || index.getIndexType() == IndexType.SINGLE_PARTITION_NGRAM_INVIX
-                    || index.getIndexType() == IndexType.LENGTH_PARTITIONED_WORD_INVIX
-                    || index.getIndexType() == IndexType.LENGTH_PARTITIONED_NGRAM_INVIX) {
+            IndexType indexType = index.getIndexType();
+            if (indexType == IndexType.BTREE
+                    || indexType == IndexType.STATIC_HILBERT_BTREE
+                    || indexType == IndexType.SINGLE_PARTITION_WORD_INVIX
+                    || indexType == IndexType.SINGLE_PARTITION_NGRAM_INVIX
+                    || indexType == IndexType.LENGTH_PARTITIONED_WORD_INVIX
+                    || indexType == IndexType.LENGTH_PARTITIONED_NGRAM_INVIX) {
                 for (LogicalVariable secondaryKeyVar : secondaryKeyVars) {
                     secondaryExpressions.add(new MutableObject<ILogicalExpression>(new VariableReferenceExpression(
                             secondaryKeyVar)));
@@ -262,7 +264,7 @@ public class IntroduceSecondaryIndexInsertDeleteRule implements IAlgebraicRewrit
 
                 // Introduce the TokenizeOperator only when doing bulk-load,
                 // and index type is keyword or n-gram.
-                if (index.getIndexType() != IndexType.BTREE && insertOp.isBulkload()) {
+                if (insertOp.isBulkload() && indexType != IndexType.BTREE) {
 
                     // Check whether the index is length-partitioned or not.
                     // If partitioned, [input variables to TokenizeOperator,
@@ -292,7 +294,11 @@ public class IntroduceSecondaryIndexInsertDeleteRule implements IAlgebraicRewrit
                     secondaryKeyType = keyPairType.first;
 
                     List<Object> varTypes = new ArrayList<Object>();
-                    varTypes.add(NonTaggedFormatUtil.getTokenType(secondaryKeyType));
+                    if (index.getIndexType() == IndexType.STATIC_HILBERT_BTREE) {
+                        varTypes.add(BuiltinType.ABINARY);
+                    } else {
+                        varTypes.add(NonTaggedFormatUtil.getTokenType(secondaryKeyType));
+                    }
 
                     // If the index is a length-partitioned, then create
                     // additional variable - number of token.
@@ -340,7 +346,7 @@ public class IntroduceSecondaryIndexInsertDeleteRule implements IAlgebraicRewrit
 
                 }
 
-            } else if (index.getIndexType() == IndexType.RTREE) {
+            } else if (indexType == IndexType.RTREE) {
                 Pair<IAType, Boolean> keyPairType = Index
                         .getNonNullableKeyFieldType(secondaryKeyFields.get(0), recType);
                 IAType spatialType = keyPairType.first;

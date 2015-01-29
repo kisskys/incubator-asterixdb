@@ -23,9 +23,9 @@ import edu.uci.ics.asterix.dataflow.data.nontagged.serde.APointSerializerDeseria
 import edu.uci.ics.asterix.dataflow.data.nontagged.serde.ARectangleSerializerDeserializer;
 import edu.uci.ics.asterix.om.types.ATypeTag;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
-import edu.uci.ics.hyracks.storage.am.lsm.invertedindex.tokenizers.IBinaryTokenizer;
-import edu.uci.ics.hyracks.storage.am.lsm.invertedindex.tokenizers.IToken;
-import edu.uci.ics.hyracks.storage.am.lsm.invertedindex.tokenizers.ITokenFactory;
+import edu.uci.ics.hyracks.storage.am.common.api.IBinaryTokenizer;
+import edu.uci.ics.hyracks.storage.am.common.api.IToken;
+import edu.uci.ics.hyracks.storage.am.common.api.ITokenFactory;
 
 public class SIFBinaryTokenizer implements IBinaryTokenizer {
 
@@ -37,6 +37,7 @@ public class SIFBinaryTokenizer implements IBinaryTokenizer {
     private final long yCellNum;
     private final double xCellSize;
     private final double yCellSize;
+    private final int frameSize;
     private final IToken token;
     private final long[] cellId;
     private final StringBuilder sb;
@@ -53,7 +54,8 @@ public class SIFBinaryTokenizer implements IBinaryTokenizer {
     private static byte[] OOPS_BYTE_ARRAY;
 
     public SIFBinaryTokenizer(double bottomLeftX, double bottomLeftY, double topRightX, double topRightY,
-            short[] levelDensity, int cellsPerObject, ITokenFactory tokenFactory) {
+            short[] levelDensity, int cellsPerObject, ITokenFactory tokenFactory, int frameSize) {
+        this.frameSize = frameSize;
         this.bottomLeftX = bottomLeftX;
         this.bottomLeftY = bottomLeftY;
         this.topRightX = topRightX;
@@ -64,7 +66,7 @@ public class SIFBinaryTokenizer implements IBinaryTokenizer {
         }
         this.xCellNum = cellNum;
         this.yCellNum = cellNum;
-        
+
         this.xCellSize = (topRightX - bottomLeftX) / xCellNum;
         this.yCellSize = (topRightX - bottomLeftX) / yCellNum;
         this.cellId = new long[2];
@@ -184,7 +186,7 @@ public class SIFBinaryTokenizer implements IBinaryTokenizer {
             } else { //case4
                 oops = false;
             }
-            
+
             computeCellId(x1, y1, cellId);
             curX = minX = cellId[0];
             curY = minY = cellId[1];

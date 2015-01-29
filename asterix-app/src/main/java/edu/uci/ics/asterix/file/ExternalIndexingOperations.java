@@ -230,14 +230,14 @@ public class ExternalIndexingOperations {
         ILocalResourceMetadata localResourceMetadata = new ExternalBTreeLocalResourceMetadata(
                 FilesIndexDescription.EXTERNAL_FILE_INDEX_TYPE_TRAITS,
                 FilesIndexDescription.FILES_INDEX_COMP_FACTORIES, new int[] { 0 }, false, dataset.getDatasetId(),
-                mergePolicyFactory, mergePolicyFactoryProperties);
+                mergePolicyFactory, mergePolicyFactoryProperties, null);
         PersistentLocalResourceFactoryProvider localResourceFactoryProvider = new PersistentLocalResourceFactoryProvider(
                 localResourceMetadata, LocalResource.ExternalBTreeResource);
         ExternalBTreeDataflowHelperFactory indexDataflowHelperFactory = new ExternalBTreeDataflowHelperFactory(
                 mergePolicyFactory, mergePolicyFactoryProperties, new SecondaryIndexOperationTrackerProvider(
                         dataset.getDatasetId()), AsterixRuntimeComponentsProvider.RUNTIME_PROVIDER,
                 LSMBTreeIOOperationCallbackFactory.INSTANCE, storageProperties.getBloomFilterFalsePositiveRate(),
-                ExternalDatasetsRegistry.INSTANCE.getDatasetVersion(dataset));
+                ExternalDatasetsRegistry.INSTANCE.getDatasetVersion(dataset), null);
         ExternalFilesIndexOperatorDescriptor externalFilesOp = new ExternalFilesIndexOperatorDescriptor(spec,
                 AsterixRuntimeComponentsProvider.RUNTIME_PROVIDER, AsterixRuntimeComponentsProvider.RUNTIME_PROVIDER,
                 secondaryFileSplitProvider, indexDataflowHelperFactory, localResourceFactoryProvider,
@@ -416,7 +416,7 @@ public class ExternalIndexingOperations {
                         dataset.getDatasetId()), compactionInfo.first, compactionInfo.second,
                         new SecondaryIndexOperationTrackerProvider(dataset.getDatasetId()),
                         AsterixRuntimeComponentsProvider.RUNTIME_PROVIDER, LSMBTreeIOOperationCallbackFactory.INSTANCE,
-                        storageProperties.getBloomFilterFalsePositiveRate(), false, null, null, null, null));
+                        storageProperties.getBloomFilterFalsePositiveRate(), false, null, null, null, null, null));
         AlgebricksPartitionConstraintHelper
                 .setPartitionConstraintInJobSpec(spec, btreeDrop, splitsAndConstraint.second);
         spec.addRoot(btreeDrop);
@@ -539,7 +539,7 @@ public class ExternalIndexingOperations {
                 new SecondaryIndexOperationTrackerProvider(ds.getDatasetId()),
                 AsterixRuntimeComponentsProvider.RUNTIME_PROVIDER, LSMBTreeIOOperationCallbackFactory.INSTANCE,
                 storageProperties.getBloomFilterFalsePositiveRate(),
-                ExternalDatasetsRegistry.INSTANCE.getDatasetVersion(ds));
+                ExternalDatasetsRegistry.INSTANCE.getDatasetVersion(ds), null);
     }
 
     private static ExternalBTreeWithBuddyDataflowHelperFactory getBTreeDataflowHelperFactory(Dataset ds, Index index,
@@ -550,7 +550,7 @@ public class ExternalIndexingOperations {
                 AsterixRuntimeComponentsProvider.RUNTIME_PROVIDER,
                 LSMBTreeWithBuddyIOOperationCallbackFactory.INSTANCE,
                 storageProperties.getBloomFilterFalsePositiveRate(), new int[] { index.getKeyFieldNames().size() },
-                ExternalDatasetsRegistry.INSTANCE.getDatasetVersion(ds));
+                ExternalDatasetsRegistry.INSTANCE.getDatasetVersion(ds), null);
     }
 
     @SuppressWarnings("rawtypes")
@@ -737,7 +737,7 @@ public class ExternalIndexingOperations {
                 mergePolicyFactory, mergePolicyFactoryProperties, new SecondaryIndexOperationTrackerProvider(
                         dataset.getDatasetId()), AsterixRuntimeComponentsProvider.RUNTIME_PROVIDER,
                 LSMBTreeIOOperationCallbackFactory.INSTANCE, storageProperties.getBloomFilterFalsePositiveRate(),
-                ExternalDatasetsRegistry.INSTANCE.getDatasetVersion(dataset));
+                ExternalDatasetsRegistry.INSTANCE.getDatasetVersion(dataset), null);
         LSMTreeIndexCompactOperatorDescriptor compactOp = new LSMTreeIndexCompactOperatorDescriptor(spec,
                 AsterixRuntimeComponentsProvider.RUNTIME_PROVIDER, AsterixRuntimeComponentsProvider.RUNTIME_PROVIDER,
                 secondaryFileSplitProvider, FilesIndexDescription.EXTERNAL_FILE_INDEX_TYPE_TRAITS,

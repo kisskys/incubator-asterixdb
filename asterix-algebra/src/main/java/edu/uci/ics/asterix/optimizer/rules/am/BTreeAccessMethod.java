@@ -31,6 +31,8 @@ import edu.uci.ics.asterix.aql.util.FunctionUtils;
 import edu.uci.ics.asterix.common.annotations.SkipSecondaryIndexSearchExpressionAnnotation;
 import edu.uci.ics.asterix.common.config.DatasetConfig.DatasetType;
 import edu.uci.ics.asterix.common.config.DatasetConfig.IndexType;
+import edu.uci.ics.asterix.metadata.declared.AqlIndex;
+import edu.uci.ics.asterix.metadata.declared.AqlMetadataProvider;
 import edu.uci.ics.asterix.metadata.entities.Dataset;
 import edu.uci.ics.asterix.metadata.entities.Index;
 import edu.uci.ics.asterix.om.base.AInt32;
@@ -38,6 +40,7 @@ import edu.uci.ics.asterix.om.constants.AsterixConstantValue;
 import edu.uci.ics.asterix.om.functions.AsterixBuiltinFunctions;
 import edu.uci.ics.asterix.om.types.ARecordType;
 import edu.uci.ics.asterix.om.types.ATypeTag;
+import edu.uci.ics.asterix.om.types.BuiltinType;
 import edu.uci.ics.asterix.om.util.NonTaggedFormatUtil;
 import edu.uci.ics.hyracks.algebricks.common.exceptions.AlgebricksException;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.ILogicalExpression;
@@ -61,6 +64,7 @@ import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.AssignOpera
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.DataSourceScanOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.ExternalDataLookupOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.SelectOperator;
+import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.TokenizeOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.UnnestMapOperator;
 
 /**
@@ -244,10 +248,10 @@ public class BTreeAccessMethod implements IAccessMethod {
         // TODO: For now don't consider prefix searches.
         BitSet setLowKeys = new BitSet(numSecondaryKeys);
         BitSet setHighKeys = new BitSet(numSecondaryKeys);
-        
+
         //flag for using Hilbert btree
         boolean useLinearizerBTree = false;
-        
+
         // Go through the func exprs listed as optimizable by the chosen index, 
         // and formulate a range predicate on the secondary-index keys.
         ILogicalExpression searchKeyExpr = null;
@@ -265,19 +269,34 @@ public class BTreeAccessMethod implements IAccessMethod {
                 throw new AlgebricksException(
                         "Could not match optimizable function expression to any index field name.");
             }
+            
             LimitType limit;
+            searchKeyExpr = AccessMethodUtils.createSearchKeyExpr(optFuncExpr, indexSubTree, probeSubTree);
             
             //TODO extend HilbertBTree to support composite key. 
             if (keyPos == 0 && optFuncExpr.getTypeTag(keyPos) == ATypeTag.POINT) {
                 //if the key type is POINT, then must use a linearizer btree.
                 useLinearizerBTree = true;
-                limit = LimitType.LOW_INCLUSIVE;
+                IndexType indexType = chosenIndex.getIndexType();
+                if (indexType == IndexType.BTREE) {
+                    limit = LimitType.LOW_INCLUSIVE;
+                } else { //STATIC_HILBERT_BTREE
+                    limit = LimitType.EQUAL;
+                    lowKeyLimits[keyPos] = LimitType.LOW_INCLUSIVE;
+                    lowKeyExprs[keyPos] = searchKeyExpr;
+                    lowKeyInclusive[keyPos] = true;
+                    highKeyLimits[keyPos] = LimitType.HIGH_INCLUSIVE;
+                    highKeyExprs[keyPos] = searchKeyExpr;
+                    highKeyInclusive[keyPos] = true;
+                    couldntFigureOut = false;
+                    isEqCondition = false;
+                    replacedFuncExprs.add(matchedFuncExprs.get(exprIndex).getFuncExpr());
+                    break;
+                }
             } else {
                 limit = getLimitType(optFuncExpr, probeSubTree);
             }
-            searchKeyExpr = AccessMethodUtils.createSearchKeyExpr(optFuncExpr, indexSubTree,
-                    probeSubTree);
-            
+
             switch (limit) {
                 case EQUAL: {
                     if (lowKeyLimits[keyPos] == null && highKeyLimits[keyPos] == null) {
@@ -426,7 +445,8 @@ public class BTreeAccessMethod implements IAccessMethod {
         }
 
         ILogicalOperator inputOp = null;
-        BTreeJobGenParams jobGenParams = new BTreeJobGenParams(chosenIndex.getIndexName(), IndexType.BTREE,
+        IndexType chosenIndexType = chosenIndex.getIndexType();
+        BTreeJobGenParams jobGenParams = new BTreeJobGenParams(chosenIndex.getIndexName(), chosenIndexType,
                 dataset.getDataverseName(), dataset.getDatasetName(), retainInput, retainNull, requiresBroadcast);
         if (useLinearizerBTree) {
             //In order to use the linearizer btree, the input to the btree index need to form a rectangle which minimally covers a given query region.
@@ -435,7 +455,7 @@ public class BTreeAccessMethod implements IAccessMethod {
             //   The function generates four doubles, the first two represents bottom left point of the MBR and the last two represents top right point. 
             //step 2. Using CREATE_POINT function, create two points using the four points from the MBR function. 
             //step 3. Using CREATE_RECTANGLE function, create a rectangle using two points from the step 2.
-            
+
             LogicalVariable keyVar = null;
             int numDimensions = NonTaggedFormatUtil.getNumDimensions(ATypeTag.POINT);
             int numMBRs = numDimensions * 2;
@@ -443,7 +463,7 @@ public class BTreeAccessMethod implements IAccessMethod {
             ArrayList<LogicalVariable> assignKeyVarList = new ArrayList<LogicalVariable>();
             // List of expressions for the assign.
             ArrayList<Mutable<ILogicalExpression>> assignKeyExprList = new ArrayList<Mutable<ILogicalExpression>>();
-            
+
             //step 1.
             for (int i = 0; i < numMBRs; i++) {
                 // The create MBR function "extracts" one field of an MBR around the given spatial object.
@@ -453,57 +473,155 @@ public class BTreeAccessMethod implements IAccessMethod {
                 createMBR.getArguments().add(new MutableObject<ILogicalExpression>(searchKeyExpr));
                 // The number of dimensions.
                 createMBR.getArguments().add(
-                        new MutableObject<ILogicalExpression>(new ConstantExpression(new AsterixConstantValue(new AInt32(
-                                numDimensions)))));
+                        new MutableObject<ILogicalExpression>(new ConstantExpression(new AsterixConstantValue(
+                                new AInt32(numDimensions)))));
                 // Which part of the MBR to extract.
                 createMBR.getArguments().add(
-                        new MutableObject<ILogicalExpression>(new ConstantExpression(
-                                new AsterixConstantValue(new AInt32(i)))));
+                        new MutableObject<ILogicalExpression>(new ConstantExpression(new AsterixConstantValue(
+                                new AInt32(i)))));
                 // Add a variable and its expr to the lists which will be passed into an assign op.
                 keyVar = context.newVar();
                 assignKeyVarList.add(keyVar);
                 assignKeyExprList.add(new MutableObject<ILogicalExpression>(createMBR));
             }
             AssignOperator assignConstantSearchKeys = new AssignOperator(assignKeyVarList, assignKeyExprList);
-            
+
             //step 2.
-            ArrayList<LogicalVariable> assign2KeyVarList = new ArrayList<LogicalVariable>();
-            ArrayList<Mutable<ILogicalExpression>> assign2KeyExprList = new ArrayList<Mutable<ILogicalExpression>>();
-            AbstractFunctionCallExpression createPoint1 = new ScalarFunctionCallExpression(FunctionUtils.getFunctionInfo(AsterixBuiltinFunctions.CREATE_POINT));
-            createPoint1.getArguments().add(new MutableObject<ILogicalExpression>(new VariableReferenceExpression(assignKeyVarList.get(0))));
-            createPoint1.getArguments().add(new MutableObject<ILogicalExpression>(new VariableReferenceExpression(assignKeyVarList.get(1))));
-            assign2KeyVarList.add(context.newVar());
-            assign2KeyExprList.add(new MutableObject<ILogicalExpression>(createPoint1));
-            AbstractFunctionCallExpression createPoint2 = new ScalarFunctionCallExpression(FunctionUtils.getFunctionInfo(AsterixBuiltinFunctions.CREATE_POINT));
-            createPoint2.getArguments().add(new MutableObject<ILogicalExpression>(new VariableReferenceExpression(assignKeyVarList.get(2))));
-            createPoint2.getArguments().add(new MutableObject<ILogicalExpression>(new VariableReferenceExpression(assignKeyVarList.get(3))));
-            assign2KeyVarList.add(context.newVar());
-            assign2KeyExprList.add(new MutableObject<ILogicalExpression>(createPoint2));
-            AssignOperator assignOpPoints = new AssignOperator(assign2KeyVarList, assign2KeyExprList);
-            
+            ArrayList<LogicalVariable> assignOpPointKeyVarList = new ArrayList<LogicalVariable>();
+            ArrayList<Mutable<ILogicalExpression>> assignOpPointKeyExprList = new ArrayList<Mutable<ILogicalExpression>>();
+            AbstractFunctionCallExpression createPoint1 = new ScalarFunctionCallExpression(
+                    FunctionUtils.getFunctionInfo(AsterixBuiltinFunctions.CREATE_POINT));
+            createPoint1.getArguments().add(
+                    new MutableObject<ILogicalExpression>(new VariableReferenceExpression(assignKeyVarList.get(0))));
+            createPoint1.getArguments().add(
+                    new MutableObject<ILogicalExpression>(new VariableReferenceExpression(assignKeyVarList.get(1))));
+            assignOpPointKeyVarList.add(context.newVar());
+            assignOpPointKeyExprList.add(new MutableObject<ILogicalExpression>(createPoint1));
+            AbstractFunctionCallExpression createPoint2 = new ScalarFunctionCallExpression(
+                    FunctionUtils.getFunctionInfo(AsterixBuiltinFunctions.CREATE_POINT));
+            createPoint2.getArguments().add(
+                    new MutableObject<ILogicalExpression>(new VariableReferenceExpression(assignKeyVarList.get(2))));
+            createPoint2.getArguments().add(
+                    new MutableObject<ILogicalExpression>(new VariableReferenceExpression(assignKeyVarList.get(3))));
+            assignOpPointKeyVarList.add(context.newVar());
+            assignOpPointKeyExprList.add(new MutableObject<ILogicalExpression>(createPoint2));
+            AssignOperator assignOpPoints = new AssignOperator(assignOpPointKeyVarList, assignOpPointKeyExprList);
+
             //step 3.
-            ArrayList<LogicalVariable> assign3KeyVarList = new ArrayList<LogicalVariable>();
-            ArrayList<Mutable<ILogicalExpression>> assign3KeyExprList = new ArrayList<Mutable<ILogicalExpression>>();
-            AbstractFunctionCallExpression createRectangle = new ScalarFunctionCallExpression(FunctionUtils.getFunctionInfo(AsterixBuiltinFunctions.CREATE_RECTANGLE));
-            createRectangle.getArguments().add(new MutableObject<ILogicalExpression>(new VariableReferenceExpression(assign2KeyVarList.get(0))));
-            createRectangle.getArguments().add(new MutableObject<ILogicalExpression>(new VariableReferenceExpression(assign2KeyVarList.get(1))));
-            assign3KeyVarList.add(context.newVar());
-            assign3KeyExprList.add(new MutableObject<ILogicalExpression>(createRectangle));
-            AssignOperator assignOpRectangle = new AssignOperator(assign3KeyVarList, assign3KeyExprList);
-            
-            jobGenParams.setLowKeyInclusive(lowKeyInclusive[0]);
-            jobGenParams.setHighKeyInclusive(highKeyInclusive[0]);
-            jobGenParams.setIsEqCondition(isEqCondition);
-            jobGenParams.setLowKeyVarList(assign3KeyVarList, 0, 1);
-            jobGenParams.setHighKeyVarList(assign3KeyVarList, 1, 0);
-            
+            ArrayList<LogicalVariable> assignOpRectangleKeyVarList = new ArrayList<LogicalVariable>();
+            ArrayList<Mutable<ILogicalExpression>> assignOpRectangleKeyExprList = new ArrayList<Mutable<ILogicalExpression>>();
+            AbstractFunctionCallExpression createRectangle = new ScalarFunctionCallExpression(
+                    FunctionUtils.getFunctionInfo(AsterixBuiltinFunctions.CREATE_RECTANGLE));
+            createRectangle.getArguments().add(
+                    new MutableObject<ILogicalExpression>(new VariableReferenceExpression(assignOpPointKeyVarList
+                            .get(0))));
+            createRectangle.getArguments().add(
+                    new MutableObject<ILogicalExpression>(new VariableReferenceExpression(assignOpPointKeyVarList
+                            .get(1))));
+            assignOpRectangleKeyVarList.add(context.newVar());
+            assignOpRectangleKeyExprList.add(new MutableObject<ILogicalExpression>(createRectangle));
+            AssignOperator assignOpRectangle = new AssignOperator(assignOpRectangleKeyVarList,
+                    assignOpRectangleKeyExprList);
+
             // Input to this assign is the EmptyTupleSource (which the dataSourceScan also must have had as input).
             assignConstantSearchKeys.getInputs().add(dataSourceScan.getInputs().get(0));
             assignConstantSearchKeys.setExecutionMode(dataSourceScan.getExecutionMode());
             assignOpPoints.getInputs().add(new MutableObject<ILogicalOperator>(assignConstantSearchKeys));
             assignOpRectangle.getInputs().add(new MutableObject<ILogicalOperator>(assignOpPoints));
-            
-            inputOp = assignOpRectangle;
+
+            if (chosenIndexType == IndexType.BTREE) {
+                inputOp = assignOpRectangle;
+                jobGenParams.setLowKeyInclusive(lowKeyInclusive[0]);
+                jobGenParams.setHighKeyInclusive(highKeyInclusive[0]);
+                jobGenParams.setIsEqCondition(isEqCondition);
+                jobGenParams.setLowKeyVarList(assignOpRectangleKeyVarList, 0, 1);
+                jobGenParams.setHighKeyVarList(assignOpRectangleKeyVarList, 1, 0);
+            } else {
+                ///////////////////////
+                //add spatial-cell-tokens function
+                //                ArrayList<LogicalVariable> assignSCTKeyVarList = new ArrayList<LogicalVariable>();
+                //                ArrayList<Mutable<ILogicalExpression>> assignSCTKeyExprList = new ArrayList<Mutable<ILogicalExpression>>();
+                //                AbstractFunctionCallExpression scTokens = new ScalarFunctionCallExpression(
+                //                        FunctionUtils.getFunctionInfo(AsterixBuiltinFunctions.SPATIAL_CELL_TOKENS));
+                //                IndexTypeProperty itp = chosenIndex.getIndexTypeProperty();
+                //                scTokens.getArguments().add(
+                //                        new MutableObject<ILogicalExpression>(new VariableReferenceExpression(
+                //                                assignOpRectangleKeyVarList.get(0))));
+                //                scTokens.getArguments().add(
+                //                        new MutableObject<ILogicalExpression>(new ConstantExpression(new AsterixConstantValue(
+                //                                new ADouble(itp.bottomLeftX)))));
+                //                scTokens.getArguments().add(
+                //                        new MutableObject<ILogicalExpression>(new ConstantExpression(new AsterixConstantValue(
+                //                                new ADouble(itp.bottomLeftY)))));
+                //                scTokens.getArguments().add(
+                //                        new MutableObject<ILogicalExpression>(new ConstantExpression(new AsterixConstantValue(
+                //                                new ADouble(itp.topRightX)))));
+                //                scTokens.getArguments().add(
+                //                        new MutableObject<ILogicalExpression>(new ConstantExpression(new AsterixConstantValue(
+                //                                new ADouble(itp.topRightY)))));
+                //                for (int i = 0; i < CellBasedSpatialIndex.MAX_LEVEL.getValue(); i++) {
+                //                    scTokens.getArguments().add(
+                //                            new MutableObject<ILogicalExpression>(new ConstantExpression(new AsterixConstantValue(
+                //                                    new AInt16(itp.levelDensity[i])))));
+                //                }
+                //                scTokens.getArguments().add(
+                //                        new MutableObject<ILogicalExpression>(new ConstantExpression(new AsterixConstantValue(
+                //                                new AInt32(itp.cellsPerObject)))));
+                //                assignSCTKeyVarList.add(context.newVar());
+                //                assignSCTKeyExprList.add(new MutableObject<ILogicalExpression>(scTokens));
+                //                AssignOperator assignOpSCTokens = new AssignOperator(assignSCTKeyVarList, assignSCTKeyExprList);
+                //                assignOpSCTokens.getInputs().add(new MutableObject<ILogicalOperator>(assignOpRectangle));
+                //                assignOpSCTokens.setExecutionMode(dataSourceScan.getExecutionMode());
+                //
+                //                inputOp = assignOpSCTokens;
+                //                jobGenParams.setLowKeyInclusive(lowKeyInclusive[0]);
+                //                jobGenParams.setHighKeyInclusive(highKeyInclusive[0]);
+                //                jobGenParams.setIsEqCondition(isEqCondition);
+                //                jobGenParams.setLowKeyVarList(assignSCTKeyVarList, 0, 1);
+                //                jobGenParams.setHighKeyVarList(assignSCTKeyVarList, 1, 0);
+                ///////////////////////
+
+                ///////////////////////
+                // add tokenizer
+
+                // Create a new logical variable - token
+                List<LogicalVariable> tokenizeKeyVars = new ArrayList<LogicalVariable>();
+                List<Mutable<ILogicalExpression>> tokenizeKeyExprs = new ArrayList<Mutable<ILogicalExpression>>();
+                List<Object> varTypes = new ArrayList<Object>();
+                
+                //low key token
+                LogicalVariable tokenVar = context.newVar();
+                tokenizeKeyVars.add(tokenVar);
+                tokenizeKeyExprs.add(new MutableObject<ILogicalExpression>(new VariableReferenceExpression(tokenVar)));
+                varTypes.add(BuiltinType.ABINARY); // The secondary key field type of static hilbert btree is always ABinary. 
+                
+                //high key token
+                tokenVar = context.newVar();
+                tokenizeKeyVars.add(tokenVar);
+                tokenizeKeyExprs.add(new MutableObject<ILogicalExpression>(new VariableReferenceExpression(tokenVar)));
+                varTypes.add(BuiltinType.ABINARY);  
+
+                // TokenizeOperator to tokenzie SK
+                AqlIndex dataSourceIndex = new AqlIndex(chosenIndex, chosenIndex.getDataverseName(),
+                        chosenIndex.getDatasetName(), (AqlMetadataProvider) context.getMetadataProvider());
+                List<Mutable<ILogicalExpression>> primaryExpressions = new ArrayList<Mutable<ILogicalExpression>>();
+                List<Mutable<ILogicalExpression>> secondaryExpressions = new ArrayList<Mutable<ILogicalExpression>>();
+                for (LogicalVariable secondaryKeyVar : assignOpRectangle.getVariables()) {
+                    secondaryExpressions.add(new MutableObject<ILogicalExpression>(new VariableReferenceExpression(
+                            secondaryKeyVar)));
+                }
+                TokenizeOperator tokenizeOp = new TokenizeOperator(dataSourceIndex, primaryExpressions,
+                        secondaryExpressions, tokenizeKeyVars, null, null, false, false, varTypes);
+                tokenizeOp.getInputs().add(new MutableObject<ILogicalOperator>(assignOpRectangle));
+                context.computeAndSetTypeEnvironmentForOperator(tokenizeOp);
+                
+                inputOp = tokenizeOp;
+                jobGenParams.setLowKeyInclusive(lowKeyInclusive[0]);
+                jobGenParams.setHighKeyInclusive(highKeyInclusive[0]);
+                jobGenParams.setIsEqCondition(isEqCondition);
+                jobGenParams.setLowKeyVarList(tokenizeKeyVars, 0, 1);
+                jobGenParams.setHighKeyVarList(tokenizeKeyVars, 1, 1);
+            }
         } else {
             // Here we generate vars and funcs for assigning the secondary-index keys to be fed into the secondary-index search.
             // List of variables for the assign.
@@ -515,13 +633,13 @@ public class BTreeAccessMethod implements IAccessMethod {
                     keyVarList, context);
             int numHighKeys = createKeyVarsAndExprs(highKeyLimits, highKeyExprs, assignKeyVarList, assignKeyExprList,
                     keyVarList, context);
-    
+
             jobGenParams.setLowKeyInclusive(lowKeyInclusive[0]);
             jobGenParams.setHighKeyInclusive(highKeyInclusive[0]);
             jobGenParams.setIsEqCondition(isEqCondition);
             jobGenParams.setLowKeyVarList(keyVarList, 0, numLowKeys);
             jobGenParams.setHighKeyVarList(keyVarList, numLowKeys, numHighKeys);
-    
+
             if (!assignKeyVarList.isEmpty()) {
                 // Assign operator that sets the constant secondary-index search-key fields if necessary.
                 AssignOperator assignConstantSearchKeys = new AssignOperator(assignKeyVarList, assignKeyExprList);
@@ -535,6 +653,7 @@ public class BTreeAccessMethod implements IAccessMethod {
             }
         }
 
+        //TODO return primary key without secondary key if possible
         UnnestMapOperator secondaryIndexUnnestOp = AccessMethodUtils.createSecondaryIndexUnnestMap(dataset, recordType,
                 chosenIndex, inputOp, jobGenParams, context, false, retainInput);
 
@@ -544,7 +663,8 @@ public class BTreeAccessMethod implements IAccessMethod {
         if (dataset.getDatasetType() == DatasetType.EXTERNAL) {
             // External dataset
             ExternalDataLookupOperator externalDataAccessOp = AccessMethodUtils.createExternalDataLookupUnnestMap(
-                    dataSourceScan, dataset, recordType, secondaryIndexUnnestOp, context, chosenIndex, retainInput, retainNull);
+                    dataSourceScan, dataset, recordType, secondaryIndexUnnestOp, context, chosenIndex, retainInput,
+                    retainNull);
             indexSubTree.dataSourceRef.setValue(externalDataAccessOp);
             return externalDataAccessOp;
         } else if (!isPrimaryIndex) {

@@ -18,8 +18,9 @@ package edu.uci.ics.asterix.dataflow.data.common;
 import edu.uci.ics.hyracks.storage.am.common.api.IBinaryTokenizer;
 import edu.uci.ics.hyracks.storage.am.common.api.IBinaryTokenizerFactory;
 import edu.uci.ics.hyracks.storage.am.common.api.ITokenFactory;
+import edu.uci.ics.hyracks.storage.am.common.ophelpers.IndexOperation;
 
-public class SIFBinaryTokenizerFactory implements IBinaryTokenizerFactory {
+public class SpatialCellBinaryTokenizerFactory implements IBinaryTokenizerFactory {
     private static final long serialVersionUID = 1L;
     private final ITokenFactory tokenFactory;
     private final double bottomLeftX;
@@ -29,9 +30,11 @@ public class SIFBinaryTokenizerFactory implements IBinaryTokenizerFactory {
     private final short[] levelDensity;
     private final int cellsPerObject;
     private final int frameSize;
+    private final boolean isQuery;
 
-    public SIFBinaryTokenizerFactory(double bottomLeftX, double bottomLeftY, double topRightX, double topRightY,
-            short[] levelDensity, int cellsPerObject, ITokenFactory tokenFactory, int frameSize) {
+    public SpatialCellBinaryTokenizerFactory(double bottomLeftX, double bottomLeftY, double topRightX,
+            double topRightY, short[] levelDensity, int cellsPerObject, ITokenFactory tokenFactory, int frameSize,
+            boolean isQuery) {
         this.bottomLeftX = bottomLeftX;
         this.bottomLeftY = bottomLeftY;
         this.topRightX = topRightX;
@@ -40,11 +43,12 @@ public class SIFBinaryTokenizerFactory implements IBinaryTokenizerFactory {
         this.cellsPerObject = cellsPerObject;
         this.tokenFactory = tokenFactory;
         this.frameSize = frameSize;
+        this.isQuery = isQuery;
     }
 
     @Override
     public IBinaryTokenizer createTokenizer() {
-        return new SIFBinaryTokenizer(bottomLeftX, bottomLeftY, topRightX, topRightY, levelDensity, cellsPerObject,
-                tokenFactory, frameSize);
+        return new SpatialCellBinaryTokenizer(bottomLeftX, bottomLeftY, topRightX, topRightY, levelDensity,
+                cellsPerObject, tokenFactory, frameSize, isQuery);
     }
 }

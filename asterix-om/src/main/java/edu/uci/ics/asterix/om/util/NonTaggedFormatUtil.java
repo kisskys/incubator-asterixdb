@@ -37,7 +37,7 @@ import edu.uci.ics.hyracks.algebricks.common.exceptions.AlgebricksException;
 import edu.uci.ics.hyracks.algebricks.common.exceptions.NotImplementedException;
 import edu.uci.ics.hyracks.api.dataflow.value.IBinaryComparatorFactory;
 import edu.uci.ics.hyracks.api.dataflow.value.ITypeTraits;
-import edu.uci.ics.hyracks.storage.am.lsm.invertedindex.tokenizers.IBinaryTokenizerFactory;
+import edu.uci.ics.hyracks.storage.am.common.api.IBinaryTokenizerFactory;
 
 public final class NonTaggedFormatUtil {
 
@@ -207,11 +207,19 @@ public final class NonTaggedFormatUtil {
                 }
 
             }
+            
             case SINGLE_PARTITION_NGRAM_INVIX:
             case LENGTH_PARTITIONED_NGRAM_INVIX: {
                 return AqlBinaryTokenizerFactoryProvider.INSTANCE.getNGramTokenizerFactory(keyType,
                         indexTypeProperty.gramLength, true, false);
             }
+            
+            case STATIC_HILBERT_BTREE:
+                return AqlBinaryTokenizerFactoryProvider.INSTANCE.getSpatialCellTokenizerFactory(keyType,
+                        indexTypeProperty.bottomLeftX, indexTypeProperty.bottomLeftY,
+                        indexTypeProperty.topRightX, indexTypeProperty.topRightY,
+                        indexTypeProperty.levelDensity, indexTypeProperty.cellsPerObject, false);
+                
             default: {
                 throw new AlgebricksException("Tokenizer not applicable to index type '" + indexType + "'.");
             }

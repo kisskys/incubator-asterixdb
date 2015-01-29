@@ -217,7 +217,8 @@ public class SetAsterixPhysicalOperatorsRule implements IAlgebraicRewriteRule {
                         IndexType indexType = jobGenParams.getIndexType();
                         boolean requiresBroadcast = jobGenParams.getRequiresBroadcast();
                         switch (indexType) {
-                            case BTREE: {
+                            case BTREE: 
+                            case STATIC_HILBERT_BTREE: {
                                 BTreeJobGenParams btreeJobGenParams = new BTreeJobGenParams();
                                 btreeJobGenParams.readFromFuncArgs(f.getArguments());
                                 op.setPhysicalOperator(new BTreeSearchPOperator(dsi, requiresBroadcast,

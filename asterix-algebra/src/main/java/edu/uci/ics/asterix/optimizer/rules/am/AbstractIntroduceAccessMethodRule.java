@@ -136,14 +136,15 @@ public abstract class AbstractIntroduceAccessMethodRule implements IAlgebraicRew
                 //                           LENGTH_PARTITIONED_NGRAM_INVIX]
                 IAccessMethod chosenAccessMethod = amEntry.getKey();
                 Index chosenIndex = indexEntry.getKey();
+                IndexType chosenIndexType = chosenIndex.getIndexType();
                 boolean isKeywordOrNgramIndexChosen = false;
-                if (chosenIndex.getIndexType() == IndexType.LENGTH_PARTITIONED_WORD_INVIX
-                        || chosenIndex.getIndexType() == IndexType.LENGTH_PARTITIONED_NGRAM_INVIX
-                        || chosenIndex.getIndexType() == IndexType.SINGLE_PARTITION_WORD_INVIX
-                        || chosenIndex.getIndexType() == IndexType.SINGLE_PARTITION_NGRAM_INVIX)
+                if (chosenIndexType == IndexType.LENGTH_PARTITIONED_WORD_INVIX
+                        || chosenIndexType == IndexType.LENGTH_PARTITIONED_NGRAM_INVIX
+                        || chosenIndexType == IndexType.SINGLE_PARTITION_WORD_INVIX
+                        || chosenIndexType == IndexType.SINGLE_PARTITION_NGRAM_INVIX)
                     isKeywordOrNgramIndexChosen = true;
-                if ((chosenAccessMethod == BTreeAccessMethod.INSTANCE && chosenIndex.getIndexType() != IndexType.BTREE)
-                        || (chosenAccessMethod == RTreeAccessMethod.INSTANCE && chosenIndex.getIndexType() != IndexType.RTREE)
+                if ((chosenAccessMethod == BTreeAccessMethod.INSTANCE && (chosenIndexType != IndexType.BTREE && chosenIndexType != IndexType.STATIC_HILBERT_BTREE))
+                        || (chosenAccessMethod == RTreeAccessMethod.INSTANCE && chosenIndexType != IndexType.RTREE)
                         || (chosenAccessMethod == InvertedIndexAccessMethod.INSTANCE && !isKeywordOrNgramIndexChosen)) {
                     continue;
                 }

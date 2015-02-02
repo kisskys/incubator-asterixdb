@@ -23,6 +23,7 @@ import edu.uci.ics.asterix.dataflow.data.nontagged.serde.AInt32SerializerDeseria
 import edu.uci.ics.asterix.om.functions.AsterixBuiltinFunctions;
 import edu.uci.ics.asterix.om.functions.IFunctionDescriptor;
 import edu.uci.ics.asterix.om.functions.IFunctionDescriptorFactory;
+import edu.uci.ics.asterix.om.types.ATypeTag;
 import edu.uci.ics.asterix.om.types.BuiltinType;
 import edu.uci.ics.asterix.runtime.evaluators.base.AbstractScalarFunctionDynamicDescriptor;
 import edu.uci.ics.asterix.runtime.evaluators.common.SpatialCellTokensEvaluator;
@@ -34,7 +35,7 @@ import edu.uci.ics.hyracks.data.std.api.IDataOutputProvider;
 import edu.uci.ics.hyracks.data.std.util.ArrayBackedValueStorage;
 import edu.uci.ics.hyracks.storage.am.common.api.IBinaryTokenizer;
 import edu.uci.ics.hyracks.storage.am.common.api.ITokenFactory;
-import edu.uci.ics.hyracks.storage.am.common.tokenizer.NonTaggedByteArrayTokenFactory;
+import edu.uci.ics.hyracks.storage.am.common.tokenizer.ByteArrayTokenFactory;
 
 public class SpatialCellTokensDescriptor extends AbstractScalarFunctionDynamicDescriptor {
 
@@ -86,7 +87,7 @@ public class SpatialCellTokensDescriptor extends AbstractScalarFunctionDynamicDe
                     levelDensity[i] = AInt16SerializerDeserializer.getShort(outLevelDensity[i].getByteArray(), 1);
                 }
                 int cellsPerObject = AInt32SerializerDeserializer.getInt(outCellsPerObject.getByteArray(), 1);
-                ITokenFactory tokenFactory = new NonTaggedByteArrayTokenFactory();
+                ITokenFactory tokenFactory = new ByteArrayTokenFactory(ATypeTag.BINARY.serialize());
                 IBinaryTokenizer tokenizer = new SpatialCellBinaryTokenizer(bottomLeftX, bottomLeftY, topRightX,
                         topRightY, levelDensity, cellsPerObject, tokenFactory, OptimizationConfUtil
                                 .getPhysicalOptimizationConfig().getFrameSize(), true);

@@ -23,12 +23,10 @@ import edu.uci.ics.asterix.common.config.DatasetConfig.IndexType;
 import edu.uci.ics.asterix.common.config.DatasetConfig.IndexTypeProperty;
 import edu.uci.ics.asterix.common.config.GlobalConfig;
 import edu.uci.ics.asterix.common.config.IAsterixPropertiesProvider;
-import edu.uci.ics.asterix.common.config.OptimizationConfUtil;
 import edu.uci.ics.asterix.common.context.AsterixVirtualBufferCacheProvider;
 import edu.uci.ics.asterix.common.exceptions.AsterixException;
 import edu.uci.ics.asterix.common.ioopcallbacks.LSMBTreeIOOperationCallbackFactory;
 import edu.uci.ics.asterix.common.ioopcallbacks.LSMBTreeWithBuddyIOOperationCallbackFactory;
-import edu.uci.ics.asterix.dataflow.data.common.SpatialCellBinaryTokenizerFactory;
 import edu.uci.ics.asterix.formats.nontagged.AqlBinaryComparatorFactoryProvider;
 import edu.uci.ics.asterix.metadata.declared.AqlMetadataProvider;
 import edu.uci.ics.asterix.metadata.entities.Index;
@@ -36,7 +34,9 @@ import edu.uci.ics.asterix.metadata.external.IndexingConstants;
 import edu.uci.ics.asterix.metadata.feeds.ExternalDataScanOperatorDescriptor;
 import edu.uci.ics.asterix.metadata.utils.ExternalDatasetsRegistry;
 import edu.uci.ics.asterix.om.types.ATypeTag;
+import edu.uci.ics.asterix.om.types.BuiltinType;
 import edu.uci.ics.asterix.om.types.IAType;
+import edu.uci.ics.asterix.om.util.NonTaggedFormatUtil;
 import edu.uci.ics.asterix.transaction.management.opcallbacks.SecondaryIndexOperationTrackerProvider;
 import edu.uci.ics.asterix.transaction.management.resource.ExternalBTreeWithBuddyLocalResourceMetadata;
 import edu.uci.ics.asterix.transaction.management.resource.LSMBTreeLocalResourceMetadata;
@@ -71,16 +71,17 @@ import edu.uci.ics.hyracks.storage.am.common.dataflow.IIndexDataflowHelperFactor
 import edu.uci.ics.hyracks.storage.am.common.dataflow.TreeIndexBulkLoadOperatorDescriptor;
 import edu.uci.ics.hyracks.storage.am.common.dataflow.TreeIndexCreateOperatorDescriptor;
 import edu.uci.ics.hyracks.storage.am.common.impls.NoOpOperationCallbackFactory;
-import edu.uci.ics.hyracks.storage.am.common.tokenizer.NonTaggedByteArrayTokenFactory;
 import edu.uci.ics.hyracks.storage.am.lsm.btree.dataflow.ExternalBTreeWithBuddyDataflowHelperFactory;
 import edu.uci.ics.hyracks.storage.am.lsm.btree.dataflow.LSMBTreeDataflowHelperFactory;
 import edu.uci.ics.hyracks.storage.am.lsm.common.dataflow.LSMTreeIndexCompactOperatorDescriptor;
+import edu.uci.ics.hyracks.storage.am.lsm.invertedindex.dataflow.BinaryTokenizerOperatorDescriptor;
 import edu.uci.ics.hyracks.storage.common.file.ILocalResourceFactoryProvider;
 import edu.uci.ics.hyracks.storage.common.file.LocalResource;
 
 public class SecondaryBTreeOperationsHelper extends SecondaryIndexOperationsHelper {
 
-    private IBinaryTokenizerFactory tokenizerFactory = null;
+    private IndexType indexType;
+    private IndexTypeProperty indexTypeProperty;
 
     protected SecondaryBTreeOperationsHelper(PhysicalOptimizationConfig physOptConf,
             IAsterixPropertiesProvider propertiesProvider) {
@@ -91,13 +92,8 @@ public class SecondaryBTreeOperationsHelper extends SecondaryIndexOperationsHelp
     public void setSecondaryRecDescAndComparators(IndexType indexType, IndexTypeProperty indexTypeProperty,
             List<String> secondaryKeyFields, AqlMetadataProvider metadataProvider) throws AlgebricksException,
             AsterixException {
-        if (indexType == IndexType.STATIC_HILBERT_BTREE) {
-            tokenizerFactory = new SpatialCellBinaryTokenizerFactory(indexTypeProperty.bottomLeftX,
-                    indexTypeProperty.bottomLeftY, indexTypeProperty.topRightX, indexTypeProperty.topRightY,
-                    indexTypeProperty.levelDensity, indexTypeProperty.cellsPerObject,
-                    new NonTaggedByteArrayTokenFactory(), OptimizationConfUtil.getPhysicalOptimizationConfig()
-                            .getFrameSize(), false);
-        }
+        this.indexType = indexType;
+        this.indexTypeProperty = indexTypeProperty;
         secondaryFieldAccessEvalFactories = new ICopyEvaluatorFactory[numSecondaryKeys + numFilterFields];
         if (indexType == IndexType.RTREE) {
             secondaryComparatorFactories = new IBinaryComparatorFactory[numSecondaryKeys];
@@ -120,6 +116,11 @@ public class SecondaryBTreeOperationsHelper extends SecondaryIndexOperationsHelp
             Pair<IAType, Boolean> keyTypePair = Index.getNonNullableKeyFieldType(secondaryKeyFields.get(i), itemType);
             IAType keyType = keyTypePair.first;
             anySecondaryKeyIsNullable = anySecondaryKeyIsNullable || keyTypePair.second;
+
+            if (indexType == IndexType.STATIC_HILBERT_BTREE && keyType.getTypeTag() == ATypeTag.POINT) {
+                keyType = BuiltinType.ABINARY;
+            }
+
             ISerializerDeserializer keySerde = serdeProvider.getSerializerDeserializer(keyType);
             secondaryRecFields[i] = keySerde;
             if (indexType == IndexType.BTREE && keyType.getTypeTag() == ATypeTag.POINT) {
@@ -173,7 +174,7 @@ public class SecondaryBTreeOperationsHelper extends SecondaryIndexOperationsHelp
             ILocalResourceMetadata localResourceMetadata = new LSMBTreeLocalResourceMetadata(secondaryTypeTraits,
                     secondaryComparatorFactories, secondaryBloomFilterKeyFields, true, dataset.getDatasetId(),
                     mergePolicyFactory, mergePolicyFactoryProperties, filterTypeTraits, filterCmpFactories,
-                    secondaryBTreeFields, secondaryFilterFields, tokenizerFactory);
+                    secondaryBTreeFields, secondaryFilterFields);
             localResourceFactoryProvider = new PersistentLocalResourceFactoryProvider(localResourceMetadata,
                     LocalResource.LSMBTreeResource);
             indexDataflowHelperFactory = new LSMBTreeDataflowHelperFactory(new AsterixVirtualBufferCacheProvider(
@@ -181,13 +182,13 @@ public class SecondaryBTreeOperationsHelper extends SecondaryIndexOperationsHelp
                     new SecondaryIndexOperationTrackerProvider(dataset.getDatasetId()),
                     AsterixRuntimeComponentsProvider.RUNTIME_PROVIDER, LSMBTreeIOOperationCallbackFactory.INSTANCE,
                     storageProperties.getBloomFilterFalsePositiveRate(), false, filterTypeTraits, filterCmpFactories,
-                    secondaryBTreeFields, secondaryFilterFields, tokenizerFactory);
+                    secondaryBTreeFields, secondaryFilterFields);
         } else {
             // External dataset local resource and dataflow helper
             int[] buddyBreeFields = new int[] { numSecondaryKeys };
             ILocalResourceMetadata localResourceMetadata = new ExternalBTreeWithBuddyLocalResourceMetadata(
                     dataset.getDatasetId(), secondaryComparatorFactories, secondaryTypeTraits, mergePolicyFactory,
-                    mergePolicyFactoryProperties, buddyBreeFields, tokenizerFactory);
+                    mergePolicyFactoryProperties, buddyBreeFields);
             localResourceFactoryProvider = new PersistentLocalResourceFactoryProvider(localResourceMetadata,
                     LocalResource.ExternalBTreeWithBuddyResource);
             indexDataflowHelperFactory = new ExternalBTreeWithBuddyDataflowHelperFactory(mergePolicyFactory,
@@ -195,7 +196,7 @@ public class SecondaryBTreeOperationsHelper extends SecondaryIndexOperationsHelp
                     AsterixRuntimeComponentsProvider.RUNTIME_PROVIDER,
                     LSMBTreeWithBuddyIOOperationCallbackFactory.INSTANCE,
                     storageProperties.getBloomFilterFalsePositiveRate(), buddyBreeFields,
-                    ExternalDatasetsRegistry.INSTANCE.getDatasetVersion(dataset), tokenizerFactory);
+                    ExternalDatasetsRegistry.INSTANCE.getDatasetVersion(dataset));
         }
         TreeIndexCreateOperatorDescriptor secondaryIndexCreateOp = new TreeIndexCreateOperatorDescriptor(spec,
                 AsterixRuntimeComponentsProvider.RUNTIME_PROVIDER, AsterixRuntimeComponentsProvider.RUNTIME_PROVIDER,
@@ -234,6 +235,12 @@ public class SecondaryBTreeOperationsHelper extends SecondaryIndexOperationsHelp
                 selectOp = createFilterNullsSelectOp(spec, numSecondaryKeys);
             }
 
+            // Tokenizer op
+            AbstractOperatorDescriptor tokenizerOp = null;
+            if (indexType == IndexType.STATIC_HILBERT_BTREE) {
+                tokenizerOp = createTokenizerOp(spec, BuiltinType.ABINARY);
+            }
+
             // Sort by secondary keys.
             ExternalSortOperatorDescriptor sortOp = createSortOp(spec, secondaryComparatorFactories, secondaryRecDesc);
 
@@ -245,7 +252,7 @@ public class SecondaryBTreeOperationsHelper extends SecondaryIndexOperationsHelp
                             dataset.getDatasetId()), AsterixRuntimeComponentsProvider.RUNTIME_PROVIDER,
                     LSMBTreeWithBuddyIOOperationCallbackFactory.INSTANCE,
                     storageProperties.getBloomFilterFalsePositiveRate(), new int[] { numSecondaryKeys },
-                    ExternalDatasetsRegistry.INSTANCE.getDatasetVersion(dataset), tokenizerFactory);
+                    ExternalDatasetsRegistry.INSTANCE.getDatasetVersion(dataset));
             IOperatorDescriptor root;
             if (externalFiles != null) {
                 // Transaction load
@@ -268,10 +275,21 @@ public class SecondaryBTreeOperationsHelper extends SecondaryIndexOperationsHelp
             spec.connect(new OneToOneConnectorDescriptor(spec), etsOp, 0, primaryScanOp, 0);
             spec.connect(new OneToOneConnectorDescriptor(spec), primaryScanOp, 0, asterixAssignOp, 0);
             if (anySecondaryKeyIsNullable) {
-                spec.connect(new OneToOneConnectorDescriptor(spec), asterixAssignOp, 0, selectOp, 0);
-                spec.connect(new OneToOneConnectorDescriptor(spec), selectOp, 0, sortOp, 0);
+                if (indexType == IndexType.STATIC_HILBERT_BTREE) {
+                    spec.connect(new OneToOneConnectorDescriptor(spec), asterixAssignOp, 0, selectOp, 0);
+                    spec.connect(new OneToOneConnectorDescriptor(spec), selectOp, 0, tokenizerOp, 0);
+                    spec.connect(new OneToOneConnectorDescriptor(spec), tokenizerOp, 0, sortOp, 0);
+                } else {
+                    spec.connect(new OneToOneConnectorDescriptor(spec), asterixAssignOp, 0, selectOp, 0);
+                    spec.connect(new OneToOneConnectorDescriptor(spec), selectOp, 0, sortOp, 0);
+                }
             } else {
-                spec.connect(new OneToOneConnectorDescriptor(spec), asterixAssignOp, 0, sortOp, 0);
+                if (indexType == IndexType.STATIC_HILBERT_BTREE) {
+                    spec.connect(new OneToOneConnectorDescriptor(spec), asterixAssignOp, 0, tokenizerOp, 0);
+                    spec.connect(new OneToOneConnectorDescriptor(spec), tokenizerOp, 0, sortOp, 0);
+                } else {
+                    spec.connect(new OneToOneConnectorDescriptor(spec), asterixAssignOp, 0, sortOp, 0);
+                }
             }
             spec.connect(new OneToOneConnectorDescriptor(spec), sortOp, 0, secondaryBulkLoadOp, 0);
             spec.addRoot(root);
@@ -293,6 +311,12 @@ public class SecondaryBTreeOperationsHelper extends SecondaryIndexOperationsHelp
                 selectOp = createFilterNullsSelectOp(spec, numSecondaryKeys);
             }
 
+            // Tokenizer op
+            AbstractOperatorDescriptor tokenizerOp = null;
+            if (indexType == IndexType.STATIC_HILBERT_BTREE) {
+                tokenizerOp = createTokenizerOp(spec, BuiltinType.ABINARY);
+            }
+
             // Sort by secondary keys.
             ExternalSortOperatorDescriptor sortOp = createSortOp(spec, secondaryComparatorFactories, secondaryRecDesc);
 
@@ -307,8 +331,7 @@ public class SecondaryBTreeOperationsHelper extends SecondaryIndexOperationsHelp
                             AsterixRuntimeComponentsProvider.RUNTIME_PROVIDER,
                             LSMBTreeIOOperationCallbackFactory.INSTANCE, storageProperties
                                     .getBloomFilterFalsePositiveRate(), false, filterTypeTraits, filterCmpFactories,
-                            secondaryBTreeFields, secondaryFilterFields, tokenizerFactory),
-                    GlobalConfig.DEFAULT_TREE_FILL_FACTOR);
+                            secondaryBTreeFields, secondaryFilterFields), GlobalConfig.DEFAULT_TREE_FILL_FACTOR);
 
             AlgebricksMetaOperatorDescriptor metaOp = new AlgebricksMetaOperatorDescriptor(spec, 1, 0,
                     new IPushRuntimeFactory[] { new SinkRuntimeFactory() }, new RecordDescriptor[] { secondaryRecDesc });
@@ -316,10 +339,21 @@ public class SecondaryBTreeOperationsHelper extends SecondaryIndexOperationsHelp
             spec.connect(new OneToOneConnectorDescriptor(spec), keyProviderOp, 0, primaryScanOp, 0);
             spec.connect(new OneToOneConnectorDescriptor(spec), primaryScanOp, 0, asterixAssignOp, 0);
             if (anySecondaryKeyIsNullable) {
-                spec.connect(new OneToOneConnectorDescriptor(spec), asterixAssignOp, 0, selectOp, 0);
-                spec.connect(new OneToOneConnectorDescriptor(spec), selectOp, 0, sortOp, 0);
+                if (indexType == IndexType.STATIC_HILBERT_BTREE) {
+                    spec.connect(new OneToOneConnectorDescriptor(spec), asterixAssignOp, 0, selectOp, 0);
+                    spec.connect(new OneToOneConnectorDescriptor(spec), selectOp, 0, tokenizerOp, 0);
+                    spec.connect(new OneToOneConnectorDescriptor(spec), tokenizerOp, 0, sortOp, 0);
+                } else {
+                    spec.connect(new OneToOneConnectorDescriptor(spec), asterixAssignOp, 0, selectOp, 0);
+                    spec.connect(new OneToOneConnectorDescriptor(spec), selectOp, 0, sortOp, 0);
+                }
             } else {
-                spec.connect(new OneToOneConnectorDescriptor(spec), asterixAssignOp, 0, sortOp, 0);
+                if (indexType == IndexType.STATIC_HILBERT_BTREE) {
+                    spec.connect(new OneToOneConnectorDescriptor(spec), asterixAssignOp, 0, tokenizerOp, 0);
+                    spec.connect(new OneToOneConnectorDescriptor(spec), tokenizerOp, 0, sortOp, 0);
+                } else {
+                    spec.connect(new OneToOneConnectorDescriptor(spec), asterixAssignOp, 0, sortOp, 0);
+                }
             }
             spec.connect(new OneToOneConnectorDescriptor(spec), sortOp, 0, secondaryBulkLoadOp, 0);
             spec.connect(new OneToOneConnectorDescriptor(spec), secondaryBulkLoadOp, 0, metaOp, 0);
@@ -327,6 +361,22 @@ public class SecondaryBTreeOperationsHelper extends SecondaryIndexOperationsHelp
             spec.setConnectorPolicyAssignmentPolicy(new ConnectorPolicyAssignmentPolicy());
             return spec;
         }
+    }
+
+    private AbstractOperatorDescriptor createTokenizerOp(JobSpecification spec, IAType tokenType)
+            throws AlgebricksException {
+        int tokenSourceFieldOffset = 0;
+        int[] primaryKeyFields = new int[numPrimaryKeys + numFilterFields];
+        for (int i = 0; i < primaryKeyFields.length; i++) {
+            primaryKeyFields[i] = numSecondaryKeys + i;
+        }
+        IBinaryTokenizerFactory tokenizerFactory = NonTaggedFormatUtil.getBinaryTokenizerFactory(
+                tokenType.getTypeTag(), indexType, indexTypeProperty);
+        BinaryTokenizerOperatorDescriptor tokenizerOp = new BinaryTokenizerOperatorDescriptor(spec, secondaryRecDesc,
+                tokenizerFactory, tokenSourceFieldOffset, primaryKeyFields, false, false, 1);
+        AlgebricksPartitionConstraintHelper.setPartitionConstraintInJobSpec(spec, tokenizerOp,
+                primaryPartitionConstraint);
+        return tokenizerOp;
     }
 
     protected int getNumSecondaryKeys() {
@@ -349,7 +399,7 @@ public class SecondaryBTreeOperationsHelper extends SecondaryIndexOperationsHelp
                                     dataset.getDatasetId()), AsterixRuntimeComponentsProvider.RUNTIME_PROVIDER,
                             LSMBTreeIOOperationCallbackFactory.INSTANCE,
                             storageProperties.getBloomFilterFalsePositiveRate(), false, filterTypeTraits,
-                            filterCmpFactories, secondaryBTreeFields, secondaryFilterFields, tokenizerFactory),
+                            filterCmpFactories, secondaryBTreeFields, secondaryFilterFields),
                     NoOpOperationCallbackFactory.INSTANCE);
         } else {
             // External dataset
@@ -362,7 +412,7 @@ public class SecondaryBTreeOperationsHelper extends SecondaryIndexOperationsHelp
                             AsterixRuntimeComponentsProvider.RUNTIME_PROVIDER,
                             LSMBTreeWithBuddyIOOperationCallbackFactory.INSTANCE, storageProperties
                                     .getBloomFilterFalsePositiveRate(), new int[] { numSecondaryKeys },
-                            ExternalDatasetsRegistry.INSTANCE.getDatasetVersion(dataset), tokenizerFactory),
+                            ExternalDatasetsRegistry.INSTANCE.getDatasetVersion(dataset)),
                     NoOpOperationCallbackFactory.INSTANCE);
         }
         AlgebricksPartitionConstraintHelper.setPartitionConstraintInJobSpec(spec, compactOp,

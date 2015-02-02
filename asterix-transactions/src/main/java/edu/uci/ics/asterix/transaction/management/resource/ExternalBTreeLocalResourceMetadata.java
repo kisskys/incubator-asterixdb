@@ -38,7 +38,7 @@ public class ExternalBTreeLocalResourceMetadata extends LSMBTreeLocalResourceMet
             int[] bloomFilterKeyFields, boolean isPrimary, int datasetID, ILSMMergePolicyFactory mergePolicyFactory,
             Map<String, String> mergePolicyProperties, IBinaryTokenizerFactory tokenizerFactory) {
         super(typeTraits, cmpFactories, bloomFilterKeyFields, isPrimary, datasetID, mergePolicyFactory,
-                mergePolicyProperties, null, null, null, null, tokenizerFactory);
+                mergePolicyProperties, null, null, null, null);
     }
 
     @Override
@@ -51,7 +51,7 @@ public class ExternalBTreeLocalResourceMetadata extends LSMBTreeLocalResourceMet
                         mergePolicyProperties, runtimeContextProvider.getIndexLifecycleManager()),
                 new BaseOperationTracker((DatasetLifecycleManager) runtimeContextProvider.getIndexLifecycleManager(),
                         datasetID), runtimeContextProvider.getLSMIOScheduler(),
-                LSMBTreeIOOperationCallbackFactory.INSTANCE.createIOOperationCallback(), -1, tokenizerFactory);
+                LSMBTreeIOOperationCallbackFactory.INSTANCE.createIOOperationCallback(), -1);
         return lsmBTree;
     }
 }

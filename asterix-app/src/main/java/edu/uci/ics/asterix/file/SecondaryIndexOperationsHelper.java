@@ -340,7 +340,7 @@ public abstract class SecondaryIndexOperationsHelper {
                                 dataset.getDatasetId()), AsterixRuntimeComponentsProvider.RUNTIME_PROVIDER,
                         LSMBTreeIOOperationCallbackFactory.INSTANCE, storageProperties
                                 .getBloomFilterFalsePositiveRate(), true, filterTypeTraits, filterCmpFactories,
-                        primaryBTreeFields, primaryFilterFields, null), false, false, null,
+                        primaryBTreeFields, primaryFilterFields), false, false, null,
                 searchCallbackFactory, null, null);
 
         AlgebricksPartitionConstraintHelper.setPartitionConstraintInJobSpec(spec, primarySearchOp,

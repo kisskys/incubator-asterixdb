@@ -25,7 +25,7 @@ import edu.uci.ics.asterix.om.types.ATypeTag;
 import edu.uci.ics.hyracks.storage.am.common.api.IBinaryTokenizerFactory;
 import edu.uci.ics.hyracks.storage.am.common.tokenizer.DelimitedUTF8StringBinaryTokenizerFactory;
 import edu.uci.ics.hyracks.storage.am.common.tokenizer.HashedUTF8WordTokenFactory;
-import edu.uci.ics.hyracks.storage.am.common.tokenizer.NonTaggedByteArrayTokenFactory;
+import edu.uci.ics.hyracks.storage.am.common.tokenizer.ByteArrayTokenFactory;
 import edu.uci.ics.hyracks.storage.am.common.tokenizer.UTF8NGramTokenFactory;
 import edu.uci.ics.hyracks.storage.am.common.tokenizer.UTF8WordTokenFactory;
 
@@ -102,7 +102,7 @@ public class AqlBinaryTokenizerFactoryProvider implements IBinaryTokenizerFactor
             double bottomLeftY, double topRightX, double topRightY, short[] levelDensity, int cellsPerObject,
             boolean hashedTokens) {
         return new SpatialCellBinaryTokenizerFactory(bottomLeftX, bottomLeftY, topRightX, topRightY, levelDensity,
-                cellsPerObject, new NonTaggedByteArrayTokenFactory(), OptimizationConfUtil
+                cellsPerObject, new ByteArrayTokenFactory(ATypeTag.BINARY.serialize()), OptimizationConfUtil
                         .getPhysicalOptimizationConfig().getFrameSize(), false);
     }
 }

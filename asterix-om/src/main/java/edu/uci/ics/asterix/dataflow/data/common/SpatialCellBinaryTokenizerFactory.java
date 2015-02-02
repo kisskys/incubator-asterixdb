@@ -18,7 +18,6 @@ package edu.uci.ics.asterix.dataflow.data.common;
 import edu.uci.ics.hyracks.storage.am.common.api.IBinaryTokenizer;
 import edu.uci.ics.hyracks.storage.am.common.api.IBinaryTokenizerFactory;
 import edu.uci.ics.hyracks.storage.am.common.api.ITokenFactory;
-import edu.uci.ics.hyracks.storage.am.common.ophelpers.IndexOperation;
 
 public class SpatialCellBinaryTokenizerFactory implements IBinaryTokenizerFactory {
     private static final long serialVersionUID = 1L;

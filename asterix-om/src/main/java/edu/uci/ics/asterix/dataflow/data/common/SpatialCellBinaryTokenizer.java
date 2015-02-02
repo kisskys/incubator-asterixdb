@@ -161,7 +161,6 @@ public class SpatialCellBinaryTokenizer implements IBinaryTokenizer {
                 nextCount = 0;
             }
         } else {
-            printCellId(hilbertValue[hOffset]);
             token.reset(hilbertValue[hOffset++], 0, tokenSize, tokenSize, 1);
         }
     }

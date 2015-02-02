@@ -264,7 +264,7 @@ public class IntroduceSecondaryIndexInsertDeleteRule implements IAlgebraicRewrit
 
                 // Introduce the TokenizeOperator only when doing bulk-load,
                 // and index type is keyword or n-gram.
-                if (insertOp.isBulkload() && indexType != IndexType.BTREE) {
+                if (indexType == IndexType.STATIC_HILBERT_BTREE || insertOp.isBulkload() && indexType != IndexType.BTREE) {
 
                     // Check whether the index is length-partitioned or not.
                     // If partitioned, [input variables to TokenizeOperator,

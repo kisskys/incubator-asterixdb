@@ -87,9 +87,11 @@ import edu.uci.ics.asterix.metadata.feeds.IGenericAdapterFactory;
 import edu.uci.ics.asterix.metadata.feeds.ITypedAdapterFactory;
 import edu.uci.ics.asterix.metadata.utils.DatasetUtils;
 import edu.uci.ics.asterix.metadata.utils.ExternalDatasetsRegistry;
+import edu.uci.ics.asterix.om.base.ABinary;
 import edu.uci.ics.asterix.om.functions.AsterixBuiltinFunctions;
 import edu.uci.ics.asterix.om.types.ARecordType;
 import edu.uci.ics.asterix.om.types.ATypeTag;
+import edu.uci.ics.asterix.om.types.BuiltinType;
 import edu.uci.ics.asterix.om.types.IAType;
 import edu.uci.ics.asterix.om.util.AsterixAppContextInfo;
 import edu.uci.ics.asterix.om.util.AsterixClusterProperties;
@@ -165,7 +167,7 @@ import edu.uci.ics.hyracks.storage.am.common.api.ITreeIndexFrameFactory;
 import edu.uci.ics.hyracks.storage.am.common.dataflow.IIndexDataflowHelperFactory;
 import edu.uci.ics.hyracks.storage.am.common.dataflow.TreeIndexBulkLoadOperatorDescriptor;
 import edu.uci.ics.hyracks.storage.am.common.ophelpers.IndexOperation;
-import edu.uci.ics.hyracks.storage.am.common.tokenizer.NonTaggedByteArrayTokenFactory;
+import edu.uci.ics.hyracks.storage.am.common.tokenizer.ByteArrayTokenFactory;
 import edu.uci.ics.hyracks.storage.am.common.tuples.TypeAwareTupleWriterFactory;
 import edu.uci.ics.hyracks.storage.am.lsm.btree.dataflow.ExternalBTreeWithBuddyDataflowHelperFactory;
 import edu.uci.ics.hyracks.storage.am.lsm.btree.dataflow.LSMBTreeDataflowHelperFactory;
@@ -721,14 +723,6 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
 
             IAType type = (IAType) typeEnv.getVarType(outputVars.get(0));
             IIndexDataflowHelperFactory dataflowHelperFactory = null;
-            IBinaryTokenizerFactory tokenizerFactory = null;
-            if (isSecondary && secondaryIndex.getIndexType() == IndexType.STATIC_HILBERT_BTREE) {
-                IndexTypeProperty itp = secondaryIndex.getIndexTypeProperty();
-                tokenizerFactory = new SpatialCellBinaryTokenizerFactory(itp.bottomLeftX, itp.bottomLeftY,
-                        itp.topRightX, itp.topRightY, itp.levelDensity, itp.cellsPerObject,
-                        new NonTaggedByteArrayTokenFactory(), OptimizationConfUtil.getPhysicalOptimizationConfig()
-                                .getFrameSize(), false);
-            }
 
             if (dataset.getDatasetType() == DatasetType.INTERNAL) {
                 dataflowHelperFactory = new LSMBTreeDataflowHelperFactory(new AsterixVirtualBufferCacheProvider(
@@ -737,7 +731,7 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
                                 : new PrimaryIndexOperationTrackerProvider(dataset.getDatasetId()), rtcProvider,
                         LSMBTreeIOOperationCallbackFactory.INSTANCE,
                         storageProperties.getBloomFilterFalsePositiveRate(), !isSecondary, filterTypeTraits,
-                        filterCmpFactories, btreeFields, filterFields, tokenizerFactory);
+                        filterCmpFactories, btreeFields, filterFields);
                 if (type.getTypeTag() == ATypeTag.POINT) {
                     btreeSearchOp = new HilbertBTreeSearchOperatorDescriptor(jobSpec, outputRecDesc,
                             appContext.getStorageManagerInterface(), appContext.getIndexLifecycleManagerProvider(),
@@ -763,7 +757,7 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
                                 dataset.getDatasetId()), AsterixRuntimeComponentsProvider.RUNTIME_PROVIDER,
                         LSMBTreeWithBuddyIOOperationCallbackFactory.INSTANCE, getStorageProperties()
                                 .getBloomFilterFalsePositiveRate(), buddyBreeFields,
-                        ExternalDatasetsRegistry.INSTANCE.getAndLockDatasetVersion(dataset, this), tokenizerFactory);
+                        ExternalDatasetsRegistry.INSTANCE.getAndLockDatasetVersion(dataset, this));
                 btreeSearchOp = new ExternalBTreeSearchOperatorDescriptor(jobSpec, outputRecDesc, rtcProvider,
                         rtcProvider, spPc.first, typeTraits, comparatorFactories, bloomFilterKeyFields, lowKeyFields,
                         highKeyFields, lowKeyInclusive, highKeyInclusive, indexDataflowHelperFactory, retainInput,
@@ -1088,7 +1082,7 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
                                     dataset.getDatasetId()), AsterixRuntimeComponentsProvider.RUNTIME_PROVIDER,
                             LSMBTreeIOOperationCallbackFactory.INSTANCE,
                             storageProperties.getBloomFilterFalsePositiveRate(), true, filterTypeTraits,
-                            filterCmpFactories, btreeFields, filterFields, null));
+                            filterCmpFactories, btreeFields, filterFields));
             return new Pair<IOperatorDescriptor, AlgebricksPartitionConstraint>(btreeBulkLoad,
                     splitsAndConstraint.second);
         } catch (MetadataException me) {
@@ -1168,7 +1162,7 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
                     datasetId), compactionInfo.first, compactionInfo.second, new PrimaryIndexOperationTrackerProvider(
                     dataset.getDatasetId()), AsterixRuntimeComponentsProvider.RUNTIME_PROVIDER,
                     LSMBTreeIOOperationCallbackFactory.INSTANCE, storageProperties.getBloomFilterFalsePositiveRate(),
-                    true, filterTypeTraits, filterCmpFactories, btreeFields, filterFields, null);
+                    true, filterTypeTraits, filterCmpFactories, btreeFields, filterFields);
             IOperatorDescriptor op;
             if (bulkload) {
                 long numElementsHint = getCardinalityPerPartitionHint(dataset);
@@ -1307,7 +1301,7 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
             case LENGTH_PARTITIONED_WORD_INVIX:
             case LENGTH_PARTITIONED_NGRAM_INVIX: {
                 if (bulkload) {
-                    return getBinaryTokenizerLoadRuntime(dataverseName, datasetName, indexName, inputSchema,
+                    return getBinaryTokenizerUpdateRuntime(dataverseName, datasetName, indexName, inputSchema,
                             propagatedSchema, typeEnv, primaryKeys, secondaryKeys, filterFactory, recordDesc, context,
                             spec, IndexOperation.INSERT, secondaryIndex.getIndexType(), bulkload);
                 } else {
@@ -1326,7 +1320,7 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
     }
 
     // Get a Tokenizer for the bulk-loading data into a n-gram or keyword index.
-    private Pair<IOperatorDescriptor, AlgebricksPartitionConstraint> getBinaryTokenizerLoadRuntime(
+    private Pair<IOperatorDescriptor, AlgebricksPartitionConstraint> getBinaryTokenizerUpdateRuntime(
             String dataverseName, String datasetName, String indexName, IOperatorSchema inputSchema,
             IOperatorSchema propagatedSchema, IVariableTypeEnvironment typeEnv, List<LogicalVariable> primaryKeys,
             List<LogicalVariable> secondaryKeys, AsterixTupleFilterFactory filterFactory, RecordDescriptor recordDesc,
@@ -1472,8 +1466,8 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
 
             // #2. Specify the token type
             if (indexType == IndexType.STATIC_HILBERT_BTREE) {
-                tokenKeyPairFields[tokenOffset] = ByteArraySerializerDeserializer.INSTANCE;
-                tokenKeyPairTypeTraits[tokenOffset] = ByteArrayPointable.TYPE_TRAITS;
+                tokenKeyPairFields[tokenOffset] = serdeProvider.getSerializerDeserializer(BuiltinType.ABINARY);
+                tokenKeyPairTypeTraits[tokenOffset] = NonTaggedDataFormat.INSTANCE.getTypeTraitProvider().getTypeTrait(BuiltinType.ABINARY);
             } else {
                 tokenKeyPairFields[tokenOffset] = serdeProvider.getSerializerDeserializer(NonTaggedFormatUtil
                         .getTokenType(secondaryKeyType));
@@ -1576,7 +1570,7 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
         IndexTypeProperty itp = secondaryIndex.getIndexTypeProperty();
         IBinaryTokenizerFactory tokenizerFactory = new SpatialCellBinaryTokenizerFactory(itp.bottomLeftX,
                 itp.bottomLeftY, itp.topRightX, itp.topRightY, itp.levelDensity, itp.cellsPerObject,
-                new NonTaggedByteArrayTokenFactory(), OptimizationConfUtil.getPhysicalOptimizationConfig()
+                new ByteArrayTokenFactory(ATypeTag.BINARY.serialize()), OptimizationConfUtil.getPhysicalOptimizationConfig()
                         .getFrameSize(), true);
 
         Pair<IFileSplitProvider, AlgebricksPartitionConstraint> splitsAndConstraint = splitProviderAndPartitionConstraintsForDataset(
@@ -1596,8 +1590,8 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
             tokenKeyPairTypeTraits[i] = recordDesc.getTypeTraits()[i];
         }
         for (i = inputRecFieldCount; i < inputRecFieldCount + numTokensPerOutputRecord; i++) {
-            tokenKeyPairFields[i] = ByteArraySerializerDeserializer.INSTANCE;
-            tokenKeyPairTypeTraits[i] = ByteArrayPointable.TYPE_TRAITS;
+            tokenKeyPairFields[i] = NonTaggedDataFormat.INSTANCE.getSerdeProvider().getSerializerDeserializer(BuiltinType.ABINARY);
+            tokenKeyPairTypeTraits[i] = NonTaggedDataFormat.INSTANCE.getTypeTraitProvider().getTypeTrait(BuiltinType.ABINARY);
         }
 
         RecordDescriptor tokenKeyPairRecDesc = new RecordDescriptor(tokenKeyPairFields, tokenKeyPairTypeTraits);
@@ -1718,6 +1712,9 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
                 Pair<IAType, Boolean> keyPairType = Index.getNonNullableKeyFieldType(secondaryKeyExprs.get(i)
                         .toString(), recType);
                 IAType keyType = keyPairType.first;
+                if (secondaryIndex.getIndexType() == IndexType.STATIC_HILBERT_BTREE && keyType.getTypeTag() == ATypeTag.POINT) {
+                    keyType = BuiltinType.ABINARY;
+                }
                 if (keyType.getTypeTag() == ATypeTag.POINT) {
                     comparatorFactories[i] = AqlBinaryComparatorFactoryProvider.INSTANCE
                             .getHilbertBinaryComparatorFactory(keyType, true);
@@ -1750,20 +1747,12 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
 
             Pair<ILSMMergePolicyFactory, Map<String, String>> compactionInfo = DatasetUtils.getMergePolicyFactory(
                     dataset, mdTxnCtx);
-            IBinaryTokenizerFactory tokenizerFactory = null;
-            if (secondaryIndex.getIndexType() == IndexType.STATIC_HILBERT_BTREE) {
-                IndexTypeProperty itp = secondaryIndex.getIndexTypeProperty();
-                tokenizerFactory = new SpatialCellBinaryTokenizerFactory(itp.bottomLeftX, itp.bottomLeftY,
-                        itp.topRightX, itp.topRightY, itp.levelDensity, itp.cellsPerObject,
-                        new NonTaggedByteArrayTokenFactory(), OptimizationConfUtil.getPhysicalOptimizationConfig()
-                                .getFrameSize(), false);
-            }
             IIndexDataflowHelperFactory idfh = new LSMBTreeDataflowHelperFactory(new AsterixVirtualBufferCacheProvider(
                     datasetId), compactionInfo.first, compactionInfo.second,
                     new SecondaryIndexOperationTrackerProvider(dataset.getDatasetId()),
                     AsterixRuntimeComponentsProvider.RUNTIME_PROVIDER, LSMBTreeIOOperationCallbackFactory.INSTANCE,
                     storageProperties.getBloomFilterFalsePositiveRate(), false, filterTypeTraits, filterCmpFactories,
-                    btreeFields, filterFields, tokenizerFactory);
+                    btreeFields, filterFields);
             IOperatorDescriptor op;
             if (bulkload) {
                 long numElementsHint = getCardinalityPerPartitionHint(dataset);

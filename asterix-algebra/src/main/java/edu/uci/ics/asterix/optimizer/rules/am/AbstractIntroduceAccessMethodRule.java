@@ -141,7 +141,8 @@ public abstract class AbstractIntroduceAccessMethodRule implements IAlgebraicRew
                 if (chosenIndexType == IndexType.LENGTH_PARTITIONED_WORD_INVIX
                         || chosenIndexType == IndexType.LENGTH_PARTITIONED_NGRAM_INVIX
                         || chosenIndexType == IndexType.SINGLE_PARTITION_WORD_INVIX
-                        || chosenIndexType == IndexType.SINGLE_PARTITION_NGRAM_INVIX)
+                        || chosenIndexType == IndexType.SINGLE_PARTITION_NGRAM_INVIX
+                        || chosenIndexType == IndexType.SIF)
                     isKeywordOrNgramIndexChosen = true;
                 if ((chosenAccessMethod == BTreeAccessMethod.INSTANCE && (chosenIndexType != IndexType.BTREE && chosenIndexType != IndexType.STATIC_HILBERT_BTREE))
                         || (chosenAccessMethod == RTreeAccessMethod.INSTANCE && chosenIndexType != IndexType.RTREE)
@@ -478,7 +479,7 @@ public abstract class AbstractIntroduceAccessMethodRule implements IAlgebraicRew
                 && funcIdent != AsterixBuiltinFunctions.SUBSTRING
                 && funcIdent != AsterixBuiltinFunctions.SUBSTRING_BEFORE
                 && funcIdent != AsterixBuiltinFunctions.SUBSTRING_AFTER
-                && funcIdent != AsterixBuiltinFunctions.SIF_TOKENS) {
+                && funcIdent != AsterixBuiltinFunctions.MSIF_TOKENS) {
             return null;
         }
         // We use a part of the field in edit distance computation

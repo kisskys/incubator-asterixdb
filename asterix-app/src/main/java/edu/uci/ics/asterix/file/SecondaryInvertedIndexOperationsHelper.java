@@ -101,7 +101,8 @@ public class SecondaryInvertedIndexOperationsHelper extends SecondaryIndexOperat
             throw new AsterixException("Cannot create composite inverted index on multiple fields.");
         }
         if (indexType == IndexType.LENGTH_PARTITIONED_WORD_INVIX
-                || indexType == IndexType.LENGTH_PARTITIONED_NGRAM_INVIX) {
+                || indexType == IndexType.LENGTH_PARTITIONED_NGRAM_INVIX
+                || indexType == IndexType.SIF) {
             isPartitioned = true;
         } else {
             isPartitioned = false;

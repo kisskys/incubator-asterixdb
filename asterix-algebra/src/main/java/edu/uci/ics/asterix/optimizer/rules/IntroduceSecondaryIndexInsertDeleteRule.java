@@ -248,12 +248,11 @@ public class IntroduceSecondaryIndexInsertDeleteRule implements IAlgebraicRewrit
 
             // BTree, Keyword, or n-gram index case
             IndexType indexType = index.getIndexType();
-            if (indexType == IndexType.BTREE
-                    || indexType == IndexType.STATIC_HILBERT_BTREE
+            if (indexType == IndexType.BTREE || indexType == IndexType.STATIC_HILBERT_BTREE
                     || indexType == IndexType.SINGLE_PARTITION_WORD_INVIX
                     || indexType == IndexType.SINGLE_PARTITION_NGRAM_INVIX
                     || indexType == IndexType.LENGTH_PARTITIONED_WORD_INVIX
-                    || indexType == IndexType.LENGTH_PARTITIONED_NGRAM_INVIX) {
+                    || indexType == IndexType.LENGTH_PARTITIONED_NGRAM_INVIX || indexType == IndexType.SIF) {
                 for (LogicalVariable secondaryKeyVar : secondaryKeyVars) {
                     secondaryExpressions.add(new MutableObject<ILogicalExpression>(new VariableReferenceExpression(
                             secondaryKeyVar)));
@@ -264,7 +263,8 @@ public class IntroduceSecondaryIndexInsertDeleteRule implements IAlgebraicRewrit
 
                 // Introduce the TokenizeOperator only when doing bulk-load,
                 // and index type is keyword or n-gram.
-                if (indexType == IndexType.STATIC_HILBERT_BTREE || insertOp.isBulkload() && indexType != IndexType.BTREE) {
+                if (indexType == IndexType.STATIC_HILBERT_BTREE || insertOp.isBulkload()
+                        && indexType != IndexType.BTREE) {
 
                     // Check whether the index is length-partitioned or not.
                     // If partitioned, [input variables to TokenizeOperator,
@@ -276,7 +276,8 @@ public class IntroduceSecondaryIndexInsertDeleteRule implements IAlgebraicRewrit
                     // filtering operator.
                     boolean isPartitioned = false;
                     if (index.getIndexType() == IndexType.LENGTH_PARTITIONED_WORD_INVIX
-                            || index.getIndexType() == IndexType.LENGTH_PARTITIONED_NGRAM_INVIX)
+                            || index.getIndexType() == IndexType.LENGTH_PARTITIONED_NGRAM_INVIX
+                            || index.getIndexType() == IndexType.SIF)
                         isPartitioned = true;
 
                     // Create a new logical variable - token
@@ -350,7 +351,8 @@ public class IntroduceSecondaryIndexInsertDeleteRule implements IAlgebraicRewrit
                 Pair<IAType, Boolean> keyPairType = Index
                         .getNonNullableKeyFieldType(secondaryKeyFields.get(0), recType);
                 IAType spatialType = keyPairType.first;
-                boolean isPointMBR = spatialType.getTypeTag() == ATypeTag.POINT || spatialType.getTypeTag() == ATypeTag.POINT3D;
+                boolean isPointMBR = spatialType.getTypeTag() == ATypeTag.POINT
+                        || spatialType.getTypeTag() == ATypeTag.POINT3D;
                 int dimension = NonTaggedFormatUtil.getNumDimensions(spatialType.getTypeTag());
                 int numKeys = (isPointMBR && isBulkload) ? dimension : dimension * 2;
                 List<LogicalVariable> keyVarList = new ArrayList<LogicalVariable>();
@@ -374,7 +376,7 @@ public class IntroduceSecondaryIndexInsertDeleteRule implements IAlgebraicRewrit
                 AssignOperator assignCoordinates = new AssignOperator(keyVarList, keyExprList);
                 assignCoordinates.getInputs().add(new MutableObject<ILogicalOperator>(assign));
                 context.computeAndSetTypeEnvironmentForOperator(assignCoordinates);
-                
+
                 for (LogicalVariable secondaryKeyVar : keyVarList) {
                     secondaryExpressions.add(new MutableObject<ILogicalExpression>(new VariableReferenceExpression(
                             secondaryKeyVar)));
@@ -385,7 +387,7 @@ public class IntroduceSecondaryIndexInsertDeleteRule implements IAlgebraicRewrit
                                 secondaryKeyVar)));
                     }
                 }
-                
+
                 // We must enforce the filter if the originating spatial type is
                 // nullable.
                 boolean forceFilter = keyPairType.second;

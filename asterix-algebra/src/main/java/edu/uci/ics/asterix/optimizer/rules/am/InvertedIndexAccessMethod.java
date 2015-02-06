@@ -306,10 +306,10 @@ public class InvertedIndexAccessMethod implements IAccessMethod {
             AbstractFunctionCallExpression nonConstFuncExpr = funcExpr;
             if (nonConstArg.getExpressionTag() == LogicalExpressionTag.FUNCTION_CALL) {
                 nonConstFuncExpr = (AbstractFunctionCallExpression) nonConstArg;
-                // TODO: Currently, we're only looking for word, sif, and gram tokens (non hashed).
+                // TODO: Currently, we're only looking for word, msif, and gram tokens (non hashed).
                 if (nonConstFuncExpr.getFunctionIdentifier() != AsterixBuiltinFunctions.WORD_TOKENS
                         && nonConstFuncExpr.getFunctionIdentifier() != AsterixBuiltinFunctions.GRAM_TOKENS
-                        && nonConstFuncExpr.getFunctionIdentifier() != AsterixBuiltinFunctions.SIF_TOKENS) {
+                        && nonConstFuncExpr.getFunctionIdentifier() != AsterixBuiltinFunctions.MSIF_TOKENS) {
                     return null;
                 }
                 // Find the variable that is being tokenized.
@@ -471,11 +471,11 @@ public class InvertedIndexAccessMethod implements IAccessMethod {
                     assignOpRectangle.getInputs().add(new MutableObject<ILogicalOperator>(assignOpPoints));
                 }
 
-                //add sif-tokens function
+                //add msif-tokens function
                 ArrayList<LogicalVariable> assignSIFKeyVarList = new ArrayList<LogicalVariable>();
                 ArrayList<Mutable<ILogicalExpression>> assignSIFKeyExprList = new ArrayList<Mutable<ILogicalExpression>>();
                 AbstractFunctionCallExpression sifTokens = new ScalarFunctionCallExpression(
-                        FunctionUtils.getFunctionInfo(AsterixBuiltinFunctions.SIF_TOKENS));
+                        FunctionUtils.getFunctionInfo(AsterixBuiltinFunctions.MSIF_TOKENS));
                 IndexTypeProperty itp = chosenIndex.getIndexTypeProperty();
                 sifTokens.getArguments().add(
                         new MutableObject<ILogicalExpression>(new VariableReferenceExpression(assignRectangleKeyVarList
@@ -1035,7 +1035,8 @@ public class InvertedIndexAccessMethod implements IAccessMethod {
         }
         // We can only optimize edit distance on lists using a word index.
         if ((typeTag == ATypeTag.ORDEREDLIST)
-                && (indexType == IndexType.SINGLE_PARTITION_WORD_INVIX || indexType == IndexType.LENGTH_PARTITIONED_WORD_INVIX)) {
+                && (indexType == IndexType.SINGLE_PARTITION_WORD_INVIX
+                        || indexType == IndexType.LENGTH_PARTITIONED_WORD_INVIX || indexType == IndexType.SIF)) {
             return true;
         }
         return false;
@@ -1072,7 +1073,8 @@ public class InvertedIndexAccessMethod implements IAccessMethod {
         }
 
         if ((typeTag == ATypeTag.ORDEREDLIST)
-                && (index.getIndexType() == IndexType.SINGLE_PARTITION_WORD_INVIX || index.getIndexType() == IndexType.LENGTH_PARTITIONED_WORD_INVIX)) {
+                && (index.getIndexType() == IndexType.SINGLE_PARTITION_WORD_INVIX
+                        || index.getIndexType() == IndexType.LENGTH_PARTITIONED_WORD_INVIX || index.getIndexType() == IndexType.SIF)) {
             IACollection alist = (IACollection) listOrStrObj;
             // Compute merge threshold.
             mergeThreshold = alist.size() - edThresh.getIntegerValue();
@@ -1108,7 +1110,7 @@ public class InvertedIndexAccessMethod implements IAccessMethod {
 
         //check whether sif-tokens function is optimizable
         for (int i = 0; i < variableCount; i++) {
-            funcExpr = findTokensFunc(AsterixBuiltinFunctions.SIF_TOKENS, optFuncExpr, i);
+            funcExpr = findTokensFunc(AsterixBuiltinFunctions.MSIF_TOKENS, optFuncExpr, i);
             if (funcExpr != null) {
                 return isJaccardFuncCompatible(funcExpr, optFuncExpr.getTypeTag(i), index.getIndexType());
             }
@@ -1173,8 +1175,9 @@ public class InvertedIndexAccessMethod implements IAccessMethod {
             AbstractFunctionCallExpression nonConstfuncExpr = (AbstractFunctionCallExpression) nonConstArg;
             // We can use this index if the tokenization function matches the index type.
             if ((nonConstfuncExpr.getFunctionIdentifier() == AsterixBuiltinFunctions.WORD_TOKENS || nonConstfuncExpr
-                    .getFunctionIdentifier() == AsterixBuiltinFunctions.SIF_TOKENS)
-                    && (indexType == IndexType.SINGLE_PARTITION_WORD_INVIX || indexType == IndexType.LENGTH_PARTITIONED_WORD_INVIX)) {
+                    .getFunctionIdentifier() == AsterixBuiltinFunctions.MSIF_TOKENS)
+                    && (indexType == IndexType.SINGLE_PARTITION_WORD_INVIX
+                            || indexType == IndexType.LENGTH_PARTITIONED_WORD_INVIX || indexType == IndexType.SIF)) {
                 return true;
             }
             if (nonConstfuncExpr.getFunctionIdentifier() == AsterixBuiltinFunctions.GRAM_TOKENS
@@ -1185,7 +1188,8 @@ public class InvertedIndexAccessMethod implements IAccessMethod {
 
         if (nonConstArg.getExpressionTag() == LogicalExpressionTag.VARIABLE) {
             if ((typeTag == ATypeTag.ORDEREDLIST || typeTag == ATypeTag.UNORDEREDLIST)
-                    && (indexType == IndexType.SINGLE_PARTITION_WORD_INVIX || indexType == IndexType.LENGTH_PARTITIONED_WORD_INVIX)) {
+                    && (indexType == IndexType.SINGLE_PARTITION_WORD_INVIX
+                            || indexType == IndexType.LENGTH_PARTITIONED_WORD_INVIX || indexType == IndexType.SIF)) {
                 return true;
             }
             // We assume that the given list variable doesn't have ngram list in it since it is unrealistic.  
@@ -1255,7 +1259,8 @@ public class InvertedIndexAccessMethod implements IAccessMethod {
     private boolean isSpatialIntersectFuncCompatible(ATypeTag typeTag, IndexType indexType) {
         //We can only optimize contains with ngram indexes.
         if ((typeTag == ATypeTag.RECTANGLE || typeTag == ATypeTag.CIRCLE || typeTag == ATypeTag.POLYGON)
-                && (indexType == IndexType.SINGLE_PARTITION_WORD_INVIX || indexType == IndexType.LENGTH_PARTITIONED_WORD_INVIX)) {
+                && (indexType == IndexType.SINGLE_PARTITION_WORD_INVIX
+                        || indexType == IndexType.LENGTH_PARTITIONED_WORD_INVIX || indexType == IndexType.SIF)) {
             return true;
         }
         return false;
@@ -1266,7 +1271,8 @@ public class InvertedIndexAccessMethod implements IAccessMethod {
         IndexTypeProperty itp = index.getIndexTypeProperty();
         switch (index.getIndexType()) {
             case SINGLE_PARTITION_WORD_INVIX:
-            case LENGTH_PARTITIONED_WORD_INVIX: {
+            case LENGTH_PARTITIONED_WORD_INVIX:
+            case SIF: {
                 switch (searchKeyType) {
                     case POINT:
                         return AqlBinaryTokenizerFactoryProvider.INSTANCE.getSIFTokenizerFactory(searchKeyType,
@@ -1316,7 +1322,8 @@ public class InvertedIndexAccessMethod implements IAccessMethod {
                         }
                     }
                     case SINGLE_PARTITION_WORD_INVIX:
-                    case LENGTH_PARTITIONED_WORD_INVIX: {
+                    case LENGTH_PARTITIONED_WORD_INVIX:
+                    case SIF: {
                         // Edit distance on two lists. The list-elements are non-overlapping.
                         if (searchModifierType == SearchModifierType.EDIT_DISTANCE) {
                             return new ListEditDistanceSearchModifierFactory(edThresh);

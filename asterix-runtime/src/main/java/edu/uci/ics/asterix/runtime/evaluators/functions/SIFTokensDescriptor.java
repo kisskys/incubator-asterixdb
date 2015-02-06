@@ -15,7 +15,6 @@
 package edu.uci.ics.asterix.runtime.evaluators.functions;
 
 import edu.uci.ics.asterix.common.config.DatasetConfig.CellBasedSpatialIndex;
-import edu.uci.ics.asterix.common.config.OptimizationConfUtil;
 import edu.uci.ics.asterix.dataflow.data.common.SIFBinaryTokenizer;
 import edu.uci.ics.asterix.dataflow.data.nontagged.serde.ADoubleSerializerDeserializer;
 import edu.uci.ics.asterix.dataflow.data.nontagged.serde.AInt16SerializerDeserializer;
@@ -74,10 +73,11 @@ public class SIFTokensDescriptor extends AbstractScalarFunctionDynamicDescriptor
                 args[3].createEvaluator(outTopRightX).evaluate(null);
                 args[4].createEvaluator(outTopRightY).evaluate(null);
                 for (int i = 0; i < maxLevel; i++) {
+                    outLevelDensity[i] = new ArrayBackedValueStorage();
                     args[5 + i].createEvaluator(outLevelDensity[i]).evaluate(null);
                 }
                 args[5 + maxLevel].createEvaluator(outCellsPerObject).equals(null);
-                args[5 + maxLevel+1].createEvaluator(outFrameSize).equals(null);
+                args[5 + maxLevel + 1].createEvaluator(outFrameSize).equals(null);
 
                 double bottomLeftX = ADoubleSerializerDeserializer.getDouble(outBottomLeftX.getByteArray(), 1);
                 double bottomLeftY = ADoubleSerializerDeserializer.getDouble(outBottomLeftY.getByteArray(), 1);

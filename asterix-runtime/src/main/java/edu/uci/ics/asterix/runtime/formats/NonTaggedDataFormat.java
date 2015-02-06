@@ -193,6 +193,7 @@ import edu.uci.ics.asterix.runtime.evaluators.functions.IsNullDescriptor;
 import edu.uci.ics.asterix.runtime.evaluators.functions.IsSystemNullDescriptor;
 import edu.uci.ics.asterix.runtime.evaluators.functions.LenDescriptor;
 import edu.uci.ics.asterix.runtime.evaluators.functions.LikeDescriptor;
+import edu.uci.ics.asterix.runtime.evaluators.functions.MultiLevelSIFTokensDescriptor;
 import edu.uci.ics.asterix.runtime.evaluators.functions.NotDescriptor;
 import edu.uci.ics.asterix.runtime.evaluators.functions.NotNullDescriptor;
 import edu.uci.ics.asterix.runtime.evaluators.functions.NumericAbsDescriptor;
@@ -570,6 +571,7 @@ public class NonTaggedDataFormat implements IDataFormat {
         temp.add(CountHashedGramTokensDescriptor.FACTORY);
 
         temp.add(SIFTokensDescriptor.FACTORY);
+        temp.add(MultiLevelSIFTokensDescriptor.FACTORY);
         temp.add(SpatialCellTokensDescriptor.FACTORY);
 
         temp.add(EditDistanceDescriptor.FACTORY);

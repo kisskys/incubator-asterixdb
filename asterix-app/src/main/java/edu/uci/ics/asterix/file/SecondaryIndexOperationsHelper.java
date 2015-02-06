@@ -166,7 +166,8 @@ public abstract class SecondaryIndexOperationsHelper {
             case SINGLE_PARTITION_WORD_INVIX:
             case SINGLE_PARTITION_NGRAM_INVIX:
             case LENGTH_PARTITIONED_WORD_INVIX:
-            case LENGTH_PARTITIONED_NGRAM_INVIX: {
+            case LENGTH_PARTITIONED_NGRAM_INVIX: 
+            case SIF: {
                 indexOperationsHelper = new SecondaryInvertedIndexOperationsHelper(physOptConf,
                         asterixPropertiesProvider);
                 break;

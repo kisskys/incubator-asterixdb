@@ -194,7 +194,8 @@ public final class NonTaggedFormatUtil {
             IndexTypeProperty indexTypeProperty) throws AlgebricksException {
         switch (indexType) {
             case SINGLE_PARTITION_WORD_INVIX:
-            case LENGTH_PARTITIONED_WORD_INVIX: {
+            case LENGTH_PARTITIONED_WORD_INVIX: 
+            case SIF: {
                 switch (keyType) {
                     case POINT:
                         return AqlBinaryTokenizerFactoryProvider.INSTANCE.getSIFTokenizerFactory(keyType,

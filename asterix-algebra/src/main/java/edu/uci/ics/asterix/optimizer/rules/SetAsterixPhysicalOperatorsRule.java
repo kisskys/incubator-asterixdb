@@ -236,7 +236,8 @@ public class SetAsterixPhysicalOperatorsRule implements IAlgebraicRewriteRule {
                                 break;
                             }
                             case LENGTH_PARTITIONED_WORD_INVIX:
-                            case LENGTH_PARTITIONED_NGRAM_INVIX: {
+                            case LENGTH_PARTITIONED_NGRAM_INVIX: 
+                            case SIF: {
                                 op.setPhysicalOperator(new InvertedIndexPOperator(dsi, requiresBroadcast, true));
                                 break;
                             }

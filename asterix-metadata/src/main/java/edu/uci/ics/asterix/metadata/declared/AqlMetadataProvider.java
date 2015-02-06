@@ -87,7 +87,6 @@ import edu.uci.ics.asterix.metadata.feeds.IGenericAdapterFactory;
 import edu.uci.ics.asterix.metadata.feeds.ITypedAdapterFactory;
 import edu.uci.ics.asterix.metadata.utils.DatasetUtils;
 import edu.uci.ics.asterix.metadata.utils.ExternalDatasetsRegistry;
-import edu.uci.ics.asterix.om.base.ABinary;
 import edu.uci.ics.asterix.om.functions.AsterixBuiltinFunctions;
 import edu.uci.ics.asterix.om.types.ARecordType;
 import edu.uci.ics.asterix.om.types.ATypeTag;
@@ -148,9 +147,7 @@ import edu.uci.ics.hyracks.api.dataset.ResultSetId;
 import edu.uci.ics.hyracks.api.io.FileReference;
 import edu.uci.ics.hyracks.api.job.JobSpecification;
 import edu.uci.ics.hyracks.data.std.accessors.PointableBinaryComparatorFactory;
-import edu.uci.ics.hyracks.data.std.primitive.ByteArrayPointable;
 import edu.uci.ics.hyracks.data.std.primitive.ShortPointable;
-import edu.uci.ics.hyracks.dataflow.common.data.marshalling.ByteArraySerializerDeserializer;
 import edu.uci.ics.hyracks.dataflow.common.data.marshalling.ShortSerializerDeserializer;
 import edu.uci.ics.hyracks.dataflow.std.file.ConstantFileSplitProvider;
 import edu.uci.ics.hyracks.dataflow.std.file.FileScanOperatorDescriptor;
@@ -1239,7 +1236,8 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
             case SINGLE_PARTITION_WORD_INVIX:
             case SINGLE_PARTITION_NGRAM_INVIX:
             case LENGTH_PARTITIONED_WORD_INVIX:
-            case LENGTH_PARTITIONED_NGRAM_INVIX: {
+            case LENGTH_PARTITIONED_NGRAM_INVIX:
+            case SIF: {
                 return getInvertedIndexDmlRuntime(dataverseName, datasetName, indexName, propagatedSchema, typeEnv,
                         primaryKeys, secondaryKeys, additionalNonKeyFields, filterFactory, recordDesc, context, spec,
                         indexOp, secondaryIndex.getIndexType(), bulkload);
@@ -1293,13 +1291,14 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
             throw new AlgebricksException(e);
         }
         AsterixTupleFilterFactory filterFactory = createTupleFilterFactory(inputSchemas, typeEnv, filterExpr, context);
-        // TokenizeOperator only supports a keyword or n-gram index.
+
         switch (secondaryIndex.getIndexType()) {
             case STATIC_HILBERT_BTREE:
             case SINGLE_PARTITION_WORD_INVIX:
             case SINGLE_PARTITION_NGRAM_INVIX:
             case LENGTH_PARTITIONED_WORD_INVIX:
-            case LENGTH_PARTITIONED_NGRAM_INVIX: {
+            case LENGTH_PARTITIONED_NGRAM_INVIX: 
+            case SIF: {
                 if (bulkload) {
                     return getBinaryTokenizerUpdateRuntime(dataverseName, datasetName, indexName, inputSchema,
                             propagatedSchema, typeEnv, primaryKeys, secondaryKeys, filterFactory, recordDesc, context,
@@ -1337,7 +1336,7 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
 
         boolean isPartitioned;
         if (indexType == IndexType.LENGTH_PARTITIONED_WORD_INVIX
-                || indexType == IndexType.LENGTH_PARTITIONED_NGRAM_INVIX) {
+                || indexType == IndexType.LENGTH_PARTITIONED_NGRAM_INVIX || indexType == IndexType.SIF) {
             isPartitioned = true;
         } else {
             isPartitioned = false;
@@ -1427,9 +1426,9 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
 
             List<String> secondaryKeyExprs = secondaryIndex.getKeyFieldNames();
 
-//            int numTokenFields = (!isPartitioned) ? secondaryKeys.size() : secondaryKeys.size() + 1;
-//            ITypeTraits[] tokenTypeTraits = new ITypeTraits[numTokenFields];
-//            ITypeTraits[] invListsTypeTraits = new ITypeTraits[primaryKeys.size()];
+            //            int numTokenFields = (!isPartitioned) ? secondaryKeys.size() : secondaryKeys.size() + 1;
+            //            ITypeTraits[] tokenTypeTraits = new ITypeTraits[numTokenFields];
+            //            ITypeTraits[] invListsTypeTraits = new ITypeTraits[primaryKeys.size()];
 
             // Find the key type of the secondary key. If it's a derived type, return the derived type.
             // e.g. UNORDERED LIST -> return UNORDERED LIST type
@@ -1437,13 +1436,13 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
             Pair<IAType, Boolean> keyPairType = Index.getNonNullableKeyFieldType(secondaryKeyExprs.get(0).toString(),
                     recType);
             secondaryKeyType = keyPairType.first;
-//            List<String> partitioningKeys = DatasetUtils.getPartitioningKeys(dataset);
-//            i = 0;
-//            for (String partitioningKey : partitioningKeys) {
-//                IAType keyType = recType.getFieldType(partitioningKey);
-//                invListsTypeTraits[i] = AqlTypeTraitProvider.INSTANCE.getTypeTrait(keyType);
-//                ++i;
-//            }
+            //            List<String> partitioningKeys = DatasetUtils.getPartitioningKeys(dataset);
+            //            i = 0;
+            //            for (String partitioningKey : partitioningKeys) {
+            //                IAType keyType = recType.getFieldType(partitioningKey);
+            //                invListsTypeTraits[i] = AqlTypeTraitProvider.INSTANCE.getTypeTrait(keyType);
+            //                ++i;
+            //            }
 
             IBinaryTokenizerFactory tokenizerFactory = NonTaggedFormatUtil.getBinaryTokenizerFactory(
                     secondaryKeyType.getTypeTag(), indexType, secondaryIndex.getIndexTypeProperty());
@@ -1467,7 +1466,8 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
             // #2. Specify the token type
             if (indexType == IndexType.STATIC_HILBERT_BTREE) {
                 tokenKeyPairFields[tokenOffset] = serdeProvider.getSerializerDeserializer(BuiltinType.ABINARY);
-                tokenKeyPairTypeTraits[tokenOffset] = NonTaggedDataFormat.INSTANCE.getTypeTraitProvider().getTypeTrait(BuiltinType.ABINARY);
+                tokenKeyPairTypeTraits[tokenOffset] = NonTaggedDataFormat.INSTANCE.getTypeTraitProvider().getTypeTrait(
+                        BuiltinType.ABINARY);
             } else {
                 tokenKeyPairFields[tokenOffset] = serdeProvider.getSerializerDeserializer(NonTaggedFormatUtil
                         .getTokenType(secondaryKeyType));
@@ -1570,8 +1570,8 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
         IndexTypeProperty itp = secondaryIndex.getIndexTypeProperty();
         IBinaryTokenizerFactory tokenizerFactory = new SpatialCellBinaryTokenizerFactory(itp.bottomLeftX,
                 itp.bottomLeftY, itp.topRightX, itp.topRightY, itp.levelDensity, itp.cellsPerObject,
-                new ByteArrayTokenFactory(ATypeTag.BINARY.serialize()), OptimizationConfUtil.getPhysicalOptimizationConfig()
-                        .getFrameSize(), true);
+                new ByteArrayTokenFactory(ATypeTag.BINARY.serialize()), OptimizationConfUtil
+                        .getPhysicalOptimizationConfig().getFrameSize(), true);
 
         Pair<IFileSplitProvider, AlgebricksPartitionConstraint> splitsAndConstraint = splitProviderAndPartitionConstraintsForDataset(
                 dataverseName, datasetName, indexName);
@@ -1590,8 +1590,10 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
             tokenKeyPairTypeTraits[i] = recordDesc.getTypeTraits()[i];
         }
         for (i = inputRecFieldCount; i < inputRecFieldCount + numTokensPerOutputRecord; i++) {
-            tokenKeyPairFields[i] = NonTaggedDataFormat.INSTANCE.getSerdeProvider().getSerializerDeserializer(BuiltinType.ABINARY);
-            tokenKeyPairTypeTraits[i] = NonTaggedDataFormat.INSTANCE.getTypeTraitProvider().getTypeTrait(BuiltinType.ABINARY);
+            tokenKeyPairFields[i] = NonTaggedDataFormat.INSTANCE.getSerdeProvider().getSerializerDeserializer(
+                    BuiltinType.ABINARY);
+            tokenKeyPairTypeTraits[i] = NonTaggedDataFormat.INSTANCE.getTypeTraitProvider().getTypeTrait(
+                    BuiltinType.ABINARY);
         }
 
         RecordDescriptor tokenKeyPairRecDesc = new RecordDescriptor(tokenKeyPairFields, tokenKeyPairTypeTraits);
@@ -1712,7 +1714,8 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
                 Pair<IAType, Boolean> keyPairType = Index.getNonNullableKeyFieldType(secondaryKeyExprs.get(i)
                         .toString(), recType);
                 IAType keyType = keyPairType.first;
-                if (secondaryIndex.getIndexType() == IndexType.STATIC_HILBERT_BTREE && keyType.getTypeTag() == ATypeTag.POINT) {
+                if (secondaryIndex.getIndexType() == IndexType.STATIC_HILBERT_BTREE
+                        && keyType.getTypeTag() == ATypeTag.POINT) {
                     keyType = BuiltinType.ABINARY;
                 }
                 if (keyType.getTypeTag() == ATypeTag.POINT) {
@@ -1784,7 +1787,7 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
         // Check the index is length-partitioned or not.
         boolean isPartitioned;
         if (indexType == IndexType.LENGTH_PARTITIONED_WORD_INVIX
-                || indexType == IndexType.LENGTH_PARTITIONED_NGRAM_INVIX) {
+                || indexType == IndexType.LENGTH_PARTITIONED_NGRAM_INVIX || indexType == IndexType.SIF) {
             isPartitioned = true;
         } else {
             isPartitioned = false;

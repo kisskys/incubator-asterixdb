@@ -383,7 +383,6 @@ public class ARecordType extends AbstractComplexType {
                         case UNORDEREDLIST:
                         case ORDEREDLIST:
                         case UNION:
-                        case POINT:
                             break;
                         default:
                             throw new AlgebricksException("The field \"" + fieldName + "\" which is of type "
@@ -391,6 +390,18 @@ public class ARecordType extends AbstractComplexType {
                                     + " cannot be indexed using the Length Partitioned Keyword index.");
                     }
                     break;
+                
+                case SIF: 
+                    switch (fieldType.getTypeTag()) {
+                        case POINT:
+                            break;
+                        default:
+                            throw new AlgebricksException("The field \"" + fieldName + "\" which is of type "
+                                    + fieldType.getTypeTag()
+                                    + " cannot be indexed using the SIF index.");
+                    }
+                    break;
+                    
                 case SINGLE_PARTITION_NGRAM_INVIX:
                     switch (fieldType.getTypeTag()) {
                         case STRING:

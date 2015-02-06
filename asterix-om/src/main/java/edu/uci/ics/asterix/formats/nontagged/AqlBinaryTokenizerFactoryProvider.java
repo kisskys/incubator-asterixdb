@@ -19,13 +19,13 @@ import edu.uci.ics.asterix.dataflow.data.common.AListElementTokenFactory;
 import edu.uci.ics.asterix.dataflow.data.common.AOrderedListBinaryTokenizerFactory;
 import edu.uci.ics.asterix.dataflow.data.common.AUnorderedListBinaryTokenizerFactory;
 import edu.uci.ics.asterix.dataflow.data.common.IBinaryTokenizerFactoryProvider;
-import edu.uci.ics.asterix.dataflow.data.common.SIFBinaryTokenizerFactory;
+import edu.uci.ics.asterix.dataflow.data.common.MultiLevelSIFBinaryTokenizerFactory;
 import edu.uci.ics.asterix.dataflow.data.common.SpatialCellBinaryTokenizerFactory;
 import edu.uci.ics.asterix.om.types.ATypeTag;
 import edu.uci.ics.hyracks.storage.am.common.api.IBinaryTokenizerFactory;
+import edu.uci.ics.hyracks.storage.am.common.tokenizer.ByteArrayTokenFactory;
 import edu.uci.ics.hyracks.storage.am.common.tokenizer.DelimitedUTF8StringBinaryTokenizerFactory;
 import edu.uci.ics.hyracks.storage.am.common.tokenizer.HashedUTF8WordTokenFactory;
-import edu.uci.ics.hyracks.storage.am.common.tokenizer.ByteArrayTokenFactory;
 import edu.uci.ics.hyracks.storage.am.common.tokenizer.UTF8NGramTokenFactory;
 import edu.uci.ics.hyracks.storage.am.common.tokenizer.UTF8WordTokenFactory;
 
@@ -93,9 +93,9 @@ public class AqlBinaryTokenizerFactoryProvider implements IBinaryTokenizerFactor
 
     public IBinaryTokenizerFactory getSIFTokenizerFactory(ATypeTag keyType, double bottomLeftX, double bottomLeftY,
             double topRightX, double topRightY, short[] levelDensity, int cellsPerObject, boolean hashedTokens) {
-        return new SIFBinaryTokenizerFactory(bottomLeftX, bottomLeftY, topRightX, topRightY, levelDensity,
+        return new MultiLevelSIFBinaryTokenizerFactory(bottomLeftX, bottomLeftY, topRightX, topRightY, levelDensity,
                 cellsPerObject, new UTF8WordTokenFactory(ATypeTag.STRING.serialize(), ATypeTag.INT32.serialize()),
-                OptimizationConfUtil.getPhysicalOptimizationConfig().getFrameSize());
+                OptimizationConfUtil.getPhysicalOptimizationConfig().getFrameSize(), false);
     }
 
     public IBinaryTokenizerFactory getSpatialCellTokenizerFactory(ATypeTag keyType, double bottomLeftX,

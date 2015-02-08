@@ -16,17 +16,16 @@ package edu.uci.ics.asterix.runtime.evaluators.functions;
 
 import edu.uci.ics.asterix.common.config.DatasetConfig.CellBasedSpatialIndex;
 import edu.uci.ics.asterix.common.config.OptimizationConfUtil;
-import edu.uci.ics.asterix.dataflow.data.common.SpatialCellBinaryTokenizer;
+import edu.uci.ics.asterix.dataflow.data.common.MultiLevelSIFBinaryTokenizer;
 import edu.uci.ics.asterix.dataflow.data.nontagged.serde.ADoubleSerializerDeserializer;
 import edu.uci.ics.asterix.dataflow.data.nontagged.serde.AInt16SerializerDeserializer;
 import edu.uci.ics.asterix.dataflow.data.nontagged.serde.AInt32SerializerDeserializer;
 import edu.uci.ics.asterix.om.functions.AsterixBuiltinFunctions;
 import edu.uci.ics.asterix.om.functions.IFunctionDescriptor;
 import edu.uci.ics.asterix.om.functions.IFunctionDescriptorFactory;
-import edu.uci.ics.asterix.om.types.ATypeTag;
 import edu.uci.ics.asterix.om.types.BuiltinType;
 import edu.uci.ics.asterix.runtime.evaluators.base.AbstractScalarFunctionDynamicDescriptor;
-import edu.uci.ics.asterix.runtime.evaluators.common.SpatialCellTokensEvaluator;
+import edu.uci.ics.asterix.runtime.evaluators.common.WordTokensEvaluator;
 import edu.uci.ics.hyracks.algebricks.common.exceptions.AlgebricksException;
 import edu.uci.ics.hyracks.algebricks.core.algebra.functions.FunctionIdentifier;
 import edu.uci.ics.hyracks.algebricks.runtime.base.ICopyEvaluator;
@@ -35,20 +34,20 @@ import edu.uci.ics.hyracks.data.std.api.IDataOutputProvider;
 import edu.uci.ics.hyracks.data.std.util.ArrayBackedValueStorage;
 import edu.uci.ics.hyracks.storage.am.common.api.IBinaryTokenizer;
 import edu.uci.ics.hyracks.storage.am.common.api.ITokenFactory;
-import edu.uci.ics.hyracks.storage.am.common.tokenizer.ByteArrayTokenFactory;
+import edu.uci.ics.hyracks.storage.am.common.tokenizer.UTF8WordTokenFactory;
 
-public class SpatialCellTokensDescriptor extends AbstractScalarFunctionDynamicDescriptor {
+public class MultiLevelSIFTokensDescriptor extends AbstractScalarFunctionDynamicDescriptor {
 
     private static final long serialVersionUID = 1L;
     public static final IFunctionDescriptorFactory FACTORY = new IFunctionDescriptorFactory() {
         public IFunctionDescriptor createFunctionDescriptor() {
-            return new SpatialCellTokensDescriptor();
+            return new MultiLevelSIFTokensDescriptor();
         }
     };
 
     @Override
     public FunctionIdentifier getIdentifier() {
-        return AsterixBuiltinFunctions.SPATIAL_CELL_TOKENS;
+        return AsterixBuiltinFunctions.MSIF_TOKENS;
     }
 
     @Override
@@ -77,7 +76,7 @@ public class SpatialCellTokensDescriptor extends AbstractScalarFunctionDynamicDe
                     outLevelDensity[i] = new ArrayBackedValueStorage();
                     args[5 + i].createEvaluator(outLevelDensity[i]).evaluate(null);
                 }
-                args[5 + maxLevel].createEvaluator(outCellsPerObject).equals(null);
+                args[5 + maxLevel].createEvaluator(outCellsPerObject).evaluate(null);
 
                 double bottomLeftX = ADoubleSerializerDeserializer.getDouble(outBottomLeftX.getByteArray(), 1);
                 double bottomLeftY = ADoubleSerializerDeserializer.getDouble(outBottomLeftY.getByteArray(), 1);
@@ -87,11 +86,11 @@ public class SpatialCellTokensDescriptor extends AbstractScalarFunctionDynamicDe
                     levelDensity[i] = AInt16SerializerDeserializer.getShort(outLevelDensity[i].getByteArray(), 1);
                 }
                 int cellsPerObject = AInt32SerializerDeserializer.getInt(outCellsPerObject.getByteArray(), 1);
-                ITokenFactory tokenFactory = new ByteArrayTokenFactory(ATypeTag.BINARY.serialize());
-                IBinaryTokenizer tokenizer = new SpatialCellBinaryTokenizer(bottomLeftX, bottomLeftY, topRightX,
+                ITokenFactory tokenFactory = new UTF8WordTokenFactory();
+                IBinaryTokenizer tokenizer = new MultiLevelSIFBinaryTokenizer(bottomLeftX, bottomLeftY, topRightX,
                         topRightY, levelDensity, cellsPerObject, tokenFactory, OptimizationConfUtil
                                 .getPhysicalOptimizationConfig().getFrameSize(), true);
-                return new SpatialCellTokensEvaluator(args, output, tokenizer, BuiltinType.ABINARY);
+                return new WordTokensEvaluator(args, output, tokenizer, BuiltinType.ASTRING);
             }
         };
     }

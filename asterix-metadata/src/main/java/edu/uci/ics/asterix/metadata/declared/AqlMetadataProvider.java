@@ -47,7 +47,7 @@ import edu.uci.ics.asterix.common.ioopcallbacks.LSMRTreeIOOperationCallbackFacto
 import edu.uci.ics.asterix.common.parse.IParseFileSplitsDecl;
 import edu.uci.ics.asterix.common.transactions.IRecoveryManager.ResourceType;
 import edu.uci.ics.asterix.common.transactions.JobId;
-import edu.uci.ics.asterix.dataflow.data.common.SpatialCellBinaryTokenizerFactory;
+import edu.uci.ics.asterix.dataflow.data.common.StaticHilbertBTreeBinaryTokenizerFactory;
 import edu.uci.ics.asterix.dataflow.data.nontagged.valueproviders.AqlPrimitiveValueProviderFactory;
 import edu.uci.ics.asterix.formats.base.IDataFormat;
 import edu.uci.ics.asterix.formats.nontagged.AqlBinaryComparatorFactoryProvider;
@@ -1297,7 +1297,7 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
             case SINGLE_PARTITION_WORD_INVIX:
             case SINGLE_PARTITION_NGRAM_INVIX:
             case LENGTH_PARTITIONED_WORD_INVIX:
-            case LENGTH_PARTITIONED_NGRAM_INVIX: 
+            case LENGTH_PARTITIONED_NGRAM_INVIX:
             case SIF: {
                 if (bulkload) {
                     return getBinaryTokenizerUpdateRuntime(dataverseName, datasetName, indexName, inputSchema,
@@ -1568,7 +1568,7 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
         }
 
         IndexTypeProperty itp = secondaryIndex.getIndexTypeProperty();
-        IBinaryTokenizerFactory tokenizerFactory = new SpatialCellBinaryTokenizerFactory(itp.bottomLeftX,
+        IBinaryTokenizerFactory tokenizerFactory = new StaticHilbertBTreeBinaryTokenizerFactory(itp.bottomLeftX,
                 itp.bottomLeftY, itp.topRightX, itp.topRightY, itp.levelDensity, itp.cellsPerObject,
                 new ByteArrayTokenFactory(ATypeTag.BINARY.serialize()), OptimizationConfUtil
                         .getPhysicalOptimizationConfig().getFrameSize(), true);

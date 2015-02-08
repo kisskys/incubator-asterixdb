@@ -19,17 +19,17 @@ import edu.uci.ics.hyracks.storage.am.common.api.IBinaryTokenizer;
 import edu.uci.ics.hyracks.storage.am.common.api.IBinaryTokenizerFactory;
 import edu.uci.ics.hyracks.storage.am.common.api.ITokenFactory;
 
-public class SpatialCellBinaryTokenizerFactory implements IBinaryTokenizerFactory {
+public abstract class SpatialCellBinaryTokenizerFactory implements IBinaryTokenizerFactory {
     private static final long serialVersionUID = 1L;
-    private final ITokenFactory tokenFactory;
-    private final double bottomLeftX;
-    private final double bottomLeftY;
-    private final double topRightX;
-    private final double topRightY;
-    private final short[] levelDensity;
-    private final int cellsPerObject;
-    private final int frameSize;
-    private final boolean isQuery;
+    protected final ITokenFactory tokenFactory;
+    protected final double bottomLeftX;
+    protected final double bottomLeftY;
+    protected final double topRightX;
+    protected final double topRightY;
+    protected final short[] levelDensity;
+    protected final int cellsPerObject;
+    protected final int frameSize;
+    protected final boolean isQuery;
 
     public SpatialCellBinaryTokenizerFactory(double bottomLeftX, double bottomLeftY, double topRightX,
             double topRightY, short[] levelDensity, int cellsPerObject, ITokenFactory tokenFactory, int frameSize,
@@ -45,9 +45,5 @@ public class SpatialCellBinaryTokenizerFactory implements IBinaryTokenizerFactor
         this.isQuery = isQuery;
     }
 
-    @Override
-    public IBinaryTokenizer createTokenizer() {
-        return new SpatialCellBinaryTokenizer(bottomLeftX, bottomLeftY, topRightX, topRightY, levelDensity,
-                cellsPerObject, tokenFactory, frameSize, isQuery);
-    }
+    public abstract IBinaryTokenizer createTokenizer();
 }

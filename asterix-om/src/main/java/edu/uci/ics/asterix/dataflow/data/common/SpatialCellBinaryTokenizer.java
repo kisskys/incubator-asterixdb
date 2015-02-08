@@ -28,49 +28,50 @@ import edu.uci.ics.hyracks.storage.am.common.api.IBinaryTokenizer;
 import edu.uci.ics.hyracks.storage.am.common.api.IToken;
 import edu.uci.ics.hyracks.storage.am.common.api.ITokenFactory;
 
-public class SpatialCellBinaryTokenizer implements IBinaryTokenizer {
+public abstract class SpatialCellBinaryTokenizer implements IBinaryTokenizer {
 
-    private final static int MAX_LEVEL = 4; //Only 4-level grids are supported.
-    private final double bottomLeftX;
-    private final double bottomLeftY;
-    private final double topRightX;
-    private final double topRightY;
-    private final boolean isQuery;
-    private final int[][][] hilbertValueMatrix;
-    private final int[] axisCellNum;
-    private final int cellsPerObject;
-    private final double[] xCellSize;
-    private final double[] yCellSize;
-    private final int levelCount;
-    private final int tokenSize;
+    protected final static int MAX_LEVEL = 4; //Only 4-level grids are supported.
+    protected final double bottomLeftX;
+    protected final double bottomLeftY;
+    protected final double topRightX;
+    protected final double topRightY;
+    protected final boolean isQuery;
+    protected final int[][][] hilbertValueMatrix;
+    protected final int[] axisCellNum;
+    protected final int cellsPerObject;
+    protected final double[] xCellSize;
+    protected final double[] yCellSize;
+    protected final int levelCount;
+    protected final int tokenSize;
 
-    private final IToken token;
-    private final int[][] cellId;
-    private final byte[][] hilbertValue;
-    private int hilbertValueCount;
-    private int hOffset;
-    private final int[][][] candidateCellId;
-    private int tcOffset; //tail offset of candidateCellId
-    private int hcOffset; //head offset of candidateCellId
-    private final double[] cellBottomLeft;
-    private byte[] inputData;
-    private static byte[] OOPS_BYTE_ARRAY = new byte[] { (byte) 255, (byte) 255, (byte) 255, (byte) 255, MAX_LEVEL + 1 };
-    private static byte[] ALL_BYTE_ARRAY = new byte[] { 0, 0, 0, 0, 0 };
-    private boolean overflow;
-    private int nextCount;
-    private final BitSet highkeyFlag;
-    private final InMemorySpatialCellIdQuickSorter cellIdSorter;
+    protected final IToken token;
+    protected final int[][] cellId;
+    protected final byte[][] hilbertValue;
+    protected int hilbertValueCount;
+    protected int hOffset;
+    protected final int[][][] candidateCellId;
+    protected int tcOffset; //tail offset of candidateCellId
+    protected int hcOffset; //head offset of candidateCellId
+    protected final double[] cellBottomLeft;
+    protected byte[] inputData;
+    protected static byte[] OOPS_BYTE_ARRAY = new byte[] { (byte) 255, (byte) 255, (byte) 255, (byte) 255,
+            MAX_LEVEL + 1 };
+    protected static byte[] ALL_BYTE_ARRAY = new byte[] { 0, 0, 0, 0, 0 };
+    protected boolean overflow;
+    protected int nextCount;
+    protected final BitSet highkeyFlag;
+    protected final InMemorySpatialCellIdQuickSorter cellIdSorter;
 
     //temporary variables
-    private final double[] regionCoordinate = new double[4];
-    private final double[] cellCoordinate = new double[4];
-    private final int[] nextLevelOffset;
-    private final int[] tCellId1, tCellId2;
-    private final byte[] hilbertValuePair; //a pair of cell Ids for range search 
+    protected final double[] regionCoordinate = new double[4];
+    protected final double[] cellCoordinate = new double[4];
+    protected final int[] nextLevelOffset;
+    protected final int[] tCellId1, tCellId2;
 
     public SpatialCellBinaryTokenizer(double bottomLeftX, double bottomLeftY, double topRightX, double topRightY,
             short[] levelDensity, int cellsPerObject, ITokenFactory tokenFactory, int frameSize, boolean isQuery) {
         assert levelDensity.length == MAX_LEVEL; //Only 4-level grids are supported.
+
         this.levelCount = levelDensity.length;
         this.tokenSize = levelCount + 1; // +1 for level indicator
         this.cellIdSorter = new InMemorySpatialCellIdQuickSorter(tokenSize);
@@ -119,7 +120,6 @@ public class SpatialCellBinaryTokenizer implements IBinaryTokenizer {
         this.cellId = new int[levelCount][2];
         this.candidateCellId = new int[cellsPerObject][levelCount][2];
         this.hilbertValue = new byte[cellsPerObject][tokenSize];
-        this.hilbertValuePair = new byte[tokenSize];
         this.highkeyFlag = new BitSet(cellsPerObject);
         this.cellBottomLeft = new double[2];
         token = tokenFactory.createToken();
@@ -134,39 +134,13 @@ public class SpatialCellBinaryTokenizer implements IBinaryTokenizer {
     }
 
     @Override
-    public boolean hasNext() {
-        nextCount = 0;
-        return hOffset < hilbertValueCount;
-    }
+    public abstract boolean hasNext();
 
     @Override
-    public void next() throws HyracksDataException {
-        //reset token
-        if (isQuery) {
-            if (nextCount == 0) {
-                token.reset(hilbertValue[hOffset], 0, tokenSize, tokenSize, 1);
-                nextCount = 1;
-            } else {
-                if (highkeyFlag.get(hOffset)) {
-                    //provide a highkey
-                    computeCellIdRange(hilbertValue[hOffset + 1]);
-                    //flip the flag
-                    highkeyFlag.set(hOffset++, false);
-                } else {
-                    //provide the lowkey as a highkey
-                    computeCellIdRange(hilbertValue[hOffset]);
-                }
-                token.reset(hilbertValuePair, 0, tokenSize, tokenSize, 1);
-                hOffset++;
-                nextCount = 0;
-            }
-        } else {
-            token.reset(hilbertValue[hOffset++], 0, tokenSize, tokenSize, 1);
-        }
-    }
+    public abstract void next() throws HyracksDataException;
 
     //for debugging
-    private void printCellId(byte[] cId) {
+    protected void printCellId(byte[] cId) {
         StringBuilder sb = new StringBuilder();
         sb.append("cellId: [");
         for (int i = 0; i < tokenSize; i++) {
@@ -177,21 +151,6 @@ public class SpatialCellBinaryTokenizer implements IBinaryTokenizer {
         }
         sb.append("]");
         System.out.println(sb.toString());
-    }
-
-    private void computeCellIdRange(byte[] cellId) {
-        int i;
-        int replaceStartLevel = 0xff & cellId[levelCount];
-        for (i = 0; i < replaceStartLevel; i++) {
-            hilbertValuePair[i] = cellId[i];
-        }
-        for (; i < levelCount; i++) {
-            hilbertValuePair[i] = (byte) (axisCellNum[i] * axisCellNum[i] - 1);
-        }
-
-        if (cellId[levelCount] <= levelCount) { //this deal with OOPS case
-            hilbertValuePair[levelCount] = (byte) levelCount;
-        }
     }
 
     @Override
@@ -411,10 +370,10 @@ public class SpatialCellBinaryTokenizer implements IBinaryTokenizer {
             if (highkeyFlag.get(lowkey)) { /* range */
                 if (isPromotableRange(lowkey)) {
                     promoteRange(lowkey, tail);
-                    
+
                     //flip the highkeyFlag
                     highkeyFlag.set(lowkey, false);
-                    
+
                     lowkey += 2;
                     ++tail;
                     promoted = true;
@@ -423,11 +382,11 @@ public class SpatialCellBinaryTokenizer implements IBinaryTokenizer {
                         System.arraycopy(hilbertValue[lowkey], 0, hilbertValue[tail], 0, tokenSize);
                         System.arraycopy(hilbertValue[lowkey + 1], 0, hilbertValue[tail + 1], 0, tokenSize);
                     }
-                    
+
                     //flip the src and dest highkeyFlag
                     highkeyFlag.set(lowkey, false);
                     highkeyFlag.set(tail);
-                    
+
                     lowkey += 2;
                     tail += 2;
                 }
@@ -439,7 +398,7 @@ public class SpatialCellBinaryTokenizer implements IBinaryTokenizer {
                 ++tail;
             }
         }
-        
+
         hilbertValueCount = tail;
 
         return promoted;
@@ -450,10 +409,10 @@ public class SpatialCellBinaryTokenizer implements IBinaryTokenizer {
         //There are 4 levels and each level has 2x2 cells.
         //Range(00003, 00303) is promoted into  00002.
         //Range(01003, 01303) is promoted into  01002.
-        
+
         int validLevelNum = (0xff & (hilbertValue[lowkey][MAX_LEVEL])) - 1;
         int cellCount = axisCellNum[validLevelNum] * axisCellNum[validLevelNum];
-        int highkeyCellNum = (0xff & (hilbertValue[lowkey+1][validLevelNum]));
+        int highkeyCellNum = (0xff & (hilbertValue[lowkey + 1][validLevelNum]));
         int lowkeyCellNum = (0xff & (hilbertValue[lowkey][validLevelNum]));
         if (highkeyCellNum - lowkeyCellNum + 1 == cellCount) {
             return true;
@@ -466,7 +425,7 @@ public class SpatialCellBinaryTokenizer implements IBinaryTokenizer {
         //There are 4 levels and each level has 2x2 cells.
         //Range(00003, 00303) is promoted into  00002.
         //Range(01003, 01303) is promoted into  01002.
-        
+
         int newValidLevelCount = (0xff & (hilbertValue[lowkey][MAX_LEVEL])) - 1;
         if (lowkey != dest) {
             for (int i = 0; i < MAX_LEVEL; i++) {

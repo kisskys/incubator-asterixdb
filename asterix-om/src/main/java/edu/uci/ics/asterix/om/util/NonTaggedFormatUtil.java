@@ -216,7 +216,7 @@ public final class NonTaggedFormatUtil {
             }
             
             case STATIC_HILBERT_BTREE:
-                return AqlBinaryTokenizerFactoryProvider.INSTANCE.getSpatialCellTokenizerFactory(keyType,
+                return AqlBinaryTokenizerFactoryProvider.INSTANCE.getStaticHilbertBTreeTokenizerFactory(keyType,
                         indexTypeProperty.bottomLeftX, indexTypeProperty.bottomLeftY,
                         indexTypeProperty.topRightX, indexTypeProperty.topRightY,
                         indexTypeProperty.levelDensity, indexTypeProperty.cellsPerObject, false);

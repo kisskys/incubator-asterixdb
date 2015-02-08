@@ -20,7 +20,7 @@ import edu.uci.ics.asterix.dataflow.data.common.AOrderedListBinaryTokenizerFacto
 import edu.uci.ics.asterix.dataflow.data.common.AUnorderedListBinaryTokenizerFactory;
 import edu.uci.ics.asterix.dataflow.data.common.IBinaryTokenizerFactoryProvider;
 import edu.uci.ics.asterix.dataflow.data.common.MultiLevelSIFBinaryTokenizerFactory;
-import edu.uci.ics.asterix.dataflow.data.common.SpatialCellBinaryTokenizerFactory;
+import edu.uci.ics.asterix.dataflow.data.common.StaticHilbertBTreeBinaryTokenizerFactory;
 import edu.uci.ics.asterix.om.types.ATypeTag;
 import edu.uci.ics.hyracks.storage.am.common.api.IBinaryTokenizerFactory;
 import edu.uci.ics.hyracks.storage.am.common.tokenizer.ByteArrayTokenFactory;
@@ -98,11 +98,11 @@ public class AqlBinaryTokenizerFactoryProvider implements IBinaryTokenizerFactor
                 OptimizationConfUtil.getPhysicalOptimizationConfig().getFrameSize(), false);
     }
 
-    public IBinaryTokenizerFactory getSpatialCellTokenizerFactory(ATypeTag keyType, double bottomLeftX,
+    public IBinaryTokenizerFactory getStaticHilbertBTreeTokenizerFactory(ATypeTag keyType, double bottomLeftX,
             double bottomLeftY, double topRightX, double topRightY, short[] levelDensity, int cellsPerObject,
             boolean hashedTokens) {
-        return new SpatialCellBinaryTokenizerFactory(bottomLeftX, bottomLeftY, topRightX, topRightY, levelDensity,
-                cellsPerObject, new ByteArrayTokenFactory(ATypeTag.BINARY.serialize()), OptimizationConfUtil
-                        .getPhysicalOptimizationConfig().getFrameSize(), false);
+        return new StaticHilbertBTreeBinaryTokenizerFactory(bottomLeftX, bottomLeftY, topRightX, topRightY,
+                levelDensity, cellsPerObject, new ByteArrayTokenFactory(ATypeTag.BINARY.serialize()),
+                OptimizationConfUtil.getPhysicalOptimizationConfig().getFrameSize(), false);
     }
 }

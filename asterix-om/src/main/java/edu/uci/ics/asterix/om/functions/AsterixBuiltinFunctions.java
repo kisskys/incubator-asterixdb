@@ -442,8 +442,6 @@ public class AsterixBuiltinFunctions {
             "sif-tokens", 1);
     public final static FunctionIdentifier MSIF_TOKENS = new FunctionIdentifier(FunctionConstants.ASTERIX_NS,
             "msif-tokens", 1);
-    public final static FunctionIdentifier SPATIAL_CELL_TOKENS = new FunctionIdentifier(FunctionConstants.ASTERIX_NS,
-            "spatial-cell-tokens", 1);
 
     public final static FunctionIdentifier TID = new FunctionIdentifier(FunctionConstants.ASTERIX_NS, "tid", 0);
     public final static FunctionIdentifier GTID = new FunctionIdentifier(FunctionConstants.ASTERIX_NS, "gtid", 0);
@@ -983,13 +981,6 @@ public class AsterixBuiltinFunctions {
             public IAType computeType(ILogicalExpression expression, IVariableTypeEnvironment env,
                     IMetadataProvider<?, ?> mp) throws AlgebricksException {
                 return new AOrderedListType(BuiltinType.ASTRING, "string");
-            }
-        }, true);
-        addPrivateFunction(SPATIAL_CELL_TOKENS, new IResultTypeComputer() {
-            @Override
-            public IAType computeType(ILogicalExpression expression, IVariableTypeEnvironment env,
-                    IMetadataProvider<?, ?> mp) throws AlgebricksException {
-                return new AOrderedListType(BuiltinType.ABINARY, "string");
             }
         }, true);
 

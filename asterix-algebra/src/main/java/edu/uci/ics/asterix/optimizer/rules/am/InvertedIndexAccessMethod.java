@@ -1258,7 +1258,7 @@ public class InvertedIndexAccessMethod implements IAccessMethod {
 
     private boolean isSpatialIntersectFuncCompatible(ATypeTag typeTag, IndexType indexType) {
         //We can only optimize contains with ngram indexes.
-        if ((typeTag == ATypeTag.RECTANGLE || typeTag == ATypeTag.CIRCLE || typeTag == ATypeTag.POLYGON)
+        if ((typeTag == ATypeTag.POINT || typeTag == ATypeTag.LINE || typeTag == ATypeTag.RECTANGLE || typeTag == ATypeTag.CIRCLE || typeTag == ATypeTag.POLYGON)
                 && (indexType == IndexType.SINGLE_PARTITION_WORD_INVIX
                         || indexType == IndexType.LENGTH_PARTITIONED_WORD_INVIX || indexType == IndexType.SIF)) {
             return true;

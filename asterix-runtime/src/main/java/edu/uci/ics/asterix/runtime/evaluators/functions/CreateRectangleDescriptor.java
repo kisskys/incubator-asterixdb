@@ -99,9 +99,9 @@ public class CreateRectangleDescriptor extends AbstractScalarFunctionDynamicDesc
                                     APointSerializerDeserializer.getCoordinateOffset(Coordinate.X)),
                                     ADoubleSerializerDeserializer.getDouble(outInput1.getByteArray(),
                                             APointSerializerDeserializer.getCoordinateOffset(Coordinate.Y)));
-                            if (aPoint[0].getX() > aPoint[1].getX() && aPoint[0].getY() > aPoint[1].getY()) {
+                            if (aPoint[0].getX() >= aPoint[1].getX() && aPoint[0].getY() >= aPoint[1].getY()) {
                                 aRectangle.setValue(aPoint[1], aPoint[0]);
-                            } else if (aPoint[0].getX() < aPoint[1].getX() && aPoint[0].getY() < aPoint[1].getY()) {
+                            } else if (aPoint[0].getX() <= aPoint[1].getX() && aPoint[0].getY() <= aPoint[1].getY()) {
                                 aRectangle.setValue(aPoint[0], aPoint[1]);
                             } else {
                                 throw new IllegalArgumentException(

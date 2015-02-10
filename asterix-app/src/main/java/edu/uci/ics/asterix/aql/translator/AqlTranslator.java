@@ -201,8 +201,8 @@ public class AqlTranslator extends AbstractAqlTranslator {
      * @return A List<QueryResult> containing a QueryResult instance corresponding to each submitted query.
      * @throws Exception
      */
-    public void compileAndExecute(IHyracksClientConnection hcc, IHyracksDataset hdc,
-            ResultDelivery resultDelivery) throws Exception {
+    public void compileAndExecute(IHyracksClientConnection hcc, IHyracksDataset hdc, ResultDelivery resultDelivery)
+            throws Exception {
         int resultSetIdCounter = 0;
         FileSplit outputFile = null;
         IAWriterFactory writerFactory = PrinterBasedWriterFactory.INSTANCE;
@@ -506,8 +506,7 @@ public class AqlTranslator extends AbstractAqlTranslator {
                             compactionPolicyProperties = GlobalConfig.DEFAULT_COMPACTION_POLICY_PROPERTIES;
                         }
                     } else {
-                        validateCompactionPolicy(compactionPolicy,
-                                                 compactionPolicyProperties, mdTxnCtx, false);
+                        validateCompactionPolicy(compactionPolicy, compactionPolicyProperties, mdTxnCtx, false);
                     }
                     if (filterField != null) {
                         aRecordType.validateFilterField(filterField);
@@ -806,16 +805,15 @@ public class AqlTranslator extends AbstractAqlTranslator {
             }
 
             //#. add a new index with PendingAddOp
-            Index index = new Index(dataverseName, datasetName, indexName, stmtCreateIndex.getIndexType(), stmtCreateIndex.getIndexTypeProperty(),
-                    stmtCreateIndex.getFieldExprs(), false,
-                    IMetadataEntity.PENDING_ADD_OP 
-                    
-                    );
+            Index index = new Index(dataverseName, datasetName, indexName, stmtCreateIndex.getIndexType(),
+                    stmtCreateIndex.getIndexTypeProperty(), stmtCreateIndex.getFieldExprs(), false,
+                    IMetadataEntity.PENDING_ADD_OP);
             MetadataManager.INSTANCE.addIndex(metadataProvider.getMetadataTxnContext(), index);
 
             //#. prepare to create the index artifact in NC.
             CompiledCreateIndexStatement cis = new CompiledCreateIndexStatement(index.getIndexName(), dataverseName,
-                    index.getDatasetName(), index.getKeyFieldNames(), index.getIndexType(), index.getIndexTypeProperty());
+                    index.getDatasetName(), index.getKeyFieldNames(), index.getIndexType(),
+                    index.getIndexTypeProperty());
             spec = IndexOperations.buildSecondaryIndexCreationJobSpec(cis, metadataProvider);
             if (spec == null) {
                 throw new AsterixException("Failed to create job spec for creating index '"
@@ -1369,7 +1367,7 @@ public class AqlTranslator extends AbstractAqlTranslator {
                 //#. mark PendingDropOp on the existing index
                 MetadataManager.INSTANCE.dropIndex(mdTxnCtx, dataverseName, datasetName, indexName);
                 MetadataManager.INSTANCE.addIndex(mdTxnCtx,
-                        new Index(dataverseName, datasetName, indexName, index.getIndexType(),
+                        new Index(dataverseName, datasetName, indexName, index.getIndexType(), index.getIndexTypeProperty(),
                                 index.getKeyFieldNames(), index.isPrimaryIndex(), IMetadataEntity.PENDING_DROP_OP));
 
                 //#. commit the existing transaction before calling runJob.
@@ -1431,7 +1429,7 @@ public class AqlTranslator extends AbstractAqlTranslator {
                 //#. mark PendingDropOp on the existing index
                 MetadataManager.INSTANCE.dropIndex(mdTxnCtx, dataverseName, datasetName, indexName);
                 MetadataManager.INSTANCE.addIndex(mdTxnCtx,
-                        new Index(dataverseName, datasetName, indexName, index.getIndexType(),
+                        new Index(dataverseName, datasetName, indexName, index.getIndexType(), index.getIndexTypeProperty(),
                                 index.getKeyFieldNames(), index.isPrimaryIndex(), IMetadataEntity.PENDING_DROP_OP));
 
                 //#. commit the existing transaction before calling runJob.
@@ -1986,7 +1984,8 @@ public class AqlTranslator extends AbstractAqlTranslator {
                 for (int j = 0; j < indexes.size(); j++) {
                     if (indexes.get(j).isSecondaryIndex()) {
                         CompiledIndexCompactStatement cics = new CompiledIndexCompactStatement(dataverseName,
-                                datasetName, indexes.get(j).getIndexName(), indexes.get(j).getKeyFieldNames(), indexes.get(j).getIndexType(), null);
+                                datasetName, indexes.get(j).getIndexName(), indexes.get(j).getKeyFieldNames(), indexes
+                                        .get(j).getIndexType(), null);
                         jobsToExecute
                                 .add(IndexOperations.buildSecondaryIndexCompactJobSpec(cics, metadataProvider, ds));
                     }
@@ -1998,7 +1997,8 @@ public class AqlTranslator extends AbstractAqlTranslator {
                 for (int j = 0; j < indexes.size(); j++) {
                     if (!ExternalIndexingOperations.isFileIndex(indexes.get(j))) {
                         CompiledIndexCompactStatement cics = new CompiledIndexCompactStatement(dataverseName,
-                                datasetName, indexes.get(j).getIndexName(), indexes.get(j).getKeyFieldNames(), indexes.get(j).getIndexType(), null);
+                                datasetName, indexes.get(j).getIndexName(), indexes.get(j).getKeyFieldNames(), indexes
+                                        .get(j).getIndexType(), null);
                         jobsToExecute
                                 .add(IndexOperations.buildSecondaryIndexCompactJobSpec(cics, metadataProvider, ds));
                     }
@@ -2353,8 +2353,8 @@ public class AqlTranslator extends AbstractAqlTranslator {
         return jobIds[0];
     }
 
-    public JobId[] executeJobArray(IHyracksClientConnection hcc, Job[] jobs, PrintWriter out,
-            boolean waitForCompletion) throws Exception {
+    public JobId[] executeJobArray(IHyracksClientConnection hcc, Job[] jobs, PrintWriter out, boolean waitForCompletion)
+            throws Exception {
         JobId[] startedJobIds = new JobId[jobs.length];
         for (int i = 0; i < jobs.length; i++) {
             JobSpecification spec = jobs[i].getJobSpec();

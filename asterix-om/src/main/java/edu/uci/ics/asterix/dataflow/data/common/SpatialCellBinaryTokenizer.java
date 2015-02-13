@@ -153,8 +153,7 @@ public abstract class SpatialCellBinaryTokenizer implements IBinaryTokenizer {
         System.out.println(sb.toString());
     }
 
-    @Override
-    public void reset(byte[] data, int start, int length) throws HyracksDataException {
+    protected void generateSortedCellIds(byte[] data, int start, int length) throws HyracksDataException {
         this.inputData = data;
         hilbertValueCount = 0;
         hOffset = 0;
@@ -277,30 +276,14 @@ public abstract class SpatialCellBinaryTokenizer implements IBinaryTokenizer {
 
             //sort the hilbertValue array
             cellIdSorter.quicksort(hilbertValue, hilbertValueCount);
-
-            //merge cellIds into a range
-            boolean merged = mergeCellIds();
-            //promote cellIds into a cellId in an upper level
-            boolean promoted = promoteCellIds();
-            //repeat until there is no further optimization
-            while (merged || promoted) {
-                if (promoted) {
-                    merged = mergeCellIds();
-                } else {
-                    merged = false;
-                }
-                if (merged) {
-                    promoted = promoteCellIds();
-                } else {
-                    promoted = false;
-                }
-            }
-        } else {
-            throw new HyracksDataException("SpatialCellBinaryTokenizer: unsupported type tag: " + inputData[start]);
         }
+
     }
 
-    private boolean mergeCellIds() {
+    @Override
+    public abstract void reset(byte[] data, int start, int length) throws HyracksDataException;
+
+    protected boolean mergeCellIds() {
         boolean merged = false;
         int lowkey = 0;
         int highkey = 0;
@@ -346,94 +329,7 @@ public abstract class SpatialCellBinaryTokenizer implements IBinaryTokenizer {
         return merged;
     }
 
-    private boolean isMergable(byte[] head, byte[] highkey) {
-        int maxValidLevel = head[MAX_LEVEL] - 1;
-        if (maxValidLevel < 0 /* entire space case */|| highkey[MAX_LEVEL] - 1 != maxValidLevel)
-            return false;
-        for (int i = 0; i < maxValidLevel; i++) {
-            if (head[i] != highkey[i])
-                return false;
-        }
-
-        if ((0xff & head[maxValidLevel]) - (0xff & highkey[maxValidLevel]) != 1)
-            return false;
-
-        return true;
-    }
-
-    private boolean promoteCellIds() {
-        boolean promoted = false;
-        int lowkey = 0;
-        int tail = 0;
-
-        while (lowkey < hilbertValueCount) {
-            if (highkeyFlag.get(lowkey)) { /* range */
-                if (isPromotableRange(lowkey)) {
-                    promoteRange(lowkey, tail);
-
-                    //flip the highkeyFlag
-                    highkeyFlag.set(lowkey, false);
-
-                    lowkey += 2;
-                    ++tail;
-                    promoted = true;
-                } else {
-                    if (lowkey != tail) {
-                        System.arraycopy(hilbertValue[lowkey], 0, hilbertValue[tail], 0, tokenSize);
-                        System.arraycopy(hilbertValue[lowkey + 1], 0, hilbertValue[tail + 1], 0, tokenSize);
-                    }
-
-                    //flip the src and dest highkeyFlag
-                    highkeyFlag.set(lowkey, false);
-                    highkeyFlag.set(tail);
-
-                    lowkey += 2;
-                    tail += 2;
-                }
-            } else { /* non-range */
-                if (lowkey != tail) {
-                    System.arraycopy(hilbertValue[lowkey], 0, hilbertValue[tail], 0, tokenSize);
-                }
-                ++lowkey;
-                ++tail;
-            }
-        }
-
-        hilbertValueCount = tail;
-
-        return promoted;
-    }
-
-    private boolean isPromotableRange(int lowkey) {
-        //Promotion examples:
-        //There are 4 levels and each level has 2x2 cells.
-        //Range(00003, 00303) is promoted into  00002.
-        //Range(01003, 01303) is promoted into  01002.
-
-        int validLevelNum = (0xff & (hilbertValue[lowkey][MAX_LEVEL])) - 1;
-        int cellCount = axisCellNum[validLevelNum] * axisCellNum[validLevelNum];
-        int highkeyCellNum = (0xff & (hilbertValue[lowkey + 1][validLevelNum]));
-        int lowkeyCellNum = (0xff & (hilbertValue[lowkey][validLevelNum]));
-        if (highkeyCellNum - lowkeyCellNum + 1 == cellCount) {
-            return true;
-        }
-        return false;
-    }
-
-    private void promoteRange(int lowkey, int dest) {
-        //Promotion examples:
-        //There are 4 levels and each level has 2x2 cells.
-        //Range(00003, 00303) is promoted into  00002.
-        //Range(01003, 01303) is promoted into  01002.
-
-        int newValidLevelCount = (0xff & (hilbertValue[lowkey][MAX_LEVEL])) - 1;
-        if (lowkey != dest) {
-            for (int i = 0; i < MAX_LEVEL; i++) {
-                hilbertValue[dest][i] = hilbertValue[lowkey][i];
-            }
-        }
-        hilbertValue[dest][MAX_LEVEL] = (byte) newValidLevelCount;
-    }
+    protected abstract boolean isMergable(byte[] head, byte[] highkey);
 
     private void computeRegionCoordinateIntersectedWithCell(double rx1, double ry1, double rx2, double ry2, double cx1,
             double cy1, double cx2, double cy2, double[] rCoordinate) {

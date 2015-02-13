@@ -15,19 +15,28 @@
 
 package edu.uci.ics.asterix.dataflow.data.common;
 
+import edu.uci.ics.asterix.om.types.ATypeTag;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.storage.am.common.api.ITokenFactory;
 
 public class StaticHilbertBTreeBinaryTokenizer extends SpatialCellBinaryTokenizer {
-    
-    private final byte[] hilbertValuePair; //a pair of cell Ids for range search 
+
+    private final byte[] tHilbertValue;
+    private final long[] cellCountsInBottomLevel;
 
     public StaticHilbertBTreeBinaryTokenizer(double bottomLeftX, double bottomLeftY, double topRightX,
             double topRightY, short[] levelDensity, int cellsPerObject, ITokenFactory tokenFactory, int frameSize,
             boolean isQuery) {
         super(bottomLeftX, bottomLeftY, topRightX, topRightY, levelDensity, cellsPerObject, tokenFactory, frameSize,
                 isQuery);
-        this.hilbertValuePair = new byte[tokenSize];
+        this.tHilbertValue = new byte[tokenSize];
+        this.cellCountsInBottomLevel = new long [MAX_LEVEL]; 
+        for (int i = 0; i < MAX_LEVEL; i++) {
+            cellCountsInBottomLevel[i] = 1;
+            for (int j = 1; j < MAX_LEVEL - i; j++) {
+                cellCountsInBottomLevel[i] *= axisCellNum[j] * axisCellNum[j];
+            }
+        }
     }
 
     @Override
@@ -53,7 +62,7 @@ public class StaticHilbertBTreeBinaryTokenizer extends SpatialCellBinaryTokenize
                     //provide the lowkey as a highkey
                     computeCellIdRange(hilbertValue[hOffset]);
                 }
-                token.reset(hilbertValuePair, 0, tokenSize, tokenSize, 1);
+                token.reset(tHilbertValue, 0, tokenSize, tokenSize, 1);
                 hOffset++;
                 nextCount = 0;
             }
@@ -66,14 +75,49 @@ public class StaticHilbertBTreeBinaryTokenizer extends SpatialCellBinaryTokenize
         int i;
         int replaceStartLevel = 0xff & cellId[levelCount];
         for (i = 0; i < replaceStartLevel; i++) {
-            hilbertValuePair[i] = cellId[i];
+            tHilbertValue[i] = cellId[i];
         }
         for (; i < levelCount; i++) {
-            hilbertValuePair[i] = (byte) (axisCellNum[i] * axisCellNum[i] - 1);
+            tHilbertValue[i] = (byte) (axisCellNum[i] * axisCellNum[i] - 1);
         }
 
         if (cellId[levelCount] <= levelCount) { //this deal with OOPS case
-            hilbertValuePair[levelCount] = (byte) levelCount;
+            tHilbertValue[levelCount] = (byte) levelCount;
         }
+    }
+
+    @Override
+    public void reset(byte[] data, int start, int length) throws HyracksDataException {
+        generateSortedCellIds(data, start, length);
+
+        if (inputData[start] == ATypeTag.RECTANGLE.serialize()) {
+            mergeCellIds();
+        }
+    }
+
+    protected boolean isMergable(byte[] head, byte[] highkey) {
+        int maxValidLevel = head[MAX_LEVEL] - 1;
+        if (maxValidLevel < 0 /* entire space case */)
+            return false;
+
+        //consider highkey hilbert value as a cell Id in non-bottom level. 
+        //That is, treat the non-bottom level cell as a range and find the high key of the range
+        //the found high key is stored in tHilbertValue variable. 
+        computeCellIdRange(highkey);
+
+        //if (the high key hilbert value in tHilbertValue - head hilbertValue = 1), then return true;  
+        if (getOrdinalInBottomLevel(head) - getOrdinalInBottomLevel(tHilbertValue) == 1)
+            return true;
+        else
+            return false;
+    }
+
+    private long getOrdinalInBottomLevel(byte[] cId) {
+        long v = 0;
+        int maxValidLevel = cId[MAX_LEVEL];
+        for (int i = 0; i < maxValidLevel; i++) {
+            v += (cId[i] & 0xff) * cellCountsInBottomLevel[i] ;
+        }
+        return v;
     }
 }

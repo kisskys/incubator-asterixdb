@@ -153,6 +153,18 @@ public abstract class SpatialCellBinaryTokenizer implements IBinaryTokenizer {
         System.out.println(sb.toString());
     }
 
+    // This method returns a set of cell Ids overlapped or completely contained in a given point or a rectangle.
+    // It goes from a top level to a bottom level in breadth first search fashion, instead of depth first search 
+    // fashion. The logic of finding overlapping or completely contained cells is as follows:  
+    // For example, suppose that the first level has 2 x 2 cells and a defined whole space is a rectangle with 
+    // a bottom left point(0.0, 0,0) and a top right point (64,0, 64.0). With this information, we know each 
+    // cell's size and bottom-left/top-right points. Thus, when a MBR of a query region is given, say rectangle 
+    // [(0.0, 0,0), (33.0, 33.0)] , we can compute the intersected cells in the first level. The intersected cells
+    // are 0, 1, 2, and 3, where 0 is completely contained in the MBR, thus it's converted into a hilbert value 
+    // and stored in the hilbertValue variable (which is the output array). The rest of cells are put into the 
+    // candidateCellId variable. Then, we move to the second level and similarly computes intersected children cells
+    // by removing a cell Id at a time from the candidateCellId. We repeat this until the candidateCellId is empty. 
+    // Once it's done, we get all overlapped or completely contained cellIds stored in hilbertValue variable. 
     protected void generateSortedCellIds(byte[] data, int start, int length) throws HyracksDataException {
         this.inputData = data;
         hilbertValueCount = 0;

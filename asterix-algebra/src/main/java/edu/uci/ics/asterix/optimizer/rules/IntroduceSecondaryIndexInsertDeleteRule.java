@@ -276,8 +276,7 @@ public class IntroduceSecondaryIndexInsertDeleteRule implements IAlgebraicRewrit
                     // filtering operator.
                     boolean isPartitioned = false;
                     if (index.getIndexType() == IndexType.LENGTH_PARTITIONED_WORD_INVIX
-                            || index.getIndexType() == IndexType.LENGTH_PARTITIONED_NGRAM_INVIX
-                            || index.getIndexType() == IndexType.SIF)
+                            || index.getIndexType() == IndexType.LENGTH_PARTITIONED_NGRAM_INVIX)
                         isPartitioned = true;
 
                     // Create a new logical variable - token

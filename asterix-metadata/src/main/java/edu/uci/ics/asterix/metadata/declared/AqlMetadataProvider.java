@@ -1336,7 +1336,7 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
 
         boolean isPartitioned;
         if (indexType == IndexType.LENGTH_PARTITIONED_WORD_INVIX
-                || indexType == IndexType.LENGTH_PARTITIONED_NGRAM_INVIX || indexType == IndexType.SIF) {
+                || indexType == IndexType.LENGTH_PARTITIONED_NGRAM_INVIX) {
             isPartitioned = true;
         } else {
             isPartitioned = false;
@@ -1787,7 +1787,7 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
         // Check the index is length-partitioned or not.
         boolean isPartitioned;
         if (indexType == IndexType.LENGTH_PARTITIONED_WORD_INVIX
-                || indexType == IndexType.LENGTH_PARTITIONED_NGRAM_INVIX || indexType == IndexType.SIF) {
+                || indexType == IndexType.LENGTH_PARTITIONED_NGRAM_INVIX) {
             isPartitioned = true;
         } else {
             isPartitioned = false;
@@ -1798,7 +1798,7 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
             throw new AlgebricksException("Cannot create inverted index on dataset with composite primary key.");
         }
         // The size of secondaryKeys can be two if it receives input from its TokenizeOperator- [token, number of token]
-        if (secondaryKeys.size() > 1 && !isPartitioned) {
+        if (secondaryKeys.size() > 1 && !isPartitioned && indexType != IndexType.SIF) {
             throw new AlgebricksException("Cannot create composite inverted index on multiple fields.");
         } else if (secondaryKeys.size() > 2 && isPartitioned) {
             throw new AlgebricksException("Cannot create composite inverted index on multiple fields.");

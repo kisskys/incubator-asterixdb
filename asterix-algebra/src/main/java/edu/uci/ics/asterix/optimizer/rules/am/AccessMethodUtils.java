@@ -196,6 +196,7 @@ public class AccessMethodUtils {
             boolean primaryKeysOnly, List<Object> dest) throws AlgebricksException {
         if (!primaryKeysOnly) {
             switch (index.getIndexType()) {
+                case SIF:
                 case BTREE:
                 case SINGLE_PARTITION_WORD_INVIX:
                 case SINGLE_PARTITION_NGRAM_INVIX: {
@@ -222,7 +223,6 @@ public class AccessMethodUtils {
                 }
                 case LENGTH_PARTITIONED_NGRAM_INVIX:
                 case LENGTH_PARTITIONED_WORD_INVIX:
-                case SIF:
                 default:
                     break;
             }

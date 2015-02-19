@@ -80,6 +80,7 @@ import edu.uci.ics.hyracks.storage.am.lsm.invertedindex.api.IInvertedIndexSearch
 import edu.uci.ics.hyracks.storage.am.lsm.invertedindex.search.ConjunctiveEditDistanceSearchModifierFactory;
 import edu.uci.ics.hyracks.storage.am.lsm.invertedindex.search.ConjunctiveListEditDistanceSearchModifierFactory;
 import edu.uci.ics.hyracks.storage.am.lsm.invertedindex.search.ConjunctiveSearchModifierFactory;
+import edu.uci.ics.hyracks.storage.am.lsm.invertedindex.search.DisjunctiveSearchModifierFactory;
 import edu.uci.ics.hyracks.storage.am.lsm.invertedindex.search.EditDistanceSearchModifierFactory;
 import edu.uci.ics.hyracks.storage.am.lsm.invertedindex.search.JaccardSearchModifierFactory;
 import edu.uci.ics.hyracks.storage.am.lsm.invertedindex.search.ListEditDistanceSearchModifierFactory;
@@ -95,6 +96,7 @@ public class InvertedIndexAccessMethod implements IAccessMethod {
         JACCARD,
         EDIT_DISTANCE,
         CONJUNCTIVE_EDIT_DISTANCE,
+        DISJUNCTIVE,
         INVALID
     }
 
@@ -971,8 +973,8 @@ public class InvertedIndexAccessMethod implements IAccessMethod {
             return;
         }
         if (funcId == AsterixBuiltinFunctions.SPATIAL_INTERSECT) {
-            jobGenParams.setSearchModifierType(SearchModifierType.JACCARD);
-            jobGenParams.setSimilarityThreshold(new AsterixConstantValue(new AFloat(0.0f)));
+            jobGenParams.setSearchModifierType(SearchModifierType.DISJUNCTIVE);
+            jobGenParams.setSimilarityThreshold(new AsterixConstantValue(ANull.NULL));
             return;
         }
     }
@@ -1258,7 +1260,8 @@ public class InvertedIndexAccessMethod implements IAccessMethod {
 
     private boolean isSpatialIntersectFuncCompatible(ATypeTag typeTag, IndexType indexType) {
         //We can only optimize contains with ngram indexes.
-        if ((typeTag == ATypeTag.POINT || typeTag == ATypeTag.LINE || typeTag == ATypeTag.RECTANGLE || typeTag == ATypeTag.CIRCLE || typeTag == ATypeTag.POLYGON)
+        if ((typeTag == ATypeTag.POINT || typeTag == ATypeTag.LINE || typeTag == ATypeTag.RECTANGLE
+                || typeTag == ATypeTag.CIRCLE || typeTag == ATypeTag.POLYGON)
                 && (indexType == IndexType.SINGLE_PARTITION_WORD_INVIX
                         || indexType == IndexType.LENGTH_PARTITIONED_WORD_INVIX || indexType == IndexType.SIF)) {
             return true;
@@ -1322,8 +1325,7 @@ public class InvertedIndexAccessMethod implements IAccessMethod {
                         }
                     }
                     case SINGLE_PARTITION_WORD_INVIX:
-                    case LENGTH_PARTITIONED_WORD_INVIX:
-                    case SIF: {
+                    case LENGTH_PARTITIONED_WORD_INVIX: {
                         // Edit distance on two lists. The list-elements are non-overlapping.
                         if (searchModifierType == SearchModifierType.EDIT_DISTANCE) {
                             return new ListEditDistanceSearchModifierFactory(edThresh);
@@ -1336,6 +1338,9 @@ public class InvertedIndexAccessMethod implements IAccessMethod {
                                 + "' for index type '" + index.getIndexType() + "'");
                     }
                 }
+            }
+            case DISJUNCTIVE: {
+                return new DisjunctiveSearchModifierFactory();
             }
             default: {
                 throw new AlgebricksException("Unknown search modifier type '" + searchModifierType + "'.");

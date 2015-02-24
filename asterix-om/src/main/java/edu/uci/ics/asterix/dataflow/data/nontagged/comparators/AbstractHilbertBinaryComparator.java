@@ -35,8 +35,8 @@ public abstract class AbstractHilbertBinaryComparator implements IBinaryComparat
     private double[] bounds = new double[dim];
     private double stepsize = Double.MAX_VALUE / 2;
     private int state = 0;
-    private IntArrayList stateStack = new IntArrayList(1000, 200);
-    private DoubleArrayList boundsStack = new DoubleArrayList(2000, 400);
+    private IntArrayList stateStack = new IntArrayList(1100, 100);
+    private DoubleArrayList boundsStack = new DoubleArrayList(2200, 200);
     protected double[] a = new double[dim];
     protected double[] b = new double[dim];
     public int count = 0;
@@ -54,8 +54,9 @@ public abstract class AbstractHilbertBinaryComparator implements IBinaryComparat
     private void resetStateMachine() {
         state = 0;
         stateStack.clear();
-        stepsize = Double.MAX_VALUE/2;
-        bounds = new double[dim];
+        stepsize = Double.MAX_VALUE / 2;
+        bounds[0] = 0.0;
+        bounds[1] = 0.0;
         boundsStack.clear();
     }
 

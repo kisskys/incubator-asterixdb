@@ -14,7 +14,7 @@
  */
 package edu.uci.ics.asterix.runtime.evaluators.functions;
 
-import edu.uci.ics.asterix.common.config.DatasetConfig.CellBasedSpatialIndex;
+import edu.uci.ics.asterix.common.config.DatasetConfig.IndexTypeProperty;
 import edu.uci.ics.asterix.dataflow.data.common.SIFBinaryTokenizer;
 import edu.uci.ics.asterix.dataflow.data.nontagged.serde.ADoubleSerializerDeserializer;
 import edu.uci.ics.asterix.dataflow.data.nontagged.serde.AInt16SerializerDeserializer;
@@ -62,7 +62,7 @@ public class SIFTokensDescriptor extends AbstractScalarFunctionDynamicDescriptor
                 ArrayBackedValueStorage outTopRightX = new ArrayBackedValueStorage();
                 ArrayBackedValueStorage outTopRightY = new ArrayBackedValueStorage();
 
-                int maxLevel = CellBasedSpatialIndex.MAX_LEVEL.getValue();
+                int maxLevel = IndexTypeProperty.CELL_BASED_SPATIAL_INDEX_MAX_LEVEL;
                 short[] levelDensity = new short[maxLevel];
                 ArrayBackedValueStorage[] outLevelDensity = new ArrayBackedValueStorage[maxLevel];
                 ArrayBackedValueStorage outCellsPerObject = new ArrayBackedValueStorage();

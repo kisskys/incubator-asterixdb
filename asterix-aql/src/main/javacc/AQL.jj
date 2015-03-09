@@ -35,7 +35,6 @@ import edu.uci.ics.asterix.aql.expression.*;
 import edu.uci.ics.asterix.common.config.DatasetConfig.DatasetType;
 import edu.uci.ics.asterix.common.config.DatasetConfig.IndexType;
 import edu.uci.ics.asterix.common.config.DatasetConfig.IndexTypeProperty;
-import edu.uci.ics.asterix.common.config.DatasetConfig.CellBasedSpatialIndex;
 import edu.uci.ics.asterix.aql.expression.visitor.AQLPrintVisitor;
 import edu.uci.ics.asterix.aql.expression.UnaryExpr.Sign;
 import edu.uci.ics.asterix.aql.base.Statement.Kind;
@@ -481,7 +480,7 @@ IndexParams IndexType() throws ParseException:
       type = IndexType.LENGTH_PARTITIONED_NGRAM_INVIX;
       tp.gramLength = Integer.valueOf(token.image);
     }
-  <RIGHTPAREN>
+    <RIGHTPAREN> 
   | ("sif" | "shbtree")
   	{
   		if ("sif".equals(token.image))
@@ -490,7 +489,29 @@ IndexParams IndexType() throws ParseException:
   			type = IndexType.STATIC_HILBERT_BTREE;
   	} 
   	<LEFTPAREN>
-    ( (<PLUS> | <MINUS>) 
+  	{
+  		parseUserDefinedRegion(tp);
+  		parseAllLevelDensities(tp);
+  		parseMaxCellsPerObject(tp);
+  	}
+    <RIGHTPAREN>
+  | "dhbtree"
+  	{
+  		type = IndexType.DYNAMIC_HILBERT_BTREE;
+  	}
+  )
+    {
+      return new IndexParams(type, tp);
+    }
+}
+
+double parseSignedDouble() throws ParseException :
+{
+	double v = 0.0;
+	boolean negative = false;
+}
+{
+	( (<PLUS> | <MINUS>) 
 	{
 		if("-".equals(token.image))
 			negative = true;
@@ -498,117 +519,88 @@ IndexParams IndexType() throws ParseException:
 	)? 
     <DOUBLE_LITERAL> 
   	{
-      tp.bottomLeftX = Double.valueOf(token.image);
+      v = Double.valueOf(token.image);
       if (negative) 
       {
-      	tp.bottomLeftX *= -1;
-      	negative = false;
+      	v *= -1;
       }
-  	} <COMMA> 
-  	( (<PLUS> | <MINUS>) 
+      return v;
+  	}
+}
+
+void parseUserDefinedRegion(IndexTypeProperty tp) throws ParseException :
+{
+	tp.bottomLeftX = parseSignedDouble();
+}
+{
+  	<COMMA> 
+  	{
+  		tp.bottomLeftY = parseSignedDouble();
+  	}
+  	<COMMA> 
+  	{
+  		tp.topRightX = parseSignedDouble();
+  	}
+  	<COMMA> 
+  	{
+  		tp.topRightY = parseSignedDouble();
+  	}
+}
+
+short parseLevelDensity() throws ParseException :
+{
+}
+{
+	("h" | "m" | "l") 
+  	{
+  	  if ("h".equals(token.image)) { 
+  	  	return 256;
+  	  } else if ("m".equals(token.image)) {
+  	  	return 64;
+  	  } else {
+  	  	return 16;
+  	  } 
+  	}  
+}
+
+void parseAllLevelDensities(IndexTypeProperty tp) throws ParseException :
+{
+	int i = 0;
+}
+{
+	(<COMMA>
 	{
-		if("-".equals(token.image))
-			negative = true;
+		tp.levelDensity[i++] = parseLevelDensity();
 	}
-	)? 
-  	<DOUBLE_LITERAL> 
-  	{
-      tp.bottomLeftY = Double.valueOf(token.image);
-      if (negative) 
-      {
-      	tp.bottomLeftY *= -1;
-      	negative = false;
-      } 
-  	} <COMMA>
-  	( (<PLUS> | <MINUS>) 
+	<COMMA>
 	{
-		if("-".equals(token.image))
-			negative = true;
+		tp.levelDensity[i++] = parseLevelDensity();
 	}
-	)? 
-  	 <DOUBLE_LITERAL> 
-  	{
-  	  tp.topRightX = Double.valueOf(token.image);
-  	  if (negative) 
-      {
-      	tp.topRightX *= -1;
-      	negative = false;
-      } 
-  	} <COMMA> 
-  	( (<PLUS> | <MINUS>) 
+	<COMMA>
 	{
-		if("-".equals(token.image))
-			negative = true;
+		tp.levelDensity[i++] = parseLevelDensity();
 	}
-	)? 
-  	<DOUBLE_LITERAL> 
-  	{
-  	  tp.topRightY = Double.valueOf(token.image);
-  	  if (negative) 
-      {
-      	tp.topRightY *= -1;
-      	negative = false;
-      } 
-  	} <COMMA>
-  	("h" | "m" | "l") 
-  	{
-  	  if ("h".equals(token.image)) { 
-  	  	tp.levelDensity[0] = 256;
-  	  } else if ("m".equals(token.image)) {
-  	  	tp.levelDensity[0] = 64;
-  	  } else {
-  	  	tp.levelDensity[0] = 16;
-  	  }
-  	} <COMMA> 
-  	("h" | "m" | "l") 
-  	{
-  	  if ("h".equals(token.image)) { 
-  	  	tp.levelDensity[1] = 256;
-  	  } else if ("m".equals(token.image)) {
-  	  	tp.levelDensity[1] = 64;
-  	  } else {
-  	  	tp.levelDensity[1] = 16;
-  	  }
-  	} <COMMA> 
-  	("h" | "m" | "l") 
-  	{
-  	  if ("h".equals(token.image)) { 
-  	  	tp.levelDensity[2] = 256;
-  	  } else if ("m".equals(token.image)) {
-  	  	tp.levelDensity[2] = 64;
-  	  } else {
-  	  	tp.levelDensity[2] = 16;
-  	  }
-  	} <COMMA> 
-  	("h" | "m" | "l") 
-  	{
-  	  if ("h".equals(token.image)) { 
-  	  	tp.levelDensity[3] = 256;
-  	  } else if ("m".equals(token.image)) {
-  	  	tp.levelDensity[3] = 64;
-  	  } else {
-  	  	tp.levelDensity[3] = 16;
-  	  }
-  	}	
+	<COMMA>
+	{
+		tp.levelDensity[i] = parseLevelDensity();
+	})?
+}
+
+void parseMaxCellsPerObject(IndexTypeProperty tp) throws ParseException :
+{
+}
+{
   	(<COMMA> <INTEGER_LITERAL>
     {
       tp.cellsPerObject = Integer.valueOf(token.image);
-      if (tp.cellsPerObject > CellBasedSpatialIndex.MAX_CELLS_PER_OBJECT.getValue())
+      if (tp.cellsPerObject > IndexTypeProperty.CELL_BASED_SPATIAL_INDEX_MAX_CELLS_PER_OBJECT)
       {
-      	tp.cellsPerObject = CellBasedSpatialIndex.MAX_CELLS_PER_OBJECT.getValue();
+      	tp.cellsPerObject = IndexTypeProperty.CELL_BASED_SPATIAL_INDEX_MAX_CELLS_PER_OBJECT;
       }
-      else if (tp.cellsPerObject < CellBasedSpatialIndex.MIN_CELLS_PER_OBJECT.getValue()) {
-      	tp.cellsPerObject = CellBasedSpatialIndex.MIN_CELLS_PER_OBJECT.getValue();	
+      else if (tp.cellsPerObject < IndexTypeProperty.CELL_BASED_SPATIAL_INDEX_MIN_CELLS_PER_OBJECT) {
+      	tp.cellsPerObject = IndexTypeProperty.CELL_BASED_SPATIAL_INDEX_MIN_CELLS_PER_OBJECT;	
       }
     })?
-  <RIGHTPAREN>)
-    {
-      if (tp.cellsPerObject < CellBasedSpatialIndex.MIN_CELLS_PER_OBJECT.getValue())
-      {
-      	tp.cellsPerObject = CellBasedSpatialIndex.DEFAULT_CELLS_PER_OBJECT.getValue();
-      }	
-      return new IndexParams(type, tp);
-    }
 }
 
 CreateDataverseStatement DataverseSpecification() throws ParseException :

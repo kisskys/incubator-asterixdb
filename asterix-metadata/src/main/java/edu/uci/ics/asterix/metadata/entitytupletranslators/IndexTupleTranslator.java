@@ -130,7 +130,7 @@ public class IndexTupleTranslator extends AbstractTupleTranslator<Index> {
             indexTypeProperty.gramLength = ((AInt32) rec.getValueByPos(fieldPos)).getIntegerValue();
         }
 
-        // read optional fields for cell-based spatial index
+        // read optional fields for spatial index types
         fieldPos = rec.getType().findFieldPosition(BOTTOM_LEFT_X_FIELD_NAME);
         if (fieldPos >= 0) {
             indexTypeProperty.bottomLeftX = ((ADouble) rec.getValueByPos(fieldPos)).getDoubleValue();
@@ -246,7 +246,7 @@ public class IndexTupleTranslator extends AbstractTupleTranslator<Index> {
             }
         }
 
-        //write optional fields for cell-based spatial indexes
+        //write optional fields for cell-based spatial index types
         if (indexType == IndexType.SIF || indexType == IndexType.STATIC_HILBERT_BTREE) {
             //bottomLeftX
             fieldValue.reset();
@@ -319,7 +319,7 @@ public class IndexTupleTranslator extends AbstractTupleTranslator<Index> {
             } catch (AsterixException e) {
                 throw new MetadataException(e);
             }
-            
+
             //level2Density
             fieldValue.reset();
             nameValue.reset();
@@ -331,7 +331,7 @@ public class IndexTupleTranslator extends AbstractTupleTranslator<Index> {
             } catch (AsterixException e) {
                 throw new MetadataException(e);
             }
-            
+
             //level3Density
             fieldValue.reset();
             nameValue.reset();
@@ -343,7 +343,7 @@ public class IndexTupleTranslator extends AbstractTupleTranslator<Index> {
             } catch (AsterixException e) {
                 throw new MetadataException(e);
             }
-            
+
             //cellsPerObject
             fieldValue.reset();
             nameValue.reset();

@@ -15,15 +15,14 @@
 package edu.uci.ics.asterix.dataflow.data.nontagged.comparators;
 
 import edu.uci.ics.hyracks.dataflow.common.data.marshalling.DoubleSerializerDeserializer;
-import edu.uci.ics.hyracks.storage.am.btree.impls.HilbertBTreeRangeSearchCursor;
 
 public class AHilbertPointBinaryComparator extends AbstractHilbertBinaryComparator {
 
     @Override
     public int compare(byte[] b1, int s1, int l1, byte[] b2, int s2, int l2) {
         for (int i = 0; i < dim; i++) {
-            a[i] = DoubleSerializerDeserializer.getDouble(b1, s1 + (i * 8)) + HilbertBTreeRangeSearchCursor.COORDINATE_TRANSFORM_DELTA;
-            b[i] = DoubleSerializerDeserializer.getDouble(b2, s2 + (i * 8)) + HilbertBTreeRangeSearchCursor.COORDINATE_TRANSFORM_DELTA;
+            a[i] = DoubleSerializerDeserializer.getDouble(b1, s1 + (i * 8));
+            b[i] = DoubleSerializerDeserializer.getDouble(b2, s2 + (i * 8));
         }
         return compare();
     }

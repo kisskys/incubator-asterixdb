@@ -35,8 +35,7 @@ public class AqlLinearizeComparatorFactoryProvider implements ILinearizeComparat
     }
 
     @Override
-    public ILinearizeComparatorFactory getLinearizeComparatorFactory(Object type, boolean ascending, int dimension)
-            throws AlgebricksException {
+    public ILinearizeComparatorFactory getLinearizeComparatorFactory(Object type, boolean ascending, int dimension) throws AlgebricksException {
         ATypeTag typeTag = (ATypeTag) type;
 
         if (dimension == 2 && (typeTag == ATypeTag.DOUBLE)) {

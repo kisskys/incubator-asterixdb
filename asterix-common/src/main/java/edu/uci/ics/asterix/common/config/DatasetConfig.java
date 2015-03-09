@@ -39,44 +39,47 @@ public class DatasetConfig {
         LENGTH_PARTITIONED_WORD_INVIX,
         LENGTH_PARTITIONED_NGRAM_INVIX,
         SIF,
-        STATIC_HILBERT_BTREE
+        STATIC_HILBERT_BTREE,
+        DYNAMIC_HILBERT_BTREE
     };
 
     public enum ExternalDatasetTransactionState {
-        COMMIT,         // The committed state <- nothing is required->
-        BEGIN,          // The state after starting the refresh transaction <- will either abort moving to committed state or move to ready to commit->
+        COMMIT, // The committed state <- nothing is required->
+        BEGIN, // The state after starting the refresh transaction <- will either abort moving to committed state or move to ready to commit->
         READY_TO_COMMIT // The transaction is ready to commit <- can only move forward to committed state-> 
     };
 
     public enum ExternalFilePendingOp {
-        PENDING_NO_OP,      // the stored file is part of a committed transaction nothing is required
-        PENDING_ADD_OP,     // the stored file is part of an ongoing transaction (will be added if transaction succeed)
-        PENDING_DROP_OP,    // the stored file is part of an ongoing transaction (will be dropped if transaction succeed)
-        PENDING_APPEND_OP   // the stored file is part of an ongoing transaction (will be updated if transaction succeed)
+        PENDING_NO_OP, // the stored file is part of a committed transaction nothing is required
+        PENDING_ADD_OP, // the stored file is part of an ongoing transaction (will be added if transaction succeed)
+        PENDING_DROP_OP, // the stored file is part of an ongoing transaction (will be dropped if transaction succeed)
+        PENDING_APPEND_OP // the stored file is part of an ongoing transaction (will be updated if transaction succeed)
     };
-    
-    public enum CellBasedSpatialIndex {
-        MAX_LEVEL(4),
-        MIN_CELLS_PER_OBJECT(256),
-        MAX_CELLS_PER_OBJECT(8192),
-        DEFAULT_CELLS_PER_OBJECT(1024);
-        private final int v;
-        CellBasedSpatialIndex(int v) { this.v = v; }
-        public int getValue() { return v; }
-    }
-    
+
     public static class IndexTypeProperty implements Serializable {
         private static final long serialVersionUID = 1L;
+
+        public static final int CELL_BASED_SPATIAL_INDEX_MAX_LEVEL = 4;
+        public static final int CELL_BASED_SPATIAL_INDEX_MAX_CELLS_PER_OBJECT = 256;
+        public static final int CELL_BASED_SPATIAL_INDEX_MIN_CELLS_PER_OBJECT = 8192;
+        public static final int CELL_BASED_SPATIAL_INDEX_DEFAULT_CELLS_PER_OBJECT = 1024;
+        public static final short CELL_BASED_SPATIAL_INDEX_CELL_DENSITY_LOW = 4;
+        public static final short CELL_BASED_SPATIAL_INDEX_CELL_DENSITY_MEDIUM = 16;
+        public static final short CELL_BASED_SPATIAL_INDEX_CELL_DENSITY_HIGH = 256;
 
         // Specific to NGram indexes.
         public int gramLength;
 
-        // Specific to cell-based spatial indexes such as multi-level SIF and static Hilbert btree sptial indexes
+        // Specific to spatial indexes such as rtree, shbtree, dhbtree, and sif. 
         public double bottomLeftX;
         public double bottomLeftY;
         public double topRightX;
         public double topRightY;
-        public short[] levelDensity = new short[CellBasedSpatialIndex.MAX_LEVEL.getValue()];
-        public int cellsPerObject;
+
+        // Specific to cell-based spatial indexes such as shbtree and sif. 
+        public short[] levelDensity = new short[] { CELL_BASED_SPATIAL_INDEX_CELL_DENSITY_HIGH,
+                CELL_BASED_SPATIAL_INDEX_CELL_DENSITY_HIGH, CELL_BASED_SPATIAL_INDEX_CELL_DENSITY_HIGH,
+                CELL_BASED_SPATIAL_INDEX_CELL_DENSITY_HIGH };
+        public int cellsPerObject = CELL_BASED_SPATIAL_INDEX_DEFAULT_CELLS_PER_OBJECT;
     }
 }

@@ -123,7 +123,7 @@ public class SecondaryBTreeOperationsHelper extends SecondaryIndexOperationsHelp
 
             ISerializerDeserializer keySerde = serdeProvider.getSerializerDeserializer(keyType);
             secondaryRecFields[i] = keySerde;
-            if (indexType == IndexType.BTREE && keyType.getTypeTag() == ATypeTag.POINT) {
+            if (indexType == IndexType.DYNAMIC_HILBERT_BTREE && keyType.getTypeTag() == ATypeTag.POINT) {
                 secondaryComparatorFactories[i] = AqlBinaryComparatorFactoryProvider.INSTANCE
                         .getHilbertBinaryComparatorFactory(keyType, true);
             } else {

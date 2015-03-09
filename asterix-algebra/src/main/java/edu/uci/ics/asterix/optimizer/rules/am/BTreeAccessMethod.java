@@ -278,7 +278,7 @@ public class BTreeAccessMethod implements IAccessMethod {
                 //if the key type is POINT, then must use a linearizer btree.
                 useLinearizerBTree = true;
                 IndexType indexType = chosenIndex.getIndexType();
-                if (indexType == IndexType.BTREE) {
+                if (indexType == IndexType.DYNAMIC_HILBERT_BTREE) {
                     limit = LimitType.LOW_INCLUSIVE;
                 } else { //STATIC_HILBERT_BTREE
                     limit = LimitType.EQUAL;
@@ -529,7 +529,7 @@ public class BTreeAccessMethod implements IAccessMethod {
             assignOpPoints.getInputs().add(new MutableObject<ILogicalOperator>(assignConstantSearchKeys));
             assignOpRectangle.getInputs().add(new MutableObject<ILogicalOperator>(assignOpPoints));
 
-            if (chosenIndexType == IndexType.BTREE) {
+            if (chosenIndexType == IndexType.DYNAMIC_HILBERT_BTREE) {
                 inputOp = assignOpRectangle;
                 jobGenParams.setLowKeyInclusive(lowKeyInclusive[0]);
                 jobGenParams.setHighKeyInclusive(highKeyInclusive[0]);

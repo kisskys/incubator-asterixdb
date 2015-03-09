@@ -1223,7 +1223,8 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
         AsterixTupleFilterFactory filterFactory = createTupleFilterFactory(inputSchemas, typeEnv, filterExpr, context);
         switch (secondaryIndex.getIndexType()) {
             case BTREE:
-            case STATIC_HILBERT_BTREE: {
+            case STATIC_HILBERT_BTREE:
+            case DYNAMIC_HILBERT_BTREE:{
                 return getBTreeDmlRuntime(dataverseName, datasetName, indexName, propagatedSchema, typeEnv,
                         primaryKeys, secondaryKeys, additionalNonKeyFields, filterFactory, recordDesc, context, spec,
                         indexOp, bulkload);
@@ -1718,7 +1719,8 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
                         && keyType.getTypeTag() == ATypeTag.POINT) {
                     keyType = BuiltinType.ABINARY;
                 }
-                if (keyType.getTypeTag() == ATypeTag.POINT) {
+                if (secondaryIndex.getIndexType() == IndexType.DYNAMIC_HILBERT_BTREE 
+                        && keyType.getTypeTag() == ATypeTag.POINT) {
                     comparatorFactories[i] = AqlBinaryComparatorFactoryProvider.INSTANCE
                             .getHilbertBinaryComparatorFactory(keyType, true);
                 } else {

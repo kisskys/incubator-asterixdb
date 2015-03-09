@@ -127,13 +127,14 @@ public abstract class AbstractIntroduceAccessMethodRule implements IAlgebraicRew
                 Map.Entry<Index, List<Integer>> indexEntry = indexIt.next();
                 // To avoid a case where the chosen access method and a chosen
                 // index type is different.
-                // Allowed Case: [BTreeAccessMethod , IndexType.BTREE],
+                // Allowed Case: [BTreeAccessMethod , IndexType.BTREE || STATIC_HILBERT_BTREE || DYNAMIC_HILBERT_BTREE],
                 //               [RTreeAccessMethod , IndexType.RTREE],
                 //               [InvertedIndexAccessMethod,
                 //                 IndexType.SINGLE_PARTITION_WORD_INVIX ||
                 //                           SINGLE_PARTITION_NGRAM_INVIX ||
                 //                           LENGTH_PARTITIONED_WORD_INVIX ||
-                //                           LENGTH_PARTITIONED_NGRAM_INVIX]
+                //                           LENGTH_PARTITIONED_NGRAM_INVIX || 
+                //                           SIF]
                 IAccessMethod chosenAccessMethod = amEntry.getKey();
                 Index chosenIndex = indexEntry.getKey();
                 IndexType chosenIndexType = chosenIndex.getIndexType();
@@ -144,7 +145,8 @@ public abstract class AbstractIntroduceAccessMethodRule implements IAlgebraicRew
                         || chosenIndexType == IndexType.SINGLE_PARTITION_NGRAM_INVIX
                         || chosenIndexType == IndexType.SIF)
                     isKeywordOrNgramIndexChosen = true;
-                if ((chosenAccessMethod == BTreeAccessMethod.INSTANCE && (chosenIndexType != IndexType.BTREE && chosenIndexType != IndexType.STATIC_HILBERT_BTREE))
+                if ((chosenAccessMethod == BTreeAccessMethod.INSTANCE && (chosenIndexType != IndexType.BTREE && chosenIndexType != IndexType.STATIC_HILBERT_BTREE 
+                        && chosenIndexType != IndexType.DYNAMIC_HILBERT_BTREE))
                         || (chosenAccessMethod == RTreeAccessMethod.INSTANCE && chosenIndexType != IndexType.RTREE)
                         || (chosenAccessMethod == InvertedIndexAccessMethod.INSTANCE && !isKeywordOrNgramIndexChosen)) {
                     continue;

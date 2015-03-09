@@ -16,6 +16,8 @@ package edu.uci.ics.asterix.event.driver;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.Inet4Address;
+import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -27,10 +29,7 @@ import javax.xml.bind.Unmarshaller;
 
 import org.kohsuke.args4j.CmdLineParser;
 
-import edu.uci.ics.asterix.event.management.DefaultOutputHandler;
 import edu.uci.ics.asterix.event.management.EventUtil;
-import edu.uci.ics.asterix.event.management.AsterixEventServiceClient;
-import edu.uci.ics.asterix.event.management.IOutputHandler;
 import edu.uci.ics.asterix.event.management.Randomizer;
 import edu.uci.ics.asterix.event.schema.cluster.Cluster;
 import edu.uci.ics.asterix.event.schema.cluster.Node;
@@ -41,13 +40,24 @@ import edu.uci.ics.asterix.event.schema.pattern.Patterns;
 public class EventDriver {
 
     public static final String CLIENT_NODE_ID = "client_node";
-    public static final Node CLIENT_NODE = new Node(CLIENT_NODE_ID, "127.0.0.1", null, null, null, null, null, null);
+    //public static final Node CLIENT_NODE = new Node(CLIENT_NODE_ID, "127.0.0.1", null, null, null, null, null, null);
+    public static final Node CLIENT_NODE = initializeSelfNode();
 
     private static String eventsDir;
     private static Events events;
     private static Map<String, String> env = new HashMap<String, String>();
     private static String scriptDirSuffix;
 
+    private static Node initializeSelfNode() {
+        String selfIp;
+        try {
+            selfIp = Inet4Address.getLocalHost().getHostAddress();
+        } catch (UnknownHostException e) {
+            throw new RuntimeException("Unable to obtain IP address");
+        }
+        return new Node(CLIENT_NODE_ID, selfIp, null, null, null, null, null, null);
+    }
+    
     public static String getEventsDir() {
         return eventsDir;
     }

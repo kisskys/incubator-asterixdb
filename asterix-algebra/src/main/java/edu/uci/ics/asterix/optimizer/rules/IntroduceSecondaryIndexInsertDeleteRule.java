@@ -249,6 +249,7 @@ public class IntroduceSecondaryIndexInsertDeleteRule implements IAlgebraicRewrit
             // BTree, Keyword, or n-gram index case
             IndexType indexType = index.getIndexType();
             if (indexType == IndexType.BTREE || indexType == IndexType.STATIC_HILBERT_BTREE
+                    || indexType == IndexType.DYNAMIC_HILBERT_BTREE
                     || indexType == IndexType.SINGLE_PARTITION_WORD_INVIX
                     || indexType == IndexType.SINGLE_PARTITION_NGRAM_INVIX
                     || indexType == IndexType.LENGTH_PARTITIONED_WORD_INVIX
@@ -261,10 +262,16 @@ public class IntroduceSecondaryIndexInsertDeleteRule implements IAlgebraicRewrit
                         context.getOutputTypeEnvironment(assign), false);
                 AqlIndex dataSourceIndex = new AqlIndex(index, dataverseName, datasetName, mp);
 
-                // Introduce the TokenizeOperator only when doing bulk-load,
-                // and index type is keyword or n-gram.
-                if (indexType == IndexType.STATIC_HILBERT_BTREE || insertOp.isBulkload()
-                        && indexType != IndexType.BTREE) {
+                // Introduce a TokenizeOperator for the following cases
+                if (indexType == IndexType.STATIC_HILBERT_BTREE || 
+                        ( insertOp.isBulkload() && 
+                                (indexType == IndexType.SINGLE_PARTITION_WORD_INVIX 
+                                || indexType == IndexType.SINGLE_PARTITION_NGRAM_INVIX
+                                || indexType == IndexType.LENGTH_PARTITIONED_WORD_INVIX
+                                || indexType == IndexType.LENGTH_PARTITIONED_NGRAM_INVIX 
+                                || indexType == IndexType.SIF))
+                        ) 
+                {
 
                     // Check whether the index is length-partitioned or not.
                     // If partitioned, [input variables to TokenizeOperator,

@@ -345,7 +345,6 @@ public class ARecordType extends AbstractComplexType {
                         case UUID:
                         case YEARMONTHDURATION:
                         case DAYTIMEDURATION:
-                        case POINT:    
                             break;
                         default:
                             throw new AlgebricksException("The field \"" + fieldName + "\" which is of type "
@@ -431,6 +430,15 @@ public class ARecordType extends AbstractComplexType {
                         default:
                             throw new AlgebricksException("The field \"" + fieldName + "\" which is of type "
                                     + fieldType.getTypeTag() + " cannot be indexed using the Static Hilbert BTree index.");
+                    }
+                    break;
+                case DYNAMIC_HILBERT_BTREE:
+                    switch (fieldType.getTypeTag()) {
+                        case POINT:
+                            break;
+                        default:
+                            throw new AlgebricksException("The field \"" + fieldName + "\" which is of type "
+                                    + fieldType.getTypeTag() + " cannot be indexed using the Dynamic Hilbert BTree index.");
                     }
                     break;
                 default:

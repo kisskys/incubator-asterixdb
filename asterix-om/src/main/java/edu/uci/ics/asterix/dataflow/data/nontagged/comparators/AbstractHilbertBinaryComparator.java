@@ -23,7 +23,6 @@ public abstract class AbstractHilbertBinaryComparator implements IBinaryComparat
 
     //Currently, only 2 dimensional data is supported for Hilbert comparator.
     public static final int SUPPORTED_HILBERT_CURVE_DIMENSION = 2;
-    private static final boolean DEBUG = false;
     
     protected final int dim = SUPPORTED_HILBERT_CURVE_DIMENSION;
     private final HilbertState[] states = new HilbertState[] {
@@ -32,8 +31,9 @@ public abstract class AbstractHilbertBinaryComparator implements IBinaryComparat
             new HilbertState(new int[] { 2, 3, 2, 1 }, new int[] { 2, 3, 1, 0 }),
             new HilbertState(new int[] { 0, 2, 3, 3 }, new int[] { 0, 3, 1, 2 }) };
 
+    private static final double INITIAL_STEP_SIZE = Double.MAX_VALUE / 2;
     private double[] bounds = new double[dim];
-    private double stepsize = Double.MAX_VALUE / 2;
+    private double stepsize;
     private int state = 0;
     private IntArrayList stateStack = new IntArrayList(1100, 100);
     private DoubleArrayList boundsStack = new DoubleArrayList(2200, 200);
@@ -54,15 +54,13 @@ public abstract class AbstractHilbertBinaryComparator implements IBinaryComparat
     private void resetStateMachine() {
         state = 0;
         stateStack.clear();
-        stepsize = Double.MAX_VALUE / 2;
+        stepsize = INITIAL_STEP_SIZE;
         bounds[0] = 0.0;
         bounds[1] = 0.0;
         boundsStack.clear();
     }
 
     public int compare() {
-//        debug("a: " + a[0] + "," + a[1]);
-//        debug("b: " + b[0] + "," + b[1]);
         boolean equal = true;
         for (int i = 0; i < dim; i++) {
             if (a[i] != b[i])
@@ -114,9 +112,6 @@ public abstract class AbstractHilbertBinaryComparator implements IBinaryComparat
                 boundsStack.add(bounds[j]);
             }
 
-//            debug("bounds: " + bounds[0] + "," + bounds[1]);
-//            debug("stepsize: " + stepsize);
-//            debug("state: " + state);
             // Find the quadrant in which A and B are
             int quadrantA = 0, quadrantB = 0;
             for (int i = dim - 1; i >= 0; i--) {
@@ -135,13 +130,9 @@ public abstract class AbstractHilbertBinaryComparator implements IBinaryComparat
             count++;
             
             stepsize /= 2;
-//            if (stepsize <= 2 * DoublePointable.getEpsilon())
             if (stepsize <= 2 * DoublePointable.getEpsilon())
                 return 0;
             // avoid infinite loop due to machine epsilon problems
-
-//            debug("quadA: " + quadrantA + ", posA: " + states[state].position[quadrantA]);
-//            debug("quadB: " + quadrantB + ", posB: " + states[state].position[quadrantB]);
             
             if (quadrantA != quadrantB) {
                 // find the position of A and B's quadrants
@@ -160,11 +151,4 @@ public abstract class AbstractHilbertBinaryComparator implements IBinaryComparat
 
     @Override
     public abstract int compare(byte[] b1, int s1, int l1, byte[] b2, int s2, int l2);
-    
-    private void debug (String s) {
-        if (DEBUG) {
-            System.out.println(s);
-        }
-    }
-
 }

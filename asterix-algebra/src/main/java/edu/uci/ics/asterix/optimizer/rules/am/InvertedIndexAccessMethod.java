@@ -26,7 +26,6 @@ import org.apache.commons.lang3.mutable.MutableObject;
 import edu.uci.ics.asterix.algebra.base.LogicalOperatorDeepCopyVisitor;
 import edu.uci.ics.asterix.aql.util.FunctionUtils;
 import edu.uci.ics.asterix.common.annotations.SkipSecondaryIndexSearchExpressionAnnotation;
-import edu.uci.ics.asterix.common.config.DatasetConfig.CellBasedSpatialIndex;
 import edu.uci.ics.asterix.common.config.DatasetConfig.IndexType;
 import edu.uci.ics.asterix.common.config.DatasetConfig.IndexTypeProperty;
 import edu.uci.ics.asterix.common.config.OptimizationConfUtil;
@@ -494,7 +493,7 @@ public class InvertedIndexAccessMethod implements IAccessMethod {
                 sifTokens.getArguments().add(
                         new MutableObject<ILogicalExpression>(new ConstantExpression(new AsterixConstantValue(
                                 new ADouble(itp.topRightY)))));
-                for (int i = 0; i < CellBasedSpatialIndex.MAX_LEVEL.getValue(); i++) {
+                for (int i = 0; i < IndexTypeProperty.CELL_BASED_SPATIAL_INDEX_MAX_LEVEL; i++) {
                     sifTokens.getArguments().add(
                             new MutableObject<ILogicalExpression>(new ConstantExpression(new AsterixConstantValue(
                                     new AInt16(itp.levelDensity[i])))));

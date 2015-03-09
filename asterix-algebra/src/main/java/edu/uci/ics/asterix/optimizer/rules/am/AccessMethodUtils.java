@@ -39,7 +39,6 @@ import edu.uci.ics.asterix.om.base.IAObject;
 import edu.uci.ics.asterix.om.constants.AsterixConstantValue;
 import edu.uci.ics.asterix.om.functions.AsterixBuiltinFunctions;
 import edu.uci.ics.asterix.om.types.ARecordType;
-import edu.uci.ics.asterix.om.types.ATypeTag;
 import edu.uci.ics.asterix.om.types.BuiltinType;
 import edu.uci.ics.asterix.om.types.IAType;
 import edu.uci.ics.asterix.om.util.NonTaggedFormatUtil;
@@ -169,6 +168,7 @@ public class AccessMethodUtils {
         switch (index.getIndexType()) {
             case BTREE:
             case STATIC_HILBERT_BTREE:
+            case DYNAMIC_HILBERT_BTREE:
             case SINGLE_PARTITION_WORD_INVIX:
             case SINGLE_PARTITION_NGRAM_INVIX:
             case LENGTH_PARTITIONED_WORD_INVIX:
@@ -198,6 +198,7 @@ public class AccessMethodUtils {
             switch (index.getIndexType()) {
                 case SIF:
                 case BTREE:
+                case DYNAMIC_HILBERT_BTREE:
                 case SINGLE_PARTITION_WORD_INVIX:
                 case SINGLE_PARTITION_NGRAM_INVIX: {
                     for (String sk : index.getKeyFieldNames()) {

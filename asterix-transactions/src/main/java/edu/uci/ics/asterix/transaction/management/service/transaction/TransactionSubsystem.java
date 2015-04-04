@@ -40,6 +40,9 @@ public class TransactionSubsystem implements ITransactionSubsystem {
     private final IAsterixAppRuntimeContextProvider asterixAppRuntimeContextProvider;
     private final CheckpointThread checkpointThread;
     private final AsterixTransactionProperties txnProperties;
+    
+    //for profiler
+    public long  profilerEntityCommitLogCount = 0;
 
     public TransactionSubsystem(String id, IAsterixAppRuntimeContextProvider asterixAppRuntimeContextProvider,
             AsterixTransactionProperties txnProperties) throws ACIDException {

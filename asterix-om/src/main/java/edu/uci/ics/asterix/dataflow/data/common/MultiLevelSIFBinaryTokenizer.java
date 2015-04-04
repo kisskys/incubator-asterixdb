@@ -19,6 +19,8 @@ import java.io.UnsupportedEncodingException;
 
 import edu.uci.ics.asterix.om.types.ATypeTag;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
+import edu.uci.ics.hyracks.api.util.ExperimentProfiler;
+import edu.uci.ics.hyracks.api.util.SpatialIndexProfiler;
 import edu.uci.ics.hyracks.storage.am.common.api.IToken;
 import edu.uci.ics.hyracks.storage.am.common.api.ITokenFactory;
 
@@ -30,7 +32,7 @@ public class MultiLevelSIFBinaryTokenizer extends SpatialCellBinaryTokenizer {
     private int rangeLevelNum;
     private final StringBuilder sb;
     //temporary variables
-    private final byte[] tHilbertValue; //a pair of cell Ids for range search 
+    private final byte[] tHilbertValue; //a pair of cell Ids for range search
 
     public MultiLevelSIFBinaryTokenizer(double bottomLeftX, double bottomLeftY, double topRightX, double topRightY,
             short[] levelDensity, int cellsPerObject, ITokenFactory tokenFactory, int frameSize, boolean isQuery) {
@@ -123,6 +125,7 @@ public class MultiLevelSIFBinaryTokenizer extends SpatialCellBinaryTokenizer {
 
     @Override
     public void reset(byte[] data, int start, int length) throws HyracksDataException {
+        highkeyFlag.clear();
         generateSortedCellIds(data, start, length);
 
         if (inputData[start] == ATypeTag.RECTANGLE.serialize()) {
@@ -143,12 +146,15 @@ public class MultiLevelSIFBinaryTokenizer extends SpatialCellBinaryTokenizer {
                     promoted = false;
                 }
             }
+
+            if (ExperimentProfiler.PROFILE_MODE) {
+                SpatialIndexProfiler.INSTANCE.sifNumOfSearchPerQuery.add("" + hilbertValueCount + "\n");
+            }
         }
 
         curLevel = 0;
         rangeOffset = 0;
     }
-
 
     protected boolean isMergable(byte[] head, byte[] highkey) {
         int maxValidLevel = head[MAX_LEVEL] - 1;

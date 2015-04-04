@@ -16,6 +16,7 @@ package edu.uci.ics.asterix.dataflow.data.nontagged.comparators;
 
 import edu.uci.ics.hyracks.api.dataflow.value.IBinaryComparator;
 import edu.uci.ics.hyracks.data.std.primitive.DoublePointable;
+import edu.uci.ics.hyracks.storage.am.btree.impls.HilbertBTreeRangeSearchCursor;
 import edu.uci.ics.hyracks.storage.am.common.ophelpers.DoubleArrayList;
 import edu.uci.ics.hyracks.storage.am.common.ophelpers.IntArrayList;
 
@@ -31,7 +32,7 @@ public abstract class AbstractHilbertBinaryComparator implements IBinaryComparat
             new HilbertState(new int[] { 2, 3, 2, 1 }, new int[] { 2, 3, 1, 0 }),
             new HilbertState(new int[] { 0, 2, 3, 3 }, new int[] { 0, 3, 1, 2 }) };
 
-    private static final double INITIAL_STEP_SIZE = Double.MAX_VALUE / 2;
+    private static final double INITIAL_STEP_SIZE = HilbertBTreeRangeSearchCursor.MAX_COORDINATE / 2;
     private double[] bounds = new double[dim];
     private double stepsize;
     private int state = 0;
@@ -69,48 +70,50 @@ public abstract class AbstractHilbertBinaryComparator implements IBinaryComparat
         if (equal)
             return 0;
 
+        resetStateMachine();
+        
         // We keep the state of the state machine after a comparison. In most
         // cases,
         // the needed zoom factor is close to the old one. In this step, we
         // check if we have
         // to zoom out
-        while (true) {
-            if (stateStack.size() <= dim) {
-                resetStateMachine();
-                break;
-            }
-            boolean zoomOut = false;
-            for (int i = 0; i < dim; i++) {
-                if (Math.min(a[i], b[i]) <= bounds[i] - 2 * stepsize
-                        || Math.max(a[i], b[i]) >= bounds[i] + 2 * stepsize) {
-                    zoomOut = true;
-                    break;
-                }
-            }
-            state = stateStack.getLast();
-            stateStack.removeLast();
-            for (int j = dim - 1; j >= 0; j--) {
-                bounds[j] = boundsStack.getLast();
-                boundsStack.removeLast();
-            }
-            stepsize *= 2;
-            if (!zoomOut) {
-                state = stateStack.getLast();
-                stateStack.removeLast();
-                for (int j = dim - 1; j >= 0; j--) {
-                    bounds[j] = boundsStack.getLast();
-                    boundsStack.removeLast();
-                }
-                stepsize *= 2;
-                break;
-            }
-        }
+//        while (true) {
+//            if (stateStack.size() <= dim) {
+//                resetStateMachine();
+//                break;
+//            }
+//            boolean zoomOut = false;
+//            for (int i = 0; i < dim; i++) {
+//                if (Math.min(a[i], b[i]) <= bounds[i] - 2 * stepsize
+//                        || Math.max(a[i], b[i]) >= bounds[i] + 2 * stepsize) {
+//                    zoomOut = true;
+//                    break;
+//                }
+//            }
+//            state = stateStack.getLast();
+//            stateStack.removeLast();
+//            for (int j = dim - 1; j >= 0; j--) {
+//                bounds[j] = boundsStack.getLast();
+//                boundsStack.removeLast();
+//            }
+//            stepsize *= 2;
+//            if (!zoomOut) {
+//                state = stateStack.getLast();
+//                stateStack.removeLast();
+//                for (int j = dim - 1; j >= 0; j--) {
+//                    bounds[j] = boundsStack.getLast();
+//                    boundsStack.removeLast();
+//                }
+//                stepsize *= 2;
+//                break;
+//            }
+//        }
 
         while (true) {
-            stateStack.add(state);
-            for (int j = 0; j < dim; j++) {
-                boundsStack.add(bounds[j]);
-            }
+//            stateStack.add(state);
+//            for (int j = 0; j < dim; j++) {
+//                boundsStack.add(bounds[j]);
+//            }
 
             // Find the quadrant in which A and B are
             int quadrantA = 0, quadrantB = 0;

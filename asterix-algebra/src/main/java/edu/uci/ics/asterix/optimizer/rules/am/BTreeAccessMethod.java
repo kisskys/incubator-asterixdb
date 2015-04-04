@@ -41,8 +41,10 @@ import edu.uci.ics.asterix.om.functions.AsterixBuiltinFunctions;
 import edu.uci.ics.asterix.om.types.ARecordType;
 import edu.uci.ics.asterix.om.types.ATypeTag;
 import edu.uci.ics.asterix.om.types.BuiltinType;
+import edu.uci.ics.asterix.om.types.IAType;
 import edu.uci.ics.asterix.om.util.NonTaggedFormatUtil;
 import edu.uci.ics.hyracks.algebricks.common.exceptions.AlgebricksException;
+import edu.uci.ics.hyracks.algebricks.common.utils.Pair;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.ILogicalExpression;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.ILogicalOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.IOptimizationContext;
@@ -269,12 +271,29 @@ public class BTreeAccessMethod implements IAccessMethod {
                 throw new AlgebricksException(
                         "Could not match optimizable function expression to any index field name.");
             }
-            
+
             LimitType limit;
             searchKeyExpr = AccessMethodUtils.createSearchKeyExpr(optFuncExpr, indexSubTree, probeSubTree);
+
+            //Get the key field type from the optFuncExpr
+            Pair<IAType, Boolean> keyPairType = null;
+            for (String fieldName : ((OptimizableFuncExpr) optFuncExpr).getFieldNames()) {
+                try {
+                    if (fieldName != null && recordType.getFieldType(fieldName) != null) {
+                        keyPairType = Index.getNonNullableKeyFieldType(fieldName, recordType);
+                        break;
+                    }
+                } catch (IOException e) {
+                    throw new AlgebricksException(e);
+                }
+            }
+            if (keyPairType == null) {
+                return null;
+            }
+            IAType keyType = keyPairType.first;
             
             //TODO extend HilbertBTree to support composite key. 
-            if (keyPos == 0 && optFuncExpr.getTypeTag(keyPos) == ATypeTag.POINT) {
+            if (keyPos == 0 && keyType.getTypeTag() == ATypeTag.POINT) {
                 //if the key type is POINT, then must use a linearizer btree.
                 useLinearizerBTree = true;
                 IndexType indexType = chosenIndex.getIndexType();
@@ -523,9 +542,15 @@ public class BTreeAccessMethod implements IAccessMethod {
             AssignOperator assignOpRectangle = new AssignOperator(assignOpRectangleKeyVarList,
                     assignOpRectangleKeyExprList);
 
-            // Input to this assign is the EmptyTupleSource (which the dataSourceScan also must have had as input).
-            assignConstantSearchKeys.getInputs().add(dataSourceScan.getInputs().get(0));
-            assignConstantSearchKeys.setExecutionMode(dataSourceScan.getExecutionMode());
+            if (probeSubTree == null) {
+                // We are optimizing a selection query.
+                // Input to this assign is the EmptyTupleSource (which the dataSourceScan also must have had as input).
+                assignConstantSearchKeys.getInputs().add(dataSourceScan.getInputs().get(0));
+                assignConstantSearchKeys.setExecutionMode(dataSourceScan.getExecutionMode());
+            } else {
+                // We are optimizing a join, place the assign op top of the probe subtree.
+                assignConstantSearchKeys.getInputs().add(probeSubTree.rootRef);
+            }
             assignOpPoints.getInputs().add(new MutableObject<ILogicalOperator>(assignConstantSearchKeys));
             assignOpRectangle.getInputs().add(new MutableObject<ILogicalOperator>(assignOpPoints));
 
@@ -588,18 +613,18 @@ public class BTreeAccessMethod implements IAccessMethod {
                 List<LogicalVariable> tokenizeKeyVars = new ArrayList<LogicalVariable>();
                 List<Mutable<ILogicalExpression>> tokenizeKeyExprs = new ArrayList<Mutable<ILogicalExpression>>();
                 List<Object> varTypes = new ArrayList<Object>();
-                
+
                 //low key token
                 LogicalVariable tokenVar = context.newVar();
                 tokenizeKeyVars.add(tokenVar);
                 tokenizeKeyExprs.add(new MutableObject<ILogicalExpression>(new VariableReferenceExpression(tokenVar)));
                 varTypes.add(BuiltinType.ABINARY); // The secondary key field type of static hilbert btree is always ABinary. 
-                
+
                 //high key token
                 tokenVar = context.newVar();
                 tokenizeKeyVars.add(tokenVar);
                 tokenizeKeyExprs.add(new MutableObject<ILogicalExpression>(new VariableReferenceExpression(tokenVar)));
-                varTypes.add(BuiltinType.ABINARY);  
+                varTypes.add(BuiltinType.ABINARY);
 
                 // TokenizeOperator to tokenzie SK
                 AqlIndex dataSourceIndex = new AqlIndex(chosenIndex, chosenIndex.getDataverseName(),
@@ -611,10 +636,10 @@ public class BTreeAccessMethod implements IAccessMethod {
                             secondaryKeyVar)));
                 }
                 TokenizeOperator tokenizeOp = new TokenizeOperator(dataSourceIndex, primaryExpressions,
-                        secondaryExpressions, tokenizeKeyVars, null, null, false, false, varTypes);
+                        secondaryExpressions, tokenizeKeyVars, null, null, false, false, varTypes, true);
                 tokenizeOp.getInputs().add(new MutableObject<ILogicalOperator>(assignOpRectangle));
                 context.computeAndSetTypeEnvironmentForOperator(tokenizeOp);
-                
+
                 inputOp = tokenizeOp;
                 jobGenParams.setLowKeyInclusive(lowKeyInclusive[0]);
                 jobGenParams.setHighKeyInclusive(highKeyInclusive[0]);
@@ -827,7 +852,9 @@ public class BTreeAccessMethod implements IAccessMethod {
     public boolean exprIsOptimizable(Index index, IOptimizableFuncExpr optFuncExpr) {
         // If we are optimizing a join, check for the indexed nested-loop join hint.
         if (optFuncExpr.getNumLogicalVars() == 2) {
-            if (!optFuncExpr.getFuncExpr().getAnnotations().containsKey(IndexedNLJoinExpressionAnnotation.INSTANCE)) {
+            if (index.getIndexType() == IndexType.BTREE
+                    && !optFuncExpr.getFuncExpr().getAnnotations()
+                            .containsKey(IndexedNLJoinExpressionAnnotation.INSTANCE)) {
                 return false;
             }
         }

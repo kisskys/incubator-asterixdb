@@ -23,6 +23,8 @@ import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
 import edu.uci.ics.hyracks.api.dataflow.value.IRecordDescriptorProvider;
 import edu.uci.ics.hyracks.api.dataflow.value.RecordDescriptor;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
+import edu.uci.ics.hyracks.api.util.ExperimentProfiler;
+import edu.uci.ics.hyracks.api.util.SpatialIndexProfiler;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.FrameTupleAccessor;
 import edu.uci.ics.hyracks.dataflow.common.comm.util.FrameUtils;
 import edu.uci.ics.hyracks.dataflow.common.data.accessors.FrameTupleReference;
@@ -38,11 +40,20 @@ public class AsterixLSMInsertDeleteOperatorNodePushable extends LSMIndexInsertUp
 
     private final boolean isPrimary;
 
+    //for profiler
+    protected long profilerPidxInsertCount;
+    protected long profilerSidxInsertCount;
+
     public AsterixLSMInsertDeleteOperatorNodePushable(IIndexOperatorDescriptor opDesc, IHyracksTaskContext ctx,
             int partition, int[] fieldPermutation, IRecordDescriptorProvider recordDescProvider, IndexOperation op,
             boolean isPrimary) {
         super(opDesc, ctx, partition, fieldPermutation, recordDescProvider, op);
         this.isPrimary = isPrimary;
+
+        if (ExperimentProfiler.PROFILE_MODE) {
+            profilerPidxInsertCount = 0;
+            profilerSidxInsertCount = 0;
+        }
     }
 
     @Override
@@ -124,6 +135,17 @@ public class AsterixLSMInsertDeleteOperatorNodePushable extends LSMIndexInsertUp
             e.printStackTrace();
             throw new HyracksDataException(e);
         }
+        
+        if (ExperimentProfiler.PROFILE_MODE) {
+            if (isPrimary) {
+                profilerPidxInsertCount += tupleCount;
+                SpatialIndexProfiler.INSTANCE.pidxInsertCount.add("" + profilerPidxInsertCount + "\n");
+            } else {
+                profilerSidxInsertCount += tupleCount;
+                SpatialIndexProfiler.INSTANCE.sidxInsertCount.add("" + profilerSidxInsertCount + "\n");
+            }
+        }
+        
         System.arraycopy(buffer.array(), 0, writeBuffer.array(), 0, buffer.capacity());
         FrameUtils.flushFrame(writeBuffer, writer);
     }

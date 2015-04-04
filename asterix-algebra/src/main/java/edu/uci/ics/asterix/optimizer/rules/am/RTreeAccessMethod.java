@@ -245,7 +245,7 @@ public class RTreeAccessMethod implements IAccessMethod {
             return externalDataAccessOp;
         } else {
             UnnestMapOperator primaryIndexUnnestOp = AccessMethodUtils.createPrimaryIndexUnnestMap(dataSourceScan,
-                    dataset, recordType, secondaryIndexUnnestOp, context, true, retainInput, false, false);
+                    dataset, recordType, secondaryIndexUnnestOp, context, true, retainInput, retainNull, false);
 
             return primaryIndexUnnestOp;
         }

@@ -42,6 +42,7 @@ import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.UnnestMapOp
 /**
  * Operator subtree that matches the following patterns, and provides convenient access to its nodes:
  * (select)? <-- (assign | unnest)* <-- (datasource scan | unnest-map)
+ * (assign)? <-- (select)? <-- (assign | unnest)* <-- (datasource scan | unnest-map)
  */
 public class OptimizableOperatorSubTree {
 
@@ -67,6 +68,17 @@ public class OptimizableOperatorSubTree {
         root = subTreeOpRef.getValue();
         // Examine the op's children to match the expected patterns.
         AbstractLogicalOperator subTreeOp = (AbstractLogicalOperator) subTreeOpRef.getValue();
+        // Skip "assign <-- select" operators.
+        // An assign operator in this pattern of operators may appear in the plan when let clause creates new variables.
+        // See issue 864 for more details.
+        if (subTreeOp.getOperatorTag() == LogicalOperatorTag.ASSIGN) {
+            Mutable<ILogicalOperator> subTreeOpRef2 = subTreeOp.getInputs().get(0);
+            AbstractLogicalOperator subTreeOp2 = (AbstractLogicalOperator) subTreeOpRef2.getValue();
+            if (subTreeOp2.getOperatorTag() == LogicalOperatorTag.SELECT) {
+                subTreeOpRef = subTreeOp2.getInputs().get(0);
+                subTreeOp = (AbstractLogicalOperator) subTreeOpRef2.getValue();
+            }
+        }
         // Skip select operator.
         if (subTreeOp.getOperatorTag() == LogicalOperatorTag.SELECT) {
             subTreeOpRef = subTreeOp.getInputs().get(0);

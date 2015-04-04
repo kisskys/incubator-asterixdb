@@ -635,8 +635,8 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
             int numPrimaryKeys = DatasetUtils.getPartitioningKeys(dataset).size();
             RecordDescriptor outputRecDesc = JobGenHelper.mkRecordDescriptor(typeEnv, opSchema, context);
             int[] bloomFilterKeyFields;
-            ITypeTraits[] typeTraits;
-            IBinaryComparatorFactory[] comparatorFactories;
+            ITypeTraits[] typeTraits = null;
+            IBinaryComparatorFactory[] comparatorFactories = null;
 
             String itemTypeName = dataset.getItemTypeName();
             ARecordType itemType = (ARecordType) MetadataManager.INSTANCE.getDatatype(mdTxnCtx,
@@ -656,9 +656,11 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
                 for (int i = 0; i < numSecondaryKeys; i++) {
                     bloomFilterKeyFields[i] = i;
                 }
-                typeTraits = JobGenHelper.variablesToTypeTraits(outputVars, 0, outputVars.size(), typeEnv, context);
-                comparatorFactories = getAscBinaryComparatorFactories(outputVars, 0, outputVars.size(), typeEnv,
-                        context);
+                Pair<IBinaryComparatorFactory[], ITypeTraits[]> comparatorFactoriesAndTypeTraits = getComparatorFactoriesAndTypeTraitsOfSecondaryBTreeIndex(
+                        secondaryIndex.getIndexType(), secondaryIndex.getKeyFieldNames(),
+                        DatasetUtils.getPartitioningKeys(dataset), itemType);
+                comparatorFactories = comparatorFactoriesAndTypeTraits.first;
+                typeTraits = comparatorFactoriesAndTypeTraits.second;
 
                 if (filterTypeTraits != null) {
                     filterFields = new int[1];
@@ -718,7 +720,6 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
             AsterixRuntimeComponentsProvider rtcProvider = AsterixRuntimeComponentsProvider.RUNTIME_PROVIDER;
             IOperatorDescriptor btreeSearchOp;
 
-            IAType type = (IAType) typeEnv.getVarType(outputVars.get(0));
             IIndexDataflowHelperFactory dataflowHelperFactory = null;
 
             if (dataset.getDatasetType() == DatasetType.INTERNAL) {
@@ -729,7 +730,7 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
                         LSMBTreeIOOperationCallbackFactory.INSTANCE,
                         storageProperties.getBloomFilterFalsePositiveRate(), !isSecondary, filterTypeTraits,
                         filterCmpFactories, btreeFields, filterFields);
-                if (type.getTypeTag() == ATypeTag.POINT) {
+                if (isSecondary && secondaryIndex.getIndexType() == IndexType.DYNAMIC_HILBERT_BTREE) {
                     btreeSearchOp = new HilbertBTreeSearchOperatorDescriptor(jobSpec, outputRecDesc,
                             appContext.getStorageManagerInterface(), appContext.getIndexLifecycleManagerProvider(),
                             spPc.first, typeTraits, comparatorFactories, bloomFilterKeyFields, lowKeyFields,
@@ -768,19 +769,47 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
         }
     }
 
-    private IBinaryComparatorFactory[] getAscBinaryComparatorFactories(List<LogicalVariable> varLogical, int start,
-            int size, IVariableTypeEnvironment env, JobGenContext context) throws AlgebricksException {
-        IBinaryComparatorFactory[] compFactories = new IBinaryComparatorFactory[size];
-        for (int i = 0; i < size; i++) {
-            IAType type = (IAType) env.getVarType(varLogical.get(start + i));
-            if (type.getTypeTag() == ATypeTag.POINT) {
-                compFactories[i] = AqlBinaryComparatorFactoryProvider.INSTANCE.getHilbertBinaryComparatorFactory(type,
-                        true);
-            } else {
-                compFactories[i] = AqlBinaryComparatorFactoryProvider.INSTANCE.getBinaryComparatorFactory(type, true);
+    private Pair<IBinaryComparatorFactory[], ITypeTraits[]> getComparatorFactoriesAndTypeTraitsOfSecondaryBTreeIndex(
+            IndexType indexType, List<String> sidxKeyFieldNames, List<String> pidxKeyFieldNames, ARecordType recType)
+            throws AlgebricksException {
+        IBinaryComparatorFactory[] comparatorFactories;
+        ITypeTraits[] typeTraits;
+        int sidxKeyFieldCount = sidxKeyFieldNames.size();
+        int pidxKeyFieldCount = pidxKeyFieldNames.size();
+        typeTraits = new ITypeTraits[sidxKeyFieldCount + pidxKeyFieldCount];
+        comparatorFactories = new IBinaryComparatorFactory[sidxKeyFieldCount + pidxKeyFieldCount];
+
+        int i = 0;
+        for (; i < sidxKeyFieldCount; ++i) {
+            Pair<IAType, Boolean> keyPairType = Index.getNonNullableKeyFieldType(sidxKeyFieldNames.get(i).toString(),
+                    recType);
+            IAType keyType = keyPairType.first;
+            if (indexType == IndexType.STATIC_HILBERT_BTREE
+                    && (keyType.getTypeTag() == ATypeTag.POINT || keyType.getTypeTag() == ATypeTag.RECTANGLE)) {
+                keyType = BuiltinType.ABINARY;
+            } else if (indexType == IndexType.DYNAMIC_HILBERT_BTREE
+                    && (keyType.getTypeTag() == ATypeTag.POINT || keyType.getTypeTag() == ATypeTag.RECTANGLE)) {
+                keyType = BuiltinType.APOINT;
             }
+
+            comparatorFactories[i] = AqlBinaryComparatorFactoryProvider.INSTANCE.getBinaryComparatorFactory(keyType,
+                    true);
+            typeTraits[i] = AqlTypeTraitProvider.INSTANCE.getTypeTrait(keyType);
         }
-        return compFactories;
+        
+        for (int j = 0; j < pidxKeyFieldCount; ++j, ++i) {
+            IAType keyType;
+            try {
+                keyType = recType.getFieldType(pidxKeyFieldNames.get(j));
+            } catch (IOException e) {
+                throw new AlgebricksException(e);
+            }
+            comparatorFactories[i] = AqlBinaryComparatorFactoryProvider.INSTANCE.getBinaryComparatorFactory(
+                    keyType, true);
+            typeTraits[i] = AqlTypeTraitProvider.INSTANCE.getTypeTrait(keyType);
+        }
+        
+        return new Pair<IBinaryComparatorFactory[], ITypeTraits[]>(comparatorFactories, typeTraits);
     }
 
     /* BTreeSearchOperatorDescriptor btreeSearchOp = new BTreeSearchOperatorDescriptor(jobSpec, outputRecDesc,
@@ -1224,7 +1253,7 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
         switch (secondaryIndex.getIndexType()) {
             case BTREE:
             case STATIC_HILBERT_BTREE:
-            case DYNAMIC_HILBERT_BTREE:{
+            case DYNAMIC_HILBERT_BTREE: {
                 return getBTreeDmlRuntime(dataverseName, datasetName, indexName, propagatedSchema, typeEnv,
                         primaryKeys, secondaryKeys, additionalNonKeyFields, filterFactory, recordDesc, context, spec,
                         indexOp, bulkload);
@@ -1267,7 +1296,7 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
             IDataSourceIndex<String, AqlSourceId> dataSourceIndex, IOperatorSchema propagatedSchema,
             IOperatorSchema[] inputSchemas, IVariableTypeEnvironment typeEnv, List<LogicalVariable> primaryKeys,
             List<LogicalVariable> secondaryKeys, ILogicalExpression filterExpr, RecordDescriptor recordDesc,
-            JobGenContext context, JobSpecification spec, boolean bulkload) throws AlgebricksException {
+            JobGenContext context, JobSpecification spec, boolean isQuery) throws AlgebricksException {
 
         String indexName = dataSourceIndex.getId();
         String dataverseName = dataSourceIndex.getDataSource().getId().getDataverseName();
@@ -1300,14 +1329,14 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
             case LENGTH_PARTITIONED_WORD_INVIX:
             case LENGTH_PARTITIONED_NGRAM_INVIX:
             case SIF: {
-                if (bulkload) {
-                    return getBinaryTokenizerUpdateRuntime(dataverseName, datasetName, indexName, inputSchema,
-                            propagatedSchema, typeEnv, primaryKeys, secondaryKeys, filterFactory, recordDesc, context,
-                            spec, IndexOperation.INSERT, secondaryIndex.getIndexType(), bulkload);
-                } else {
+                if (isQuery) {
                     return getBinaryTokenizerQueryRuntime(dataverseName, datasetName, indexName, inputSchema,
                             propagatedSchema, typeEnv, secondaryKeys, filterFactory, recordDesc, context, spec,
-                            IndexOperation.SEARCH, secondaryIndex.getIndexType(), bulkload);
+                            IndexOperation.SEARCH, secondaryIndex.getIndexType());
+                } else {
+                    return getBinaryTokenizerUpdateRuntime(dataverseName, datasetName, indexName, inputSchema,
+                            propagatedSchema, typeEnv, primaryKeys, secondaryKeys, filterFactory, recordDesc, context,
+                            spec, IndexOperation.INSERT, secondaryIndex.getIndexType());
                 }
             }
 
@@ -1324,7 +1353,7 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
             String dataverseName, String datasetName, String indexName, IOperatorSchema inputSchema,
             IOperatorSchema propagatedSchema, IVariableTypeEnvironment typeEnv, List<LogicalVariable> primaryKeys,
             List<LogicalVariable> secondaryKeys, AsterixTupleFilterFactory filterFactory, RecordDescriptor recordDesc,
-            JobGenContext context, JobSpecification spec, IndexOperation indexOp, IndexType indexType, boolean bulkload)
+            JobGenContext context, JobSpecification spec, IndexOperation indexOp, IndexType indexType)
             throws AlgebricksException {
 
         // Sanity checks.
@@ -1510,7 +1539,7 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
             String dataverseName, String datasetName, String indexName, IOperatorSchema inputSchema,
             IOperatorSchema propagatedSchema, IVariableTypeEnvironment typeEnv, List<LogicalVariable> secondaryKeys,
             AsterixTupleFilterFactory filterFactory, RecordDescriptor recordDesc, JobGenContext context,
-            JobSpecification spec, IndexOperation indexOp, IndexType indexType, boolean bulkload)
+            JobSpecification spec, IndexOperation indexOp, IndexType indexType)
             throws AlgebricksException {
 
         // Sanity checks.
@@ -1719,7 +1748,7 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
                         && keyType.getTypeTag() == ATypeTag.POINT) {
                     keyType = BuiltinType.ABINARY;
                 }
-                if (secondaryIndex.getIndexType() == IndexType.DYNAMIC_HILBERT_BTREE 
+                if (secondaryIndex.getIndexType() == IndexType.DYNAMIC_HILBERT_BTREE
                         && keyType.getTypeTag() == ATypeTag.POINT) {
                     comparatorFactories[i] = AqlBinaryComparatorFactoryProvider.INSTANCE
                             .getHilbertBinaryComparatorFactory(keyType, true);

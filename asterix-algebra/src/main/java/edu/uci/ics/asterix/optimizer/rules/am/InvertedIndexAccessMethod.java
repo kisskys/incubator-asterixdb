@@ -370,148 +370,161 @@ public class InvertedIndexAccessMethod implements IAccessMethod {
         // Operator that feeds the secondary-index search.
         AbstractLogicalOperator inputOp = null;
 
-        // probeSubTree is null if we are dealing with a selection query, and non-null for join queries.
-        if (probeSubTree == null) {
-            if (useSIF) {
-                AssignOperator assignOpRectangle = null;
-                ArrayList<LogicalVariable> assignRectangleKeyVarList = new ArrayList<LogicalVariable>();
-                ArrayList<Mutable<ILogicalExpression>> assignRectangleKeyExprList = new ArrayList<Mutable<ILogicalExpression>>();
-                if (((AsterixConstantValue) optFuncExpr.getConstantVal(0)).getObject().getType().getTypeTag() == ATypeTag.RECTANGLE) {
-                    assignRectangleKeyVarList.add(context.newVar());
-                    assignRectangleKeyExprList.add(new MutableObject<ILogicalExpression>(new ConstantExpression(
-                            optFuncExpr.getConstantVal(0))));
-                    assignOpRectangle = new AssignOperator(assignRectangleKeyVarList, assignRectangleKeyExprList);
+        if (useSIF) {
+            AssignOperator assignOpRectangle = null;
+            ArrayList<LogicalVariable> assignRectangleKeyVarList = new ArrayList<LogicalVariable>();
+            ArrayList<Mutable<ILogicalExpression>> assignRectangleKeyExprList = new ArrayList<Mutable<ILogicalExpression>>();
 
-                    // Input to this assign is the EmptyTupleSource (which the dataSourceScan also must have had as input).
-                    assignOpRectangle.getInputs().add(dataSourceScan.getInputs().get(0));
-                    assignOpRectangle.setExecutionMode(dataSourceScan.getExecutionMode());
-                } else {
-                    //In order to use the sif index, the input to the inverted index need to form a rectangle which minimally covers a given query region.
-                    //The process is as follows:
-                    //step 1. Using CREATE_MBR function, create an MBR which covers a given query region which could be any two dimensional spatial type.
-                    //   The function generates four doubles, the first two represents bottom left point of the MBR and the last two represents top right point. 
-                    //step 2. Using CREATE_POINT function, create two points using the four points from the MBR function. 
-                    //step 3. Using CREATE_RECTANGLE function, create a rectangle using two points from the step 2.
+            if (probeSubTree == null
+                    && ((AsterixConstantValue) optFuncExpr.getConstantVal(0)).getObject().getType().getTypeTag() == ATypeTag.RECTANGLE) {
+                assignRectangleKeyVarList.add(context.newVar());
+                assignRectangleKeyExprList.add(new MutableObject<ILogicalExpression>(new ConstantExpression(optFuncExpr
+                        .getConstantVal(0))));
+                assignOpRectangle = new AssignOperator(assignRectangleKeyVarList, assignRectangleKeyExprList);
 
-                    //Only 2 dimensional objects are supported currently.
-                    int numDimensions = 2;
-                    int numMBRs = numDimensions * 2;
-                    // List of variables for the assign.
-                    ArrayList<LogicalVariable> assignMBRKeyVarList = new ArrayList<LogicalVariable>();
-                    // List of expressions for the assign.
-                    ArrayList<Mutable<ILogicalExpression>> assignMBRKeyExprList = new ArrayList<Mutable<ILogicalExpression>>();
+                // Input to this assign is the EmptyTupleSource (which the dataSourceScan also must have had as input).
+                assignOpRectangle.getInputs().add(dataSourceScan.getInputs().get(0));
+                assignOpRectangle.setExecutionMode(dataSourceScan.getExecutionMode());
+            } else {
+                //In order to use the sif index, the input to the inverted index need to form a rectangle which minimally covers a given query region.
+                //The process is as follows:
+                //step 1. Using CREATE_MBR function, create an MBR which covers a given query region which could be any two dimensional spatial type.
+                //   The function generates four doubles, the first two represents bottom left point of the MBR and the last two represents top right point. 
+                //step 2. Using CREATE_POINT function, create two points using the four points from the MBR function. 
+                //step 3. Using CREATE_RECTANGLE function, create a rectangle using two points from the step 2.
 
-                    //step 1.
-                    for (int i = 0; i < numMBRs; i++) {
-                        // The create MBR function "extracts" one field of an MBR around the given spatial object.
-                        AbstractFunctionCallExpression createMBR = new ScalarFunctionCallExpression(
-                                FunctionUtils.getFunctionInfo(AsterixBuiltinFunctions.CREATE_MBR));
+                //Only 2 dimensional objects are supported currently.
+                int numDimensions = 2;
+                int numMBRs = numDimensions * 2;
+                // List of variables for the assign.
+                ArrayList<LogicalVariable> assignMBRKeyVarList = new ArrayList<LogicalVariable>();
+                // List of expressions for the assign.
+                ArrayList<Mutable<ILogicalExpression>> assignMBRKeyExprList = new ArrayList<Mutable<ILogicalExpression>>();
+
+                //step 1.
+                for (int i = 0; i < numMBRs; i++) {
+                    // The create MBR function "extracts" one field of an MBR around the given spatial object.
+                    AbstractFunctionCallExpression createMBR = new ScalarFunctionCallExpression(
+                            FunctionUtils.getFunctionInfo(AsterixBuiltinFunctions.CREATE_MBR));
+                    if (probeSubTree == null) {
                         // Spatial object is the constant from the func expr we are optimizing.
-                        //createMBR.getArguments().add(new MutableObject<ILogicalExpression>(searchKeyExpr));
-                        // The number of dimensions.
                         createMBR.getArguments().add(
                                 new MutableObject<ILogicalExpression>(new ConstantExpression(optFuncExpr
                                         .getConstantVal(0))));
+                    } else {
+                        // Spatial object is the variable from the func expr we are optimizing.
                         createMBR.getArguments().add(
-                                new MutableObject<ILogicalExpression>(new ConstantExpression(new AsterixConstantValue(
-                                        new AInt32(numDimensions)))));
-                        // Which part of the MBR to extract.
-                        createMBR.getArguments().add(
-                                new MutableObject<ILogicalExpression>(new ConstantExpression(new AsterixConstantValue(
-                                        new AInt32(i)))));
-                        // Add a variable and its expr to the lists which will be passed into an assign op.
-                        assignMBRKeyVarList.add(context.newVar());
-                        assignMBRKeyExprList.add(new MutableObject<ILogicalExpression>(createMBR));
+                                new MutableObject<ILogicalExpression>(new VariableReferenceExpression(
+                                        getInputSearchVar(optFuncExpr, indexSubTree))));
                     }
-                    AssignOperator assignOpMBR = new AssignOperator(assignMBRKeyVarList, assignMBRKeyExprList);
+                    // The number of dimensions.
+                    createMBR.getArguments().add(
+                            new MutableObject<ILogicalExpression>(new ConstantExpression(new AsterixConstantValue(
+                                    new AInt32(numDimensions)))));
+                    // Which part of the MBR to extract.
+                    createMBR.getArguments().add(
+                            new MutableObject<ILogicalExpression>(new ConstantExpression(new AsterixConstantValue(
+                                    new AInt32(i)))));
+                    // Add a variable and its expr to the lists which will be passed into an assign op.
+                    assignMBRKeyVarList.add(context.newVar());
+                    assignMBRKeyExprList.add(new MutableObject<ILogicalExpression>(createMBR));
+                }
+                AssignOperator assignOpMBR = new AssignOperator(assignMBRKeyVarList, assignMBRKeyExprList);
 
-                    //step 2.
-                    ArrayList<LogicalVariable> assignPointKeyVarList = new ArrayList<LogicalVariable>();
-                    ArrayList<Mutable<ILogicalExpression>> assignPointKeyExprList = new ArrayList<Mutable<ILogicalExpression>>();
-                    AbstractFunctionCallExpression createPoint1 = new ScalarFunctionCallExpression(
-                            FunctionUtils.getFunctionInfo(AsterixBuiltinFunctions.CREATE_POINT));
-                    createPoint1.getArguments().add(
-                            new MutableObject<ILogicalExpression>(new VariableReferenceExpression(assignMBRKeyVarList
-                                    .get(0))));
-                    createPoint1.getArguments().add(
-                            new MutableObject<ILogicalExpression>(new VariableReferenceExpression(assignMBRKeyVarList
-                                    .get(1))));
-                    assignPointKeyVarList.add(context.newVar());
-                    assignPointKeyExprList.add(new MutableObject<ILogicalExpression>(createPoint1));
-                    AbstractFunctionCallExpression createPoint2 = new ScalarFunctionCallExpression(
-                            FunctionUtils.getFunctionInfo(AsterixBuiltinFunctions.CREATE_POINT));
-                    createPoint2.getArguments().add(
-                            new MutableObject<ILogicalExpression>(new VariableReferenceExpression(assignMBRKeyVarList
-                                    .get(2))));
-                    createPoint2.getArguments().add(
-                            new MutableObject<ILogicalExpression>(new VariableReferenceExpression(assignMBRKeyVarList
-                                    .get(3))));
-                    assignPointKeyVarList.add(context.newVar());
-                    assignPointKeyExprList.add(new MutableObject<ILogicalExpression>(createPoint2));
-                    AssignOperator assignOpPoints = new AssignOperator(assignPointKeyVarList, assignPointKeyExprList);
+                //step 2.
+                ArrayList<LogicalVariable> assignPointKeyVarList = new ArrayList<LogicalVariable>();
+                ArrayList<Mutable<ILogicalExpression>> assignPointKeyExprList = new ArrayList<Mutable<ILogicalExpression>>();
+                AbstractFunctionCallExpression createPoint1 = new ScalarFunctionCallExpression(
+                        FunctionUtils.getFunctionInfo(AsterixBuiltinFunctions.CREATE_POINT));
+                createPoint1.getArguments().add(
+                        new MutableObject<ILogicalExpression>(new VariableReferenceExpression(assignMBRKeyVarList
+                                .get(0))));
+                createPoint1.getArguments().add(
+                        new MutableObject<ILogicalExpression>(new VariableReferenceExpression(assignMBRKeyVarList
+                                .get(1))));
+                assignPointKeyVarList.add(context.newVar());
+                assignPointKeyExprList.add(new MutableObject<ILogicalExpression>(createPoint1));
+                AbstractFunctionCallExpression createPoint2 = new ScalarFunctionCallExpression(
+                        FunctionUtils.getFunctionInfo(AsterixBuiltinFunctions.CREATE_POINT));
+                createPoint2.getArguments().add(
+                        new MutableObject<ILogicalExpression>(new VariableReferenceExpression(assignMBRKeyVarList
+                                .get(2))));
+                createPoint2.getArguments().add(
+                        new MutableObject<ILogicalExpression>(new VariableReferenceExpression(assignMBRKeyVarList
+                                .get(3))));
+                assignPointKeyVarList.add(context.newVar());
+                assignPointKeyExprList.add(new MutableObject<ILogicalExpression>(createPoint2));
+                AssignOperator assignOpPoints = new AssignOperator(assignPointKeyVarList, assignPointKeyExprList);
 
-                    //step 3.
-                    //ArrayList<LogicalVariable> assignRectangleKeyVarList = new ArrayList<LogicalVariable>();
-                    //ArrayList<Mutable<ILogicalExpression>> assignRectangleKeyExprList = new ArrayList<Mutable<ILogicalExpression>>();
-                    AbstractFunctionCallExpression createRectangle = new ScalarFunctionCallExpression(
-                            FunctionUtils.getFunctionInfo(AsterixBuiltinFunctions.CREATE_RECTANGLE));
-                    createRectangle.getArguments().add(
-                            new MutableObject<ILogicalExpression>(new VariableReferenceExpression(assignPointKeyVarList
-                                    .get(0))));
-                    createRectangle.getArguments().add(
-                            new MutableObject<ILogicalExpression>(new VariableReferenceExpression(assignPointKeyVarList
-                                    .get(1))));
-                    assignRectangleKeyVarList.add(context.newVar());
-                    assignRectangleKeyExprList.add(new MutableObject<ILogicalExpression>(createRectangle));
-                    assignOpRectangle = new AssignOperator(assignRectangleKeyVarList, assignRectangleKeyExprList);
+                //step 3.
+                //ArrayList<LogicalVariable> assignRectangleKeyVarList = new ArrayList<LogicalVariable>();
+                //ArrayList<Mutable<ILogicalExpression>> assignRectangleKeyExprList = new ArrayList<Mutable<ILogicalExpression>>();
+                AbstractFunctionCallExpression createRectangle = new ScalarFunctionCallExpression(
+                        FunctionUtils.getFunctionInfo(AsterixBuiltinFunctions.CREATE_RECTANGLE));
+                createRectangle.getArguments().add(
+                        new MutableObject<ILogicalExpression>(new VariableReferenceExpression(assignPointKeyVarList
+                                .get(0))));
+                createRectangle.getArguments().add(
+                        new MutableObject<ILogicalExpression>(new VariableReferenceExpression(assignPointKeyVarList
+                                .get(1))));
+                assignRectangleKeyVarList.add(context.newVar());
+                assignRectangleKeyExprList.add(new MutableObject<ILogicalExpression>(createRectangle));
+                assignOpRectangle = new AssignOperator(assignRectangleKeyVarList, assignRectangleKeyExprList);
 
+                // probeSubTree is null if we are dealing with a selection query, and non-null for join queries.
+                if (probeSubTree == null) {
                     // Input to this assign is the EmptyTupleSource (which the dataSourceScan also must have had as input).
                     assignOpMBR.getInputs().add(dataSourceScan.getInputs().get(0));
                     assignOpMBR.setExecutionMode(dataSourceScan.getExecutionMode());
-                    assignOpPoints.getInputs().add(new MutableObject<ILogicalOperator>(assignOpMBR));
-                    assignOpRectangle.getInputs().add(new MutableObject<ILogicalOperator>(assignOpPoints));
+                } else {
+                    assignOpMBR.getInputs().add(probeSubTree.rootRef);
                 }
+                assignOpPoints.getInputs().add(new MutableObject<ILogicalOperator>(assignOpMBR));
+                assignOpRectangle.getInputs().add(new MutableObject<ILogicalOperator>(assignOpPoints));
+            }
 
-                //add msif-tokens function
-                ArrayList<LogicalVariable> assignSIFKeyVarList = new ArrayList<LogicalVariable>();
-                ArrayList<Mutable<ILogicalExpression>> assignSIFKeyExprList = new ArrayList<Mutable<ILogicalExpression>>();
-                AbstractFunctionCallExpression sifTokens = new ScalarFunctionCallExpression(
-                        FunctionUtils.getFunctionInfo(AsterixBuiltinFunctions.MSIF_TOKENS));
-                IndexTypeProperty itp = chosenIndex.getIndexTypeProperty();
-                sifTokens.getArguments().add(
-                        new MutableObject<ILogicalExpression>(new VariableReferenceExpression(assignRectangleKeyVarList
-                                .get(0))));
-                sifTokens.getArguments().add(
-                        new MutableObject<ILogicalExpression>(new ConstantExpression(new AsterixConstantValue(
-                                new ADouble(itp.bottomLeftX)))));
-                sifTokens.getArguments().add(
-                        new MutableObject<ILogicalExpression>(new ConstantExpression(new AsterixConstantValue(
-                                new ADouble(itp.bottomLeftY)))));
-                sifTokens.getArguments().add(
-                        new MutableObject<ILogicalExpression>(new ConstantExpression(new AsterixConstantValue(
-                                new ADouble(itp.topRightX)))));
-                sifTokens.getArguments().add(
-                        new MutableObject<ILogicalExpression>(new ConstantExpression(new AsterixConstantValue(
-                                new ADouble(itp.topRightY)))));
-                for (int i = 0; i < IndexTypeProperty.CELL_BASED_SPATIAL_INDEX_MAX_LEVEL; i++) {
-                    sifTokens.getArguments().add(
-                            new MutableObject<ILogicalExpression>(new ConstantExpression(new AsterixConstantValue(
-                                    new AInt16(itp.levelDensity[i])))));
-                }
+            //add msif-tokens function
+            ArrayList<LogicalVariable> assignSIFKeyVarList = new ArrayList<LogicalVariable>();
+            ArrayList<Mutable<ILogicalExpression>> assignSIFKeyExprList = new ArrayList<Mutable<ILogicalExpression>>();
+            AbstractFunctionCallExpression sifTokens = new ScalarFunctionCallExpression(
+                    FunctionUtils.getFunctionInfo(AsterixBuiltinFunctions.MSIF_TOKENS));
+            IndexTypeProperty itp = chosenIndex.getIndexTypeProperty();
+            sifTokens.getArguments().add(
+                    new MutableObject<ILogicalExpression>(new VariableReferenceExpression(assignRectangleKeyVarList
+                            .get(0))));
+            sifTokens.getArguments().add(
+                    new MutableObject<ILogicalExpression>(new ConstantExpression(new AsterixConstantValue(new ADouble(
+                            itp.bottomLeftX)))));
+            sifTokens.getArguments().add(
+                    new MutableObject<ILogicalExpression>(new ConstantExpression(new AsterixConstantValue(new ADouble(
+                            itp.bottomLeftY)))));
+            sifTokens.getArguments().add(
+                    new MutableObject<ILogicalExpression>(new ConstantExpression(new AsterixConstantValue(new ADouble(
+                            itp.topRightX)))));
+            sifTokens.getArguments().add(
+                    new MutableObject<ILogicalExpression>(new ConstantExpression(new AsterixConstantValue(new ADouble(
+                            itp.topRightY)))));
+            for (int i = 0; i < IndexTypeProperty.CELL_BASED_SPATIAL_INDEX_MAX_LEVEL; i++) {
                 sifTokens.getArguments().add(
                         new MutableObject<ILogicalExpression>(new ConstantExpression(new AsterixConstantValue(
-                                new AInt32(itp.cellsPerObject)))));
-                sifTokens.getArguments().add(
-                        new MutableObject<ILogicalExpression>(new ConstantExpression(new AsterixConstantValue(
-                                new AInt32(OptimizationConfUtil.getPhysicalOptimizationConfig().getFrameSize())))));
-                assignSIFKeyVarList.add(context.newVar());
-                assignSIFKeyExprList.add(new MutableObject<ILogicalExpression>(sifTokens));
-                AssignOperator assignOpSIFTokens = new AssignOperator(assignSIFKeyVarList, assignSIFKeyExprList);
-                assignOpSIFTokens.getInputs().add(new MutableObject<ILogicalOperator>(assignOpRectangle));
+                                new AInt16(itp.levelDensity[i])))));
+            }
+            sifTokens.getArguments().add(
+                    new MutableObject<ILogicalExpression>(new ConstantExpression(new AsterixConstantValue(new AInt32(
+                            itp.cellsPerObject)))));
+            sifTokens.getArguments().add(
+                    new MutableObject<ILogicalExpression>(new ConstantExpression(new AsterixConstantValue(new AInt32(
+                            OptimizationConfUtil.getPhysicalOptimizationConfig().getFrameSize())))));
+            assignSIFKeyVarList.add(context.newVar());
+            assignSIFKeyExprList.add(new MutableObject<ILogicalExpression>(sifTokens));
+            AssignOperator assignOpSIFTokens = new AssignOperator(assignSIFKeyVarList, assignSIFKeyExprList);
+            assignOpSIFTokens.getInputs().add(new MutableObject<ILogicalOperator>(assignOpRectangle));
 
-                inputOp = assignOpSIFTokens;
-                jobGenParams.setKeyVarList(assignSIFKeyVarList);
-            } else { // non-sif index
+            inputOp = assignOpSIFTokens;
+            jobGenParams.setKeyVarList(assignSIFKeyVarList);
+        } else {
+            // probeSubTree is null if we are dealing with a selection query, and non-null for join queries.
+            if (probeSubTree == null) {
                 // List of variables for the assign
                 ArrayList<LogicalVariable> keyVarList = new ArrayList<LogicalVariable>();
                 // List of expressions for the assign.
@@ -524,15 +537,14 @@ public class InvertedIndexAccessMethod implements IAccessMethod {
                 inputOp.getInputs().add(dataSourceScan.getInputs().get(0));
                 inputOp.setExecutionMode(dataSourceScan.getExecutionMode());
                 jobGenParams.setKeyVarList(keyVarList);
+            } else { //join
+                // We are optimizing a join. Add the input variable to the secondaryIndexFuncArgs.
+                ArrayList<LogicalVariable> keyVarList = new ArrayList<LogicalVariable>();
+                LogicalVariable inputSearchVariable = getInputSearchVar(optFuncExpr, indexSubTree);
+                keyVarList.add(inputSearchVariable);
+                inputOp = (AbstractLogicalOperator) probeSubTree.root;
+                jobGenParams.setKeyVarList(keyVarList);
             }
-
-        } else { //join
-            // We are optimizing a join. Add the input variable to the secondaryIndexFuncArgs.
-            ArrayList<LogicalVariable> keyVarList = new ArrayList<LogicalVariable>();
-            LogicalVariable inputSearchVariable = getInputSearchVar(optFuncExpr, indexSubTree);
-            keyVarList.add(inputSearchVariable);
-            inputOp = (AbstractLogicalOperator) probeSubTree.root;
-            jobGenParams.setKeyVarList(keyVarList);
         }
 
         UnnestMapOperator secondaryIndexUnnestOp = AccessMethodUtils.createSecondaryIndexUnnestMap(dataset, recordType,

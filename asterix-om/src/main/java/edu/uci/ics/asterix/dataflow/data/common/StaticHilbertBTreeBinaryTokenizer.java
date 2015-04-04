@@ -17,6 +17,8 @@ package edu.uci.ics.asterix.dataflow.data.common;
 
 import edu.uci.ics.asterix.om.types.ATypeTag;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
+import edu.uci.ics.hyracks.api.util.ExperimentProfiler;
+import edu.uci.ics.hyracks.api.util.SpatialIndexProfiler;
 import edu.uci.ics.hyracks.storage.am.common.api.ITokenFactory;
 
 public class StaticHilbertBTreeBinaryTokenizer extends SpatialCellBinaryTokenizer {
@@ -30,7 +32,7 @@ public class StaticHilbertBTreeBinaryTokenizer extends SpatialCellBinaryTokenize
         super(bottomLeftX, bottomLeftY, topRightX, topRightY, levelDensity, cellsPerObject, tokenFactory, frameSize,
                 isQuery);
         this.tHilbertValue = new byte[tokenSize];
-        this.cellCountsInBottomLevel = new long [MAX_LEVEL]; 
+        this.cellCountsInBottomLevel = new long[MAX_LEVEL];
         for (int i = 0; i < MAX_LEVEL; i++) {
             cellCountsInBottomLevel[i] = 1;
             for (int j = 1; j < MAX_LEVEL - i; j++) {
@@ -88,16 +90,21 @@ public class StaticHilbertBTreeBinaryTokenizer extends SpatialCellBinaryTokenize
 
     @Override
     public void reset(byte[] data, int start, int length) throws HyracksDataException {
+        highkeyFlag.clear();
         generateSortedCellIds(data, start, length);
 
         if (inputData[start] == ATypeTag.RECTANGLE.serialize()) {
             mergeCellIds();
+
+            if (ExperimentProfiler.PROFILE_MODE) {
+                SpatialIndexProfiler.INSTANCE.shbtreeNumOfSearchPerQuery.add("" + hilbertValueCount + "\n");
+            }
         }
     }
 
     protected boolean isMergable(byte[] head, byte[] highkey) {
         int maxValidLevel = head[MAX_LEVEL] - 1;
-        if (maxValidLevel < 0 /* entire space case */)
+        if (maxValidLevel < 0 /* entire space case */ || maxValidLevel == MAX_LEVEL /* OOPS case */)
             return false;
 
         //consider highkey hilbert value as a cell Id in non-bottom level. 
@@ -116,7 +123,7 @@ public class StaticHilbertBTreeBinaryTokenizer extends SpatialCellBinaryTokenize
         long v = 0;
         int maxValidLevel = cId[MAX_LEVEL];
         for (int i = 0; i < maxValidLevel; i++) {
-            v += (cId[i] & 0xff) * cellCountsInBottomLevel[i] ;
+            v += (cId[i] & 0xff) * cellCountsInBottomLevel[i];
         }
         return v;
     }

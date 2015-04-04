@@ -48,7 +48,6 @@ public class HilbertBTreeSearchOperatorNodePushable extends IndexSearchOperatorN
             int partition, IRecordDescriptorProvider recordDescProvider, int[] lowKeyFields, int[] highKeyFields,
             boolean lowKeyInclusive, boolean highKeyInclusive, int[] minFilterFieldIndexes, int[] maxFilterFieldIndexes) {
         super(opDesc, ctx, partition, recordDescProvider, minFilterFieldIndexes, maxFilterFieldIndexes);
-        assert lowKeyFields != null && lowKeyFields.length == 4;
         queryRegion = new PermutingFrameTupleReference();
         queryRegion.setFieldPermutation(lowKeyFields);
         //Currently, HilbertBTree always has a point type key field in the first field.

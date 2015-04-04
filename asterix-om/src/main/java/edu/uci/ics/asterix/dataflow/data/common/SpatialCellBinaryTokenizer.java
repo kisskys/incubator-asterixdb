@@ -404,8 +404,12 @@ public abstract class SpatialCellBinaryTokenizer implements IBinaryTokenizer {
     }
 
     private void convertCellId2HilbertValue(int[][] cId, int level, byte[] hVal) {
-        for (int i = 0; i < level; i++) {
+        int i = 0;
+        for (; i < level; i++) {
             hVal[i] = (byte) hilbertValueMatrix[i][cId[i][1]][cId[i][0]];
+        }
+        for (; i < levelCount; i++) {
+            hVal[i] = 0;
         }
         hVal[levelCount] = (byte) (level); //top level = level 0
     }

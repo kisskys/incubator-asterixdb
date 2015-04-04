@@ -44,6 +44,7 @@ import edu.uci.ics.asterix.common.transactions.LogType;
 import edu.uci.ics.asterix.common.transactions.MutableLong;
 import edu.uci.ics.asterix.transaction.management.service.transaction.TransactionSubsystem;
 import edu.uci.ics.hyracks.api.lifecycle.ILifeCycleComponent;
+import edu.uci.ics.hyracks.api.util.ExperimentProfiler;
 
 public class LogManager implements ILogManager, ILifeCycleComponent {
 

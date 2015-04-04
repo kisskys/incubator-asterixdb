@@ -34,6 +34,7 @@ import edu.uci.ics.asterix.common.transactions.MutableLong;
 import edu.uci.ics.asterix.transaction.management.service.transaction.TransactionManagementConstants.LockManagerConstants.LockMode;
 import edu.uci.ics.asterix.transaction.management.service.transaction.TransactionSubsystem;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
+import edu.uci.ics.hyracks.api.util.ExperimentProfiler;
 
 public class LogPage implements ILogPage {
 
@@ -221,6 +222,9 @@ public class LogPage implements ILogPage {
                     txnSubsystem.getLockManager()
                             .unlock(reusableDsId, logRecord.getPKHashValue(), LockMode.ANY, txnCtx);
                     txnCtx.notifyOptracker(false);
+                    if (ExperimentProfiler.PROFILE_MODE) {
+                        txnSubsystem.profilerEntityCommitLogCount++;
+                    }
                 } else if (logRecord.getLogType() == LogType.JOB_COMMIT || logRecord.getLogType() == LogType.ABORT) {
                     reusableJobId.setId(logRecord.getJobId());
                     txnCtx = txnSubsystem.getTransactionManager().getTransactionContext(reusableJobId, false);

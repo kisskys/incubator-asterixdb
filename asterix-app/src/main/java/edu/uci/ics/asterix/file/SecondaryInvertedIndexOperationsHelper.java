@@ -282,7 +282,7 @@ public class SecondaryInvertedIndexOperationsHelper extends SecondaryIndexOperat
             primaryKeyFields[i] = numSecondaryKeys + i;
         }
         BinaryTokenizerOperatorDescriptor tokenizerOp = new BinaryTokenizerOperatorDescriptor(spec,
-                tokenKeyPairRecDesc, tokenizerFactory, docField, primaryKeyFields, isPartitioned, false, 1);
+                tokenKeyPairRecDesc, tokenizerFactory, docField, primaryKeyFields, isPartitioned, false, 1, false);
         AlgebricksPartitionConstraintHelper.setPartitionConstraintInJobSpec(spec, tokenizerOp,
                 primaryPartitionConstraint);
         return tokenizerOp;

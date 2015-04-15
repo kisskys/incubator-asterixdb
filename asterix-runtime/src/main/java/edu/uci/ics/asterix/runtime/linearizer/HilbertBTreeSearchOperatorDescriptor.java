@@ -22,6 +22,7 @@ import edu.uci.ics.hyracks.api.dataflow.value.INullWriterFactory;
 import edu.uci.ics.hyracks.api.dataflow.value.IRecordDescriptorProvider;
 import edu.uci.ics.hyracks.api.dataflow.value.ITypeTraits;
 import edu.uci.ics.hyracks.api.dataflow.value.RecordDescriptor;
+import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.api.job.IOperatorDescriptorRegistry;
 import edu.uci.ics.hyracks.dataflow.std.file.IFileSplitProvider;
 import edu.uci.ics.hyracks.storage.am.common.api.IIndexLifecycleManagerProvider;
@@ -65,7 +66,7 @@ public class HilbertBTreeSearchOperatorDescriptor extends AbstractTreeIndexOpera
 
     @Override
     public IOperatorNodePushable createPushRuntime(final IHyracksTaskContext ctx,
-            IRecordDescriptorProvider recordDescProvider, int partition, int nPartitions) {
+            IRecordDescriptorProvider recordDescProvider, int partition, int nPartitions) throws HyracksDataException {
         return new HilbertBTreeSearchOperatorNodePushable(this, ctx, partition, recordDescProvider, lowKeyFields,
                 highKeyFields, lowKeyInclusive, highKeyInclusive, minFilterFieldIndexes, maxFilterFieldIndexes);
     }

@@ -14,10 +14,15 @@
  */
 package edu.uci.ics.asterix.runtime.linearizer;
 
+import java.io.DataOutput;
 import java.nio.ByteBuffer;
 
+import edu.uci.ics.asterix.formats.nontagged.AqlSerializerDeserializerProvider;
+import edu.uci.ics.asterix.om.base.APoint;
+import edu.uci.ics.asterix.om.types.BuiltinType;
 import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
 import edu.uci.ics.hyracks.api.dataflow.value.IRecordDescriptorProvider;
+import edu.uci.ics.hyracks.api.dataflow.value.ISerializerDeserializer;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.ArrayTupleBuilder;
 import edu.uci.ics.hyracks.dataflow.common.comm.io.ArrayTupleReference;
@@ -46,7 +51,8 @@ public class HilbertBTreeSearchOperatorNodePushable extends IndexSearchOperatorN
 
     public HilbertBTreeSearchOperatorNodePushable(AbstractTreeIndexOperatorDescriptor opDesc, IHyracksTaskContext ctx,
             int partition, IRecordDescriptorProvider recordDescProvider, int[] lowKeyFields, int[] highKeyFields,
-            boolean lowKeyInclusive, boolean highKeyInclusive, int[] minFilterFieldIndexes, int[] maxFilterFieldIndexes) {
+            boolean lowKeyInclusive, boolean highKeyInclusive, int[] minFilterFieldIndexes, int[] maxFilterFieldIndexes)
+            throws HyracksDataException {
         super(opDesc, ctx, partition, recordDescProvider, minFilterFieldIndexes, maxFilterFieldIndexes);
         queryRegion = new PermutingFrameTupleReference();
         queryRegion.setFieldPermutation(lowKeyFields);
@@ -57,7 +63,16 @@ public class HilbertBTreeSearchOperatorNodePushable extends IndexSearchOperatorN
         this.btreeLowKeyInclusive = true;
         this.btreeHighKeyInclusive = true;
         btreeKeyBuilder = new ArrayTupleBuilder(1);
-        btreeKeyReference = new ArrayTupleReference();
+
+        //set initial search key to a point (-Double.MAX_VALUE, -Double.MAX_VALUE)
+        APoint aPoint = new APoint(-Double.MAX_VALUE, -Double.MAX_VALUE);
+        ISerializerDeserializer<APoint> pointSerde = AqlSerializerDeserializerProvider.INSTANCE
+                .getSerializerDeserializer(BuiltinType.APOINT);
+        DataOutput dos = btreeKeyBuilder.getDataOutput();
+        btreeKeyBuilder.reset();
+        pointSerde.serialize(aPoint, dos);
+        btreeKeyBuilder.addFieldEndOffset();
+        btreeLowKey.reset(btreeKeyBuilder.getFieldEndOffsets(), btreeKeyBuilder.getByteArray());
     }
 
     @Override

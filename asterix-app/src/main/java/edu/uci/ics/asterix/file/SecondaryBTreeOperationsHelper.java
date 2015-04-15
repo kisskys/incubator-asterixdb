@@ -373,7 +373,7 @@ public class SecondaryBTreeOperationsHelper extends SecondaryIndexOperationsHelp
         IBinaryTokenizerFactory tokenizerFactory = NonTaggedFormatUtil.getBinaryTokenizerFactory(
                 tokenType.getTypeTag(), indexType, indexTypeProperty);
         BinaryTokenizerOperatorDescriptor tokenizerOp = new BinaryTokenizerOperatorDescriptor(spec, secondaryRecDesc,
-                tokenizerFactory, tokenSourceFieldOffset, primaryKeyFields, false, false, 1);
+                tokenizerFactory, tokenSourceFieldOffset, primaryKeyFields, false, false, 1, false);
         AlgebricksPartitionConstraintHelper.setPartitionConstraintInJobSpec(spec, tokenizerOp,
                 primaryPartitionConstraint);
         return tokenizerOp;

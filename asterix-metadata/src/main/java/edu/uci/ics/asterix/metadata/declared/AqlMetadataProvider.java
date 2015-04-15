@@ -796,7 +796,7 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
                     true);
             typeTraits[i] = AqlTypeTraitProvider.INSTANCE.getTypeTrait(keyType);
         }
-        
+
         for (int j = 0; j < pidxKeyFieldCount; ++j, ++i) {
             IAType keyType;
             try {
@@ -804,11 +804,11 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
             } catch (IOException e) {
                 throw new AlgebricksException(e);
             }
-            comparatorFactories[i] = AqlBinaryComparatorFactoryProvider.INSTANCE.getBinaryComparatorFactory(
-                    keyType, true);
+            comparatorFactories[i] = AqlBinaryComparatorFactoryProvider.INSTANCE.getBinaryComparatorFactory(keyType,
+                    true);
             typeTraits[i] = AqlTypeTraitProvider.INSTANCE.getTypeTrait(keyType);
         }
-        
+
         return new Pair<IBinaryComparatorFactory[], ITypeTraits[]>(comparatorFactories, typeTraits);
     }
 
@@ -1296,7 +1296,8 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
             IDataSourceIndex<String, AqlSourceId> dataSourceIndex, IOperatorSchema propagatedSchema,
             IOperatorSchema[] inputSchemas, IVariableTypeEnvironment typeEnv, List<LogicalVariable> primaryKeys,
             List<LogicalVariable> secondaryKeys, ILogicalExpression filterExpr, RecordDescriptor recordDesc,
-            JobGenContext context, JobSpecification spec, boolean isQuery) throws AlgebricksException {
+            JobGenContext context, JobSpecification spec, boolean isBulkload, boolean isQuery)
+            throws AlgebricksException {
 
         String indexName = dataSourceIndex.getId();
         String dataverseName = dataSourceIndex.getDataSource().getId().getDataverseName();
@@ -1336,7 +1337,8 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
                 } else {
                     return getBinaryTokenizerUpdateRuntime(dataverseName, datasetName, indexName, inputSchema,
                             propagatedSchema, typeEnv, primaryKeys, secondaryKeys, filterFactory, recordDesc, context,
-                            spec, IndexOperation.INSERT, secondaryIndex.getIndexType());
+                            spec, IndexOperation.INSERT, secondaryIndex.getIndexType(),
+                            (!isBulkload && secondaryIndex.getIndexType() == IndexType.STATIC_HILBERT_BTREE));
                 }
             }
 
@@ -1353,8 +1355,8 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
             String dataverseName, String datasetName, String indexName, IOperatorSchema inputSchema,
             IOperatorSchema propagatedSchema, IVariableTypeEnvironment typeEnv, List<LogicalVariable> primaryKeys,
             List<LogicalVariable> secondaryKeys, AsterixTupleFilterFactory filterFactory, RecordDescriptor recordDesc,
-            JobGenContext context, JobSpecification spec, IndexOperation indexOp, IndexType indexType)
-            throws AlgebricksException {
+            JobGenContext context, JobSpecification spec, IndexOperation indexOp, IndexType indexType,
+            boolean flushFramesRapidly) throws AlgebricksException {
 
         // Sanity checks.
         if (primaryKeys.size() > 1) {
@@ -1526,7 +1528,7 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
             }
 
             tokenizerOp = new BinaryTokenizerOperatorDescriptor(spec, tokenKeyPairRecDesc, tokenizerFactory, docField,
-                    keyFields, isPartitioned, true, 1);
+                    keyFields, isPartitioned, true, 1, flushFramesRapidly);
             return new Pair<IOperatorDescriptor, AlgebricksPartitionConstraint>(tokenizerOp, splitsAndConstraint.second);
 
         } catch (MetadataException e) {
@@ -1539,8 +1541,7 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
             String dataverseName, String datasetName, String indexName, IOperatorSchema inputSchema,
             IOperatorSchema propagatedSchema, IVariableTypeEnvironment typeEnv, List<LogicalVariable> secondaryKeys,
             AsterixTupleFilterFactory filterFactory, RecordDescriptor recordDesc, JobGenContext context,
-            JobSpecification spec, IndexOperation indexOp, IndexType indexType)
-            throws AlgebricksException {
+            JobSpecification spec, IndexOperation indexOp, IndexType indexType) throws AlgebricksException {
 
         // Sanity checks.
         if (secondaryKeys.size() > 1) {
@@ -1639,7 +1640,7 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
         }
 
         tokenizerOp = new BinaryTokenizerOperatorDescriptor(spec, tokenKeyPairRecDesc, tokenizerFactory, skField,
-                keyFields, false, true, numTokensPerOutputRecord);
+                keyFields, false, true, numTokensPerOutputRecord, false);
         return new Pair<IOperatorDescriptor, AlgebricksPartitionConstraint>(tokenizerOp, splitsAndConstraint.second);
     }
 

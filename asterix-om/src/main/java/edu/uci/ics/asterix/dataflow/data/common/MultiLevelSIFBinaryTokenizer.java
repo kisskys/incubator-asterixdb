@@ -63,7 +63,14 @@ public class MultiLevelSIFBinaryTokenizer extends SpatialCellBinaryTokenizer {
                             - ((hilbertValue[hOffset][rangeLevelNum]) & 0xff) + 1;
                 }
             } else {
-                if (rangeOffset == 0 && curLevel == 0) {
+                if (hilbertValue[hOffset][MAX_LEVEL] == 0 && rangeOffset == 0) {
+                    //special case: the query region covers a whole space 
+                    //instead of inserting all points into the level 0 for this special case, 
+                    //a level-0 single cell is divided into all cells in level 1.
+                    rangeLevelNum = 0;
+                    rangeSize = axisCellNum[0] * axisCellNum[0];
+                    hilbertValue[hOffset][MAX_LEVEL] = 1;
+                } else if (rangeOffset == 0 && curLevel == 0) {
                     rangeSize = 1;
                 }
             }

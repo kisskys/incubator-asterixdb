@@ -36,7 +36,7 @@ public class HilbertBTreeRangePredicate extends RangePredicate implements ILinea
     }
 
     @Override
-    public ILinearizerSearchHelper getLinearizerSearchModifier() throws HyracksDataException {
+    public ILinearizerSearchHelper getLinearizerSearchHelper() throws HyracksDataException {
         return new HilbertBTreeSearchHelper(queryRegion);
     }
 }

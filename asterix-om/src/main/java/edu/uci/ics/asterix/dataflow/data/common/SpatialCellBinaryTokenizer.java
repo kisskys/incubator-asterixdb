@@ -17,6 +17,7 @@ package edu.uci.ics.asterix.dataflow.data.common;
 
 import java.util.BitSet;
 
+import edu.uci.ics.asterix.common.config.DatasetConfig.IndexTypeProperty;
 import edu.uci.ics.asterix.dataflow.data.nontagged.Coordinate;
 import edu.uci.ics.asterix.dataflow.data.nontagged.comparators.HilbertCurve;
 import edu.uci.ics.asterix.dataflow.data.nontagged.serde.ADoubleSerializerDeserializer;
@@ -30,7 +31,7 @@ import edu.uci.ics.hyracks.storage.am.common.api.ITokenFactory;
 
 public abstract class SpatialCellBinaryTokenizer implements IBinaryTokenizer {
 
-    protected final static int MAX_LEVEL = 4; //Only 4-level grids are supported.
+    protected final static int MAX_LEVEL = IndexTypeProperty.CELL_BASED_SPATIAL_INDEX_MAX_LEVEL;
     protected final double bottomLeftX;
     protected final double bottomLeftY;
     protected final double topRightX;
@@ -54,9 +55,8 @@ public abstract class SpatialCellBinaryTokenizer implements IBinaryTokenizer {
     protected int hcOffset; //head offset of candidateCellId
     protected final double[] cellBottomLeft;
     protected byte[] inputData;
-    protected static byte[] OOPS_BYTE_ARRAY = new byte[] { (byte) 255, (byte) 255, (byte) 255, (byte) 255,
-            MAX_LEVEL + 1 };
-    protected static byte[] ALL_BYTE_ARRAY = new byte[] { 0, 0, 0, 0, 0 };
+    protected static byte[] OOPS_BYTE_ARRAY;
+    protected static byte[] ALL_BYTE_ARRAY;
     protected boolean overflow;
     protected int nextCount;
     protected final BitSet highkeyFlag;
@@ -70,8 +70,18 @@ public abstract class SpatialCellBinaryTokenizer implements IBinaryTokenizer {
 
     public SpatialCellBinaryTokenizer(double bottomLeftX, double bottomLeftY, double topRightX, double topRightY,
             short[] levelDensity, int cellsPerObject, ITokenFactory tokenFactory, int frameSize, boolean isQuery) {
-        assert levelDensity.length == MAX_LEVEL; //Only 4-level grids are supported.
-
+        assert levelDensity.length == MAX_LEVEL;
+        
+        //initialize OOPS and ALL byte array
+        OOPS_BYTE_ARRAY = new byte[MAX_LEVEL+1];
+        ALL_BYTE_ARRAY = new byte[MAX_LEVEL+1];
+        for (int i = 0; i < MAX_LEVEL; i++) {
+            OOPS_BYTE_ARRAY[i] = (byte) 255;
+            ALL_BYTE_ARRAY[i] = 0;
+        }
+        OOPS_BYTE_ARRAY[MAX_LEVEL] = MAX_LEVEL + 1;
+        ALL_BYTE_ARRAY[MAX_LEVEL] = 0;
+        
         this.levelCount = levelDensity.length;
         this.tokenSize = levelCount + 1; // +1 for level indicator
         this.cellIdSorter = new InMemorySpatialCellIdQuickSorter(tokenSize);

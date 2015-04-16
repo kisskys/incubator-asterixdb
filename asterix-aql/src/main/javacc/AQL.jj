@@ -582,6 +582,10 @@ void parseAllLevelDensities(IndexTypeProperty tp) throws ParseException :
 	}
 	<COMMA>
 	{
+		tp.levelDensity[i++] = parseLevelDensity();
+	}
+	<COMMA>
+	{
 		tp.levelDensity[i] = parseLevelDensity();
 	})?
 }

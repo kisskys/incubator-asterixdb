@@ -78,7 +78,7 @@ public class SpatialIndexEvaluatorForSyntheticDataIngestion {
                     + indexType + " ;\n");
         } else {
             sb.append("create index " + indexType + "CheckinCoordinate on FsqCheckinTweet(coordinates) type "
-                    + indexType + "(-180.0,-90.0,180.0,90.0,h,h,h,h);\n");
+                    + indexType + "(-180.0,-90.0,180.0,90.0,h,h,h,h,h);\n");
         }
 
         //create feed

@@ -59,7 +59,7 @@ public class DatasetConfig {
     public static class IndexTypeProperty implements Serializable {
         private static final long serialVersionUID = 1L;
 
-        public static final int CELL_BASED_SPATIAL_INDEX_MAX_LEVEL = 5;
+        public static final int CELL_BASED_SPATIAL_INDEX_MAX_LEVEL = 6;
         public static final int CELL_BASED_SPATIAL_INDEX_MAX_CELLS_PER_OBJECT = 256;
         public static final int CELL_BASED_SPATIAL_INDEX_MIN_CELLS_PER_OBJECT = 8192;
         public static final int CELL_BASED_SPATIAL_INDEX_DEFAULT_CELLS_PER_OBJECT = 1024;
@@ -79,7 +79,8 @@ public class DatasetConfig {
         // Specific to cell-based spatial indexes such as shbtree and sif. 
         public short[] levelDensity = new short[] { CELL_BASED_SPATIAL_INDEX_CELL_DENSITY_HIGH,
                 CELL_BASED_SPATIAL_INDEX_CELL_DENSITY_HIGH, CELL_BASED_SPATIAL_INDEX_CELL_DENSITY_HIGH,
-                CELL_BASED_SPATIAL_INDEX_CELL_DENSITY_HIGH, CELL_BASED_SPATIAL_INDEX_CELL_DENSITY_HIGH };
+                CELL_BASED_SPATIAL_INDEX_CELL_DENSITY_HIGH, CELL_BASED_SPATIAL_INDEX_CELL_DENSITY_HIGH,
+                CELL_BASED_SPATIAL_INDEX_CELL_DENSITY_HIGH };
         public int cellsPerObject = CELL_BASED_SPATIAL_INDEX_DEFAULT_CELLS_PER_OBJECT;
     }
 }

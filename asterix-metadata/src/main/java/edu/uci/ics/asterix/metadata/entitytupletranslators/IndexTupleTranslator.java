@@ -66,10 +66,7 @@ public class IndexTupleTranslator extends AbstractTupleTranslator<Index> {
     public static final String BOTTOM_LEFT_Y_FIELD_NAME = "BottomLeftY";
     public static final String TOP_RIGHT_X_FIELD_NAME = "TopRightX";
     public static final String TOP_RIGHT_Y_FIELD_NAME = "TopRightY";
-    public static final String LEVEL0_DENSITY_FIELD_NAME = "Level0Density";
-    public static final String LEVEL1_DENSITY_FIELD_NAME = "Level1Density";
-    public static final String LEVEL2_DENSITY_FIELD_NAME = "Level2Density";
-    public static final String LEVEL3_DENSITY_FIELD_NAME = "Level3Density";
+    public static final String LEVEL_DENSITY_FIELD_NAME_PREFIX = "LevelDensity";
     public static final String CELLS_PER_OBJECT_FIELD_NAME = "CellsPerObject";
 
     private OrderedListBuilder listBuilder = new OrderedListBuilder();
@@ -140,14 +137,10 @@ public class IndexTupleTranslator extends AbstractTupleTranslator<Index> {
                     TOP_RIGHT_X_FIELD_NAME))).getDoubleValue();
             indexTypeProperty.topRightY = ((ADouble) rec.getValueByPos(rec.getType().findFieldPosition(
                     TOP_RIGHT_Y_FIELD_NAME))).getDoubleValue();
-            indexTypeProperty.levelDensity[0] = ((AInt16) rec.getValueByPos(rec.getType().findFieldPosition(
-                    LEVEL0_DENSITY_FIELD_NAME))).getShortValue();
-            indexTypeProperty.levelDensity[1] = ((AInt16) rec.getValueByPos(rec.getType().findFieldPosition(
-                    LEVEL1_DENSITY_FIELD_NAME))).getShortValue();
-            indexTypeProperty.levelDensity[2] = ((AInt16) rec.getValueByPos(rec.getType().findFieldPosition(
-                    LEVEL2_DENSITY_FIELD_NAME))).getShortValue();
-            indexTypeProperty.levelDensity[3] = ((AInt16) rec.getValueByPos(rec.getType().findFieldPosition(
-                    LEVEL3_DENSITY_FIELD_NAME))).getShortValue();
+            for (int i = 0; i < IndexTypeProperty.CELL_BASED_SPATIAL_INDEX_MAX_LEVEL; i++) {
+                indexTypeProperty.levelDensity[i] = ((AInt16) rec.getValueByPos(rec.getType().findFieldPosition(
+                        LEVEL_DENSITY_FIELD_NAME_PREFIX + i))).getShortValue();
+            }
             indexTypeProperty.cellsPerObject = ((AInt32) rec.getValueByPos(rec.getType().findFieldPosition(
                     CELLS_PER_OBJECT_FIELD_NAME))).getIntegerValue();
         }
@@ -296,52 +289,18 @@ public class IndexTupleTranslator extends AbstractTupleTranslator<Index> {
                 throw new MetadataException(e);
             }
 
-            //level0Density
-            fieldValue.reset();
-            nameValue.reset();
-            aString.setValue(LEVEL0_DENSITY_FIELD_NAME);
-            stringSerde.serialize(aString, nameValue.getDataOutput());
-            shortSerde.serialize(new AInt16(indexTypeProperty.levelDensity[0]), fieldValue.getDataOutput());
-            try {
-                recordBuilder.addField(nameValue, fieldValue);
-            } catch (AsterixException e) {
-                throw new MetadataException(e);
-            }
-
-            //level1Density
-            fieldValue.reset();
-            nameValue.reset();
-            aString.setValue(LEVEL1_DENSITY_FIELD_NAME);
-            stringSerde.serialize(aString, nameValue.getDataOutput());
-            shortSerde.serialize(new AInt16(indexTypeProperty.levelDensity[1]), fieldValue.getDataOutput());
-            try {
-                recordBuilder.addField(nameValue, fieldValue);
-            } catch (AsterixException e) {
-                throw new MetadataException(e);
-            }
-
-            //level2Density
-            fieldValue.reset();
-            nameValue.reset();
-            aString.setValue(LEVEL2_DENSITY_FIELD_NAME);
-            stringSerde.serialize(aString, nameValue.getDataOutput());
-            shortSerde.serialize(new AInt16(indexTypeProperty.levelDensity[2]), fieldValue.getDataOutput());
-            try {
-                recordBuilder.addField(nameValue, fieldValue);
-            } catch (AsterixException e) {
-                throw new MetadataException(e);
-            }
-
-            //level3Density
-            fieldValue.reset();
-            nameValue.reset();
-            aString.setValue(LEVEL3_DENSITY_FIELD_NAME);
-            stringSerde.serialize(aString, nameValue.getDataOutput());
-            shortSerde.serialize(new AInt16(indexTypeProperty.levelDensity[3]), fieldValue.getDataOutput());
-            try {
-                recordBuilder.addField(nameValue, fieldValue);
-            } catch (AsterixException e) {
-                throw new MetadataException(e);
+            //levelDensity
+            for (int i = 0; i < IndexTypeProperty.CELL_BASED_SPATIAL_INDEX_MAX_LEVEL; i++) {
+                fieldValue.reset();
+                nameValue.reset();
+                aString.setValue(LEVEL_DENSITY_FIELD_NAME_PREFIX+i);
+                stringSerde.serialize(aString, nameValue.getDataOutput());
+                shortSerde.serialize(new AInt16(indexTypeProperty.levelDensity[i]), fieldValue.getDataOutput());
+                try {
+                    recordBuilder.addField(nameValue, fieldValue);
+                } catch (AsterixException e) {
+                    throw new MetadataException(e);
+                }
             }
 
             //cellsPerObject

@@ -578,15 +578,15 @@ public class SpatialIndexEvaluatorForSyntheticData {
     private static String getCreateSHBTreeAQL() {
         if (datasetName.contains("SimpleGeoPlace")) {
             return " use dataverse STBench;"
-                    + " create index shbtreePlaceCoordinate on SimpleGeoPlace(coordinates) type shbtree(-180.0,-90.0,180.0,90.0,h,h,h,h,h);  ";
+                    + " create index shbtreePlaceCoordinate on SimpleGeoPlace(coordinates) type shbtree(-180.0,-90.0,180.0,90.0);  ";
         }
         if (datasetName.contains("FsqCheckinTweet")) {
             return " use dataverse STBench;"
-                    + " create index shbtreeCheckinCoordinate on FsqCheckinTweet(coordinates) type shbtree(-180.0,-90.0,180.0,90.0,h,h,h,h,h);  ";
+                    + " create index shbtreeCheckinCoordinate on FsqCheckinTweet(coordinates) type shbtree(-180.0,-90.0,180.0,90.0);  ";
         }
         if (datasetName.contains("FsqVenue")) {
             return " use dataverse STBench;"
-                    + " create index shbtreeVenueCoordinate on FsqVenue(coordinates) type shbtree(-180.0,-90.0,180.0,90.0,h,h,h,h,h);  ";
+                    + " create index shbtreeVenueCoordinate on FsqVenue(coordinates) type shbtree(-180.0,-90.0,180.0,90.0);  ";
         }
         throw new IllegalArgumentException("Unknown dataset name: " + datasetName);
     }
@@ -626,15 +626,15 @@ public class SpatialIndexEvaluatorForSyntheticData {
     private static String getCreateSIFAQL() {
         if (datasetName.contains("SimpleGeoPlace")) {
             return " use dataverse STBench;"
-                    + " create index sifPlaceCoordinate on SimpleGeoPlace(coordinates) type sif(-180.0,-90.0,180.0,90.0,h,h,h,h,h);  ";
+                    + " create index sifPlaceCoordinate on SimpleGeoPlace(coordinates) type sif(-180.0,-90.0,180.0,90.0);  ";
         }
         if (datasetName.contains("FsqCheckinTweet")) {
             return " use dataverse STBench;"
-                    + " create index sifCheckinCoordinate on FsqCheckinTweet(coordinates) type sif(-180.0,-90.0,180.0,90.0,h,h,h,h,h);  ";
+                    + " create index sifCheckinCoordinate on FsqCheckinTweet(coordinates) type sif(-180.0,-90.0,180.0,90.0);  ";
         }
         if (datasetName.contains("FsqVenue")) {
             return " use dataverse STBench;"
-                    + " create index sifVenueCoordinate on FsqVenue(coordinates) type sif(-180.0,-90.0,180.0,90.0,h,h,h,h,h);  ";
+                    + " create index sifVenueCoordinate on FsqVenue(coordinates) type sif(-180.0,-90.0,180.0,90.0);  ";
         }
         throw new IllegalArgumentException("Unknown dataset name: " + datasetName);
     }

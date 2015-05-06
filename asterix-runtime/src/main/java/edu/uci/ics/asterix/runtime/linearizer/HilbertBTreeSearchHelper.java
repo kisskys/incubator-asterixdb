@@ -4,9 +4,12 @@ import java.io.DataOutput;
 
 import edu.uci.ics.asterix.dataflow.data.nontagged.Coordinate;
 import edu.uci.ics.asterix.dataflow.data.nontagged.serde.ADoubleSerializerDeserializer;
+import edu.uci.ics.asterix.dataflow.data.nontagged.serde.AInt64SerializerDeserializer;
 import edu.uci.ics.asterix.dataflow.data.nontagged.serde.APointSerializerDeserializer;
 import edu.uci.ics.asterix.dataflow.data.nontagged.serde.ARectangleSerializerDeserializer;
 import edu.uci.ics.asterix.formats.nontagged.AqlSerializerDeserializerProvider;
+import edu.uci.ics.asterix.om.base.AInt64;
+import edu.uci.ics.asterix.om.base.AMutableInt64;
 import edu.uci.ics.asterix.om.base.AMutablePoint;
 import edu.uci.ics.asterix.om.base.APoint;
 import edu.uci.ics.asterix.om.types.BuiltinType;
@@ -20,6 +23,8 @@ public class HilbertBTreeSearchHelper implements ILinearizerSearchHelper {
 
     private ISerializerDeserializer<APoint> pointSerde;
     private AMutablePoint aPoint; 
+    private ISerializerDeserializer<AInt64> int64Serde;
+    private AMutableInt64 aInt64; 
     private final double qBottomLeftX;
     private final double qBottomLeftY;
     private final double qTopRightX;
@@ -30,6 +35,9 @@ public class HilbertBTreeSearchHelper implements ILinearizerSearchHelper {
     public HilbertBTreeSearchHelper(PermutingFrameTupleReference queryRegion) throws HyracksDataException {
         aPoint = new AMutablePoint(0, 0);
         pointSerde = AqlSerializerDeserializerProvider.INSTANCE.getSerializerDeserializer(BuiltinType.APOINT);
+        aInt64 = new AMutableInt64(0);
+        int64Serde = AqlSerializerDeserializerProvider.INSTANCE.getSerializerDeserializer(BuiltinType.AINT64);
+        
         int fieldStartOffset = queryRegion.getFieldStart(0);
         qBottomLeftX = ADoubleSerializerDeserializer.getDouble(queryRegion.getFieldData(0), fieldStartOffset
                 + ARectangleSerializerDeserializer.getBottomLeftCoordinateOffset(Coordinate.X));
@@ -79,5 +87,19 @@ public class HilbertBTreeSearchHelper implements ILinearizerSearchHelper {
         tupleBuilder.reset();
         pointSerde.serialize(aPoint, dos);
         tupleBuilder.addFieldEndOffset();
+    }
+
+    @Override
+    public void convertLong2Int64Field(long in, ArrayTupleBuilder tupleBuilder) throws HyracksDataException {
+        aInt64.setValue(in);
+        DataOutput dos = tupleBuilder.getDataOutput();
+        tupleBuilder.reset();
+        int64Serde.serialize(aInt64, dos);
+        tupleBuilder.addFieldEndOffset();
+    }
+
+    @Override
+    public long convertInt64Field2Long(byte[] bytes, int fieldStartOffset) throws HyracksDataException {
+        return AInt64SerializerDeserializer.getLong(bytes, fieldStartOffset+1);
     }
 }

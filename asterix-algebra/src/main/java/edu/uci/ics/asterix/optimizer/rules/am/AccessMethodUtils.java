@@ -176,6 +176,9 @@ public class AccessMethodUtils {
             case SIF: {
                 return index.getKeyFieldNames().size();
             }
+            case DYNAMIC_HILBERTVALUE_BTREE: {
+                return index.getKeyFieldNames().size() + 1;
+            }
             case RTREE: {
                 Pair<IAType, Boolean> keyPairType = Index.getNonNullableKeyFieldType(index.getKeyFieldNames().get(0),
                         recordType);
@@ -209,6 +212,12 @@ public class AccessMethodUtils {
                 }
                 case STATIC_HILBERT_BTREE:
                     dest.add(BuiltinType.ABINARY);
+                    break;
+                    
+                case DYNAMIC_HILBERTVALUE_BTREE:
+                    /* Secondary key consists of [ Hilbert value (AINT64) | point (APOINT) ] */ 
+                    dest.add(BuiltinType.AINT64);
+                    dest.add(BuiltinType.APOINT);
                     break;
                     
                 case RTREE: {

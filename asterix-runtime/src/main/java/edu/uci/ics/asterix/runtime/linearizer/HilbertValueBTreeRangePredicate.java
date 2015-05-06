@@ -23,13 +23,13 @@ import edu.uci.ics.hyracks.storage.am.common.api.ILinearizerSearchPredicate;
 import edu.uci.ics.hyracks.storage.am.common.ophelpers.MultiComparator;
 import edu.uci.ics.hyracks.storage.am.common.tuples.PermutingFrameTupleReference;
 
-public class HilbertBTreeRangePredicate extends RangePredicate implements ILinearizerSearchPredicate {
+public class HilbertValueBTreeRangePredicate extends RangePredicate implements ILinearizerSearchPredicate {
     private static final long serialVersionUID = 1L;
 
     private PermutingFrameTupleReference queryRegion;
-    private final LinearizerSearchComparisonType comparisonType = LinearizerSearchComparisonType.HILBERT_ORDER_BASED_RELATIVE_COMPARISON_BETWEETN_TWO_OBJECTS;
+    private final LinearizerSearchComparisonType comparisonType = LinearizerSearchComparisonType.COMPARISON_BETWEEN_HILBERT_VALUES_OF_TWO_OBJECTS;
 
-    public HilbertBTreeRangePredicate(ITupleReference lowKey, ITupleReference highKey, boolean lowKeyInclusive,
+    public HilbertValueBTreeRangePredicate(ITupleReference lowKey, ITupleReference highKey, boolean lowKeyInclusive,
             boolean highKeyInclusive, MultiComparator lowKeyCmp, MultiComparator highKeyCmp,
             PermutingFrameTupleReference minFilterKey, PermutingFrameTupleReference maxFilterKey,
             PermutingFrameTupleReference queryRegion) {

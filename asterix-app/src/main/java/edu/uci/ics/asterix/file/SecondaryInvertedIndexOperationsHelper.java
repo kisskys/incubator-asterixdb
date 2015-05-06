@@ -83,16 +83,18 @@ public class SecondaryInvertedIndexOperationsHelper extends SecondaryIndexOperat
     private int[] invertedIndexFields;
     private int[] invertedIndexFieldsForNonBulkLoadOps;
     private int[] secondaryFilterFieldsForNonBulkLoadOps;
+    private final IndexType indexType;
 
     protected SecondaryInvertedIndexOperationsHelper(PhysicalOptimizationConfig physOptConf,
-            IAsterixPropertiesProvider propertiesProvider) {
+            IAsterixPropertiesProvider propertiesProvider, IndexType indexType) {
         super(physOptConf, propertiesProvider);
+        this.indexType = indexType;
     }
 
     @Override
     @SuppressWarnings("rawtypes")
-    public void setSecondaryRecDescAndComparators(IndexType indexType, IndexTypeProperty indexTypeProperty,
-            List<String> secondaryKeyFields, AqlMetadataProvider metadata) throws AlgebricksException, AsterixException {
+    public void setSecondaryRecDescAndComparators(IndexTypeProperty indexTypeProperty, List<String> secondaryKeyFields,
+            AqlMetadataProvider metadata) throws AlgebricksException, AsterixException {
         // Sanity checks.
         if (numPrimaryKeys > 1) {
             throw new AsterixException("Cannot create inverted index on dataset with composite primary key.");

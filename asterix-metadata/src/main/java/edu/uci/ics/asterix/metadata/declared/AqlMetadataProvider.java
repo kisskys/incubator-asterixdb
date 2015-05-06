@@ -102,6 +102,7 @@ import edu.uci.ics.asterix.runtime.formats.FormatUtils;
 import edu.uci.ics.asterix.runtime.formats.NonTaggedDataFormat;
 import edu.uci.ics.asterix.runtime.job.listener.JobEventListenerFactory;
 import edu.uci.ics.asterix.runtime.linearizer.HilbertBTreeSearchOperatorDescriptor;
+import edu.uci.ics.asterix.runtime.linearizer.HilbertValueBTreeSearchOperatorDescriptor;
 import edu.uci.ics.asterix.transaction.management.opcallbacks.PrimaryIndexInstantSearchOperationCallbackFactory;
 import edu.uci.ics.asterix.transaction.management.opcallbacks.PrimaryIndexModificationOperationCallbackFactory;
 import edu.uci.ics.asterix.transaction.management.opcallbacks.PrimaryIndexOperationTrackerProvider;
@@ -737,6 +738,13 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
                             highKeyFields, lowKeyInclusive, highKeyInclusive, dataflowHelperFactory, retainInput,
                             retainNull, context.getNullWriterFactory(), searchCallbackFactory, minFilterFieldIndexes,
                             maxFilterFieldIndexes);
+                } else if (isSecondary && secondaryIndex.getIndexType() == IndexType.DYNAMIC_HILBERTVALUE_BTREE) {
+                    btreeSearchOp = new HilbertValueBTreeSearchOperatorDescriptor(jobSpec, outputRecDesc,
+                            appContext.getStorageManagerInterface(), appContext.getIndexLifecycleManagerProvider(),
+                            spPc.first, typeTraits, comparatorFactories, bloomFilterKeyFields, lowKeyFields,
+                            highKeyFields, lowKeyInclusive, highKeyInclusive, dataflowHelperFactory, retainInput,
+                            retainNull, context.getNullWriterFactory(), searchCallbackFactory, minFilterFieldIndexes,
+                            maxFilterFieldIndexes);
                 } else {
                     btreeSearchOp = new BTreeSearchOperatorDescriptor(jobSpec, outputRecDesc,
                             appContext.getStorageManagerInterface(), appContext.getIndexLifecycleManagerProvider(),
@@ -790,6 +798,9 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
             } else if (indexType == IndexType.DYNAMIC_HILBERT_BTREE
                     && (keyType.getTypeTag() == ATypeTag.POINT || keyType.getTypeTag() == ATypeTag.RECTANGLE)) {
                 keyType = BuiltinType.APOINT;
+            } else if (indexType == IndexType.DYNAMIC_HILBERTVALUE_BTREE
+                    && (keyType.getTypeTag() == ATypeTag.POINT || keyType.getTypeTag() == ATypeTag.RECTANGLE)) {
+                keyType = BuiltinType.AINT64;
             }
 
             comparatorFactories[i] = AqlBinaryComparatorFactoryProvider.INSTANCE.getBinaryComparatorFactory(keyType,
@@ -1253,6 +1264,7 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
         switch (secondaryIndex.getIndexType()) {
             case BTREE:
             case STATIC_HILBERT_BTREE:
+            case DYNAMIC_HILBERTVALUE_BTREE:
             case DYNAMIC_HILBERT_BTREE: {
                 return getBTreeDmlRuntime(dataverseName, datasetName, indexName, propagatedSchema, typeEnv,
                         primaryKeys, secondaryKeys, additionalNonKeyFields, filterFactory, recordDesc, context, spec,
@@ -1748,16 +1760,24 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
                 if (secondaryIndex.getIndexType() == IndexType.STATIC_HILBERT_BTREE
                         && keyType.getTypeTag() == ATypeTag.POINT) {
                     keyType = BuiltinType.ABINARY;
-                }
-                if (secondaryIndex.getIndexType() == IndexType.DYNAMIC_HILBERT_BTREE
+                } else if (secondaryIndex.getIndexType() == IndexType.DYNAMIC_HILBERTVALUE_BTREE
                         && keyType.getTypeTag() == ATypeTag.POINT) {
-                    comparatorFactories[i] = AqlBinaryComparatorFactoryProvider.INSTANCE
-                            .getHilbertBinaryComparatorFactory(keyType, true);
-                } else {
+                    //Key of DYNAMIC_A_HILBERT_BTREE is an int64 Hilbert value
+                    keyType = BuiltinType.AINT64;
+                }
+
+                comparatorFactories[i] = AqlBinaryComparatorFactoryProvider.INSTANCE.getBinaryComparatorFactory(
+                        keyType, true);
+                typeTraits[i] = AqlTypeTraitProvider.INSTANCE.getTypeTrait(keyType);
+
+                if (secondaryIndex.getIndexType() == IndexType.DYNAMIC_HILBERTVALUE_BTREE) {
+                    i++;
+                    keyType = BuiltinType.APOINT;
                     comparatorFactories[i] = AqlBinaryComparatorFactoryProvider.INSTANCE.getBinaryComparatorFactory(
                             keyType, true);
+                    typeTraits[i] = AqlTypeTraitProvider.INSTANCE.getTypeTrait(keyType);
+                    break;
                 }
-                typeTraits[i] = AqlTypeTraitProvider.INSTANCE.getTypeTrait(keyType);
             }
             List<String> partitioningKeys = DatasetUtils.getPartitioningKeys(dataset);
             for (String partitioningKey : partitioningKeys) {

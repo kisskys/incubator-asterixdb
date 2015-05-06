@@ -82,25 +82,25 @@ public class SpatialIndexEvaluatorForSyntheticData10CopyPopulator {
                     + indexType + " ;\n");
         } else {
             sb.append("create index " + indexType + "CheckinCoordinate0 on FsqCheckinTweet0(coordinates) type "
-                    + indexType + "(-180.0,-90.0,180.0,90.0,h,h,h,h,h);\n");
+                    + indexType + "(-180.0,-90.0,180.0,90.0);\n");
             sb.append("create index " + indexType + "CheckinCoordinate1 on FsqCheckinTweet1(coordinates) type "
-                    + indexType + "(-180.0,-90.0,180.0,90.0,h,h,h,h,h);\n");
+                    + indexType + "(-180.0,-90.0,180.0,90.0);\n");
             sb.append("create index " + indexType + "CheckinCoordinate2 on FsqCheckinTweet2(coordinates) type "
-                    + indexType + "(-180.0,-90.0,180.0,90.0,h,h,h,h,h);\n");
+                    + indexType + "(-180.0,-90.0,180.0,90.0);\n");
             sb.append("create index " + indexType + "CheckinCoordinate3 on FsqCheckinTweet3(coordinates) type "
-                    + indexType + "(-180.0,-90.0,180.0,90.0,h,h,h,h,h);\n");
+                    + indexType + "(-180.0,-90.0,180.0,90.0);\n");
             sb.append("create index " + indexType + "CheckinCoordinate4 on FsqCheckinTweet4(coordinates) type "
-                    + indexType + "(-180.0,-90.0,180.0,90.0,h,h,h,h,h);\n");
+                    + indexType + "(-180.0,-90.0,180.0,90.0);\n");
             sb.append("create index " + indexType + "CheckinCoordinate5 on FsqCheckinTweet5(coordinates) type "
-                    + indexType + "(-180.0,-90.0,180.0,90.0,h,h,h,h,h);\n");
+                    + indexType + "(-180.0,-90.0,180.0,90.0);\n");
             sb.append("create index " + indexType + "CheckinCoordinate6 on FsqCheckinTweet6(coordinates) type "
-                    + indexType + "(-180.0,-90.0,180.0,90.0,h,h,h,h,h);\n");
+                    + indexType + "(-180.0,-90.0,180.0,90.0);\n");
             sb.append("create index " + indexType + "CheckinCoordinate7 on FsqCheckinTweet7(coordinates) type "
-                    + indexType + "(-180.0,-90.0,180.0,90.0,h,h,h,h,h);\n");
+                    + indexType + "(-180.0,-90.0,180.0,90.0);\n");
             sb.append("create index " + indexType + "CheckinCoordinate8 on FsqCheckinTweet8(coordinates) type "
-                    + indexType + "(-180.0,-90.0,180.0,90.0,h,h,h,h,h);\n");
+                    + indexType + "(-180.0,-90.0,180.0,90.0);\n");
             sb.append("create index " + indexType + "CheckinCoordinate9 on FsqCheckinTweet9(coordinates) type "
-                    + indexType + "(-180.0,-90.0,180.0,90.0,h,h,h,h,h);\n");
+                    + indexType + "(-180.0,-90.0,180.0,90.0);\n");
         }
         
         //create datatype for join dataset

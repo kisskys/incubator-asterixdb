@@ -442,6 +442,10 @@ public class AsterixBuiltinFunctions {
             "sif-tokens", 1);
     public final static FunctionIdentifier MSIF_TOKENS = new FunctionIdentifier(FunctionConstants.ASTERIX_NS,
             "msif-tokens", 1);
+    
+    //linearizers:
+    public final static FunctionIdentifier COMPUTE_INT64_HILBERT_VALUE = new FunctionIdentifier(FunctionConstants.ASTERIX_NS,
+            "compute-int64-hilbert-value", 1);
 
     public final static FunctionIdentifier TID = new FunctionIdentifier(FunctionConstants.ASTERIX_NS, "tid", 0);
     public final static FunctionIdentifier GTID = new FunctionIdentifier(FunctionConstants.ASTERIX_NS, "gtid", 0);
@@ -983,6 +987,7 @@ public class AsterixBuiltinFunctions {
                 return new AOrderedListType(BuiltinType.ASTRING, "string");
             }
         }, true);
+        addPrivateFunction(COMPUTE_INT64_HILBERT_VALUE, AInt64TypeComputer.INSTANCE, true);
 
         // temporal type accessors
         addFunction(ACCESSOR_TEMPORAL_YEAR, OptionalAInt32TypeComputer.INSTANCE, true);

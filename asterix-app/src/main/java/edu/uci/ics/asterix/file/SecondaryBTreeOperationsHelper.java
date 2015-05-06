@@ -27,7 +27,6 @@ import edu.uci.ics.asterix.common.context.AsterixVirtualBufferCacheProvider;
 import edu.uci.ics.asterix.common.exceptions.AsterixException;
 import edu.uci.ics.asterix.common.ioopcallbacks.LSMBTreeIOOperationCallbackFactory;
 import edu.uci.ics.asterix.common.ioopcallbacks.LSMBTreeWithBuddyIOOperationCallbackFactory;
-import edu.uci.ics.asterix.formats.nontagged.AqlBinaryComparatorFactoryProvider;
 import edu.uci.ics.asterix.metadata.declared.AqlMetadataProvider;
 import edu.uci.ics.asterix.metadata.entities.Index;
 import edu.uci.ics.asterix.metadata.external.IndexingConstants;
@@ -37,6 +36,7 @@ import edu.uci.ics.asterix.om.types.ATypeTag;
 import edu.uci.ics.asterix.om.types.BuiltinType;
 import edu.uci.ics.asterix.om.types.IAType;
 import edu.uci.ics.asterix.om.util.NonTaggedFormatUtil;
+import edu.uci.ics.asterix.runtime.evaluators.functions.ComputeInt64HilbertValueEvalFactory;
 import edu.uci.ics.asterix.transaction.management.opcallbacks.SecondaryIndexOperationTrackerProvider;
 import edu.uci.ics.asterix.transaction.management.resource.ExternalBTreeWithBuddyLocalResourceMetadata;
 import edu.uci.ics.asterix.transaction.management.resource.LSMBTreeLocalResourceMetadata;
@@ -80,86 +80,113 @@ import edu.uci.ics.hyracks.storage.common.file.LocalResource;
 
 public class SecondaryBTreeOperationsHelper extends SecondaryIndexOperationsHelper {
 
-    private IndexType indexType;
+    private final IndexType indexType;
     private IndexTypeProperty indexTypeProperty;
 
     protected SecondaryBTreeOperationsHelper(PhysicalOptimizationConfig physOptConf,
-            IAsterixPropertiesProvider propertiesProvider) {
+            IAsterixPropertiesProvider propertiesProvider, IndexType indexType) {
         super(physOptConf, propertiesProvider);
+        this.indexType = indexType;
     }
 
     @Override
-    public void setSecondaryRecDescAndComparators(IndexType indexType, IndexTypeProperty indexTypeProperty,
-            List<String> secondaryKeyFields, AqlMetadataProvider metadataProvider) throws AlgebricksException,
-            AsterixException {
-        this.indexType = indexType;
+    public void setSecondaryRecDescAndComparators(IndexTypeProperty indexTypeProperty, List<String> secondaryKeyFields,
+            AqlMetadataProvider metadataProvider) throws AlgebricksException, AsterixException {
         this.indexTypeProperty = indexTypeProperty;
-        secondaryFieldAccessEvalFactories = new ICopyEvaluatorFactory[numSecondaryKeys + numFilterFields];
-        if (indexType == IndexType.RTREE) {
-            secondaryComparatorFactories = new IBinaryComparatorFactory[numSecondaryKeys];
-        } else {
-            secondaryComparatorFactories = new IBinaryComparatorFactory[numSecondaryKeys + numPrimaryKeys];
+        int bloomfilterKeyFieldsCount = numSecondaryKeys;
+
+        if (indexType == IndexType.DYNAMIC_HILBERTVALUE_BTREE) {
+            /*
+             * DYNAMIC_HILBERTVALUE_BTREE index has the following fields in an entry.
+             * [ Hilbert value (AINT64) | point (APOINT) | PK ]
+             */
+            ++numSecondaryKeys;
         }
-        secondaryBloomFilterKeyFields = new int[numSecondaryKeys];
-        ISerializerDeserializer[] secondaryRecFields = new ISerializerDeserializer[numPrimaryKeys + numSecondaryKeys
-                + numFilterFields];
+
+        secondaryFieldAccessEvalFactories = new ICopyEvaluatorFactory[numSecondaryKeys + numFilterFields];
+        secondaryComparatorFactories = new IBinaryComparatorFactory[numSecondaryKeys + numPrimaryKeys];
+        secondaryBloomFilterKeyFields = new int[bloomfilterKeyFieldsCount];
+
+        ISerializerDeserializer[] secondaryRecFieldsSerde = new ISerializerDeserializer[numSecondaryKeys
+                + numPrimaryKeys + numFilterFields];
         secondaryTypeTraits = new ITypeTraits[numSecondaryKeys + numPrimaryKeys];
+
         ISerializerDeserializerProvider serdeProvider = metadataProvider.getFormat().getSerdeProvider();
         ITypeTraitProvider typeTraitProvider = metadataProvider.getFormat().getTypeTraitProvider();
         IBinaryComparatorFactoryProvider comparatorFactoryProvider = metadataProvider.getFormat()
                 .getBinaryComparatorFactoryProvider();
         // Record column is 0 for external datasets, numPrimaryKeys for internal ones
         int recordColumn = dataset.getDatasetType() == DatasetType.INTERNAL ? numPrimaryKeys : 0;
-        for (int i = 0; i < numSecondaryKeys; i++) {
-            secondaryFieldAccessEvalFactories[i] = metadataProvider.getFormat().getFieldAccessEvaluatorFactory(
-                    itemType, secondaryKeyFields.get(i), recordColumn);
-            Pair<IAType, Boolean> keyTypePair = Index.getNonNullableKeyFieldType(secondaryKeyFields.get(i), itemType);
-            IAType keyType = keyTypePair.first;
+
+        if (indexType == IndexType.DYNAMIC_HILBERTVALUE_BTREE) {
+            //eval factory for Hilbert value generation
+            String secondaryKeyFieldName = secondaryKeyFields.get(0);
+            ICopyEvaluatorFactory pointEvalFactory = metadataProvider.getFormat().getFieldAccessEvaluatorFactory(
+                    itemType, secondaryKeyFieldName, recordColumn);
+            secondaryFieldAccessEvalFactories[0] = new ComputeInt64HilbertValueEvalFactory(pointEvalFactory);
+            secondaryRecFieldsSerde[0] = serdeProvider.getSerializerDeserializer(BuiltinType.AINT64);
+            secondaryComparatorFactories[0] = comparatorFactoryProvider.getBinaryComparatorFactory(BuiltinType.AINT64,
+                    true);
+            secondaryTypeTraits[0] = typeTraitProvider.getTypeTrait(BuiltinType.AINT64);
+            secondaryBloomFilterKeyFields[0] = 0;
+
+            //eval factory for point generation
+            secondaryFieldAccessEvalFactories[1] = metadataProvider.getFormat().getFieldAccessEvaluatorFactory(
+                    itemType, secondaryKeyFieldName, recordColumn);
+            secondaryRecFieldsSerde[1] = serdeProvider.getSerializerDeserializer(BuiltinType.APOINT);
+            secondaryComparatorFactories[1] = comparatorFactoryProvider.getBinaryComparatorFactory(BuiltinType.APOINT,
+                    true);
+            secondaryTypeTraits[1] = typeTraitProvider.getTypeTrait(BuiltinType.APOINT);
+
+            //set nullable flag
+            Pair<IAType, Boolean> keyTypePair = Index.getNonNullableKeyFieldType(secondaryKeyFieldName, itemType);
             anySecondaryKeyIsNullable = anySecondaryKeyIsNullable || keyTypePair.second;
+        } else {
+            for (int i = 0; i < numSecondaryKeys; i++) {
+                secondaryFieldAccessEvalFactories[i] = metadataProvider.getFormat().getFieldAccessEvaluatorFactory(
+                        itemType, secondaryKeyFields.get(i), recordColumn);
+                Pair<IAType, Boolean> keyTypePair = Index.getNonNullableKeyFieldType(secondaryKeyFields.get(i),
+                        itemType);
+                IAType keyType = keyTypePair.first;
+                anySecondaryKeyIsNullable = anySecondaryKeyIsNullable || keyTypePair.second;
 
-            if (indexType == IndexType.STATIC_HILBERT_BTREE && keyType.getTypeTag() == ATypeTag.POINT) {
-                keyType = BuiltinType.ABINARY;
-            }
+                if (indexType == IndexType.STATIC_HILBERT_BTREE && keyType.getTypeTag() == ATypeTag.POINT) {
+                    keyType = BuiltinType.ABINARY;
+                } else if (indexType == IndexType.DYNAMIC_HILBERTVALUE_BTREE && keyType.getTypeTag() == ATypeTag.POINT) {
+                    keyType = BuiltinType.AINT64;
+                }
 
-            ISerializerDeserializer keySerde = serdeProvider.getSerializerDeserializer(keyType);
-            secondaryRecFields[i] = keySerde;
-            if (indexType == IndexType.DYNAMIC_HILBERT_BTREE && keyType.getTypeTag() == ATypeTag.POINT) {
-                secondaryComparatorFactories[i] = AqlBinaryComparatorFactoryProvider.INSTANCE
-                        .getHilbertBinaryComparatorFactory(keyType, true);
-            } else {
+                secondaryRecFieldsSerde[i] = serdeProvider.getSerializerDeserializer(keyType);
                 secondaryComparatorFactories[i] = comparatorFactoryProvider.getBinaryComparatorFactory(keyType, true);
+                secondaryTypeTraits[i] = typeTraitProvider.getTypeTrait(keyType);
+                secondaryBloomFilterKeyFields[i] = i;
             }
-            secondaryTypeTraits[i] = typeTraitProvider.getTypeTrait(keyType);
-            secondaryBloomFilterKeyFields[i] = i;
         }
+
         if (dataset.getDatasetType() == DatasetType.INTERNAL) {
             // Add serializers and comparators for primary index fields.
             for (int i = 0; i < numPrimaryKeys; i++) {
-                secondaryRecFields[numSecondaryKeys + i] = primaryRecDesc.getFields()[i];
+                secondaryRecFieldsSerde[numSecondaryKeys + i] = primaryRecDesc.getFields()[i];
                 secondaryTypeTraits[numSecondaryKeys + i] = primaryRecDesc.getTypeTraits()[i];
-                if (indexType != IndexType.RTREE) {
-                    secondaryComparatorFactories[numSecondaryKeys + i] = primaryComparatorFactories[i];
-                }
+                secondaryComparatorFactories[numSecondaryKeys + i] = primaryComparatorFactories[i];
             }
         } else {
             // Add serializers and comparators for RID fields.
             for (int i = 0; i < numPrimaryKeys; i++) {
-                secondaryRecFields[numSecondaryKeys + i] = IndexingConstants.getSerializerDeserializer(i);
+                secondaryRecFieldsSerde[numSecondaryKeys + i] = IndexingConstants.getSerializerDeserializer(i);
                 secondaryTypeTraits[numSecondaryKeys + i] = IndexingConstants.getTypeTraits(i);
-                if (indexType != IndexType.RTREE) {
-                    secondaryComparatorFactories[numSecondaryKeys + i] = IndexingConstants.getComparatorFactory(i);
-                }
+                secondaryComparatorFactories[numSecondaryKeys + i] = IndexingConstants.getComparatorFactory(i);
             }
         }
         if (numFilterFields > 0) {
             secondaryFieldAccessEvalFactories[numSecondaryKeys] = metadataProvider.getFormat()
-                    .getFieldAccessEvaluatorFactory(itemType, filterFieldName, numPrimaryKeys);
+                    .getFieldAccessEvaluatorFactory(itemType, filterFieldName, recordColumn);
             Pair<IAType, Boolean> keyTypePair = Index.getNonNullableKeyFieldType(filterFieldName, itemType);
             IAType type = keyTypePair.first;
             ISerializerDeserializer serde = serdeProvider.getSerializerDeserializer(type);
-            secondaryRecFields[numPrimaryKeys + numSecondaryKeys] = serde;
+            secondaryRecFieldsSerde[numPrimaryKeys + numSecondaryKeys] = serde;
         }
-        secondaryRecDesc = new RecordDescriptor(secondaryRecFields);
+        secondaryRecDesc = new RecordDescriptor(secondaryRecFieldsSerde);
     }
 
     @Override

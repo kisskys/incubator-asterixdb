@@ -151,13 +151,14 @@ public abstract class SecondaryIndexOperationsHelper {
         SecondaryIndexOperationsHelper indexOperationsHelper = null;
         switch (indexType) {
             case BTREE: 
-            case STATIC_HILBERT_BTREE: 
+            case STATIC_HILBERT_BTREE:
+            case DYNAMIC_HILBERTVALUE_BTREE:
             case DYNAMIC_HILBERT_BTREE:{
-                indexOperationsHelper = new SecondaryBTreeOperationsHelper(physOptConf, asterixPropertiesProvider);
+                indexOperationsHelper = new SecondaryBTreeOperationsHelper(physOptConf, asterixPropertiesProvider, indexType);
                 break;
             }
             case RTREE: {
-                indexOperationsHelper = new SecondaryRTreeOperationsHelper(physOptConf, asterixPropertiesProvider);
+                indexOperationsHelper = new SecondaryRTreeOperationsHelper(physOptConf, asterixPropertiesProvider, indexType);
                 break;
             }
             case SINGLE_PARTITION_WORD_INVIX:
@@ -166,7 +167,7 @@ public abstract class SecondaryIndexOperationsHelper {
             case LENGTH_PARTITIONED_NGRAM_INVIX: 
             case SIF: {
                 indexOperationsHelper = new SecondaryInvertedIndexOperationsHelper(physOptConf,
-                        asterixPropertiesProvider);
+                        asterixPropertiesProvider, indexType);
                 break;
             }
             default: {
@@ -178,8 +179,8 @@ public abstract class SecondaryIndexOperationsHelper {
         return indexOperationsHelper;
     }
     
-    public abstract void setSecondaryRecDescAndComparators(IndexType indexType, IndexTypeProperty indexTypeProperty,
-            List<String> secondaryKeyFields, AqlMetadataProvider metadataProvider) throws AlgebricksException, AsterixException;
+    public abstract void setSecondaryRecDescAndComparators(IndexTypeProperty indexTypeProperty, List<String> secondaryKeyFields,
+            AqlMetadataProvider metadataProvider) throws AlgebricksException, AsterixException;
 
     public abstract JobSpecification buildCreationJobSpec() throws AsterixException, AlgebricksException;
 
@@ -223,7 +224,7 @@ public abstract class SecondaryIndexOperationsHelper {
             primaryPartitionConstraint = primarySplitsAndConstraint.second;
             setPrimaryRecDescAndComparators();
         }
-        setSecondaryRecDescAndComparators(indexType, indexTypeProperty, secondaryKeyFields, metadataProvider);
+        setSecondaryRecDescAndComparators(indexTypeProperty, secondaryKeyFields, metadataProvider);
         numElementsHint = metadataProvider.getCardinalityPerPartitionHint(dataset);
         Pair<ILSMMergePolicyFactory, Map<String, String>> compactionInfo = DatasetUtils.getMergePolicyFactory(dataset,
                 metadataProvider.getMetadataTxnContext());

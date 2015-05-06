@@ -40,7 +40,8 @@ public class DatasetConfig {
         LENGTH_PARTITIONED_NGRAM_INVIX,
         SIF,
         STATIC_HILBERT_BTREE,
-        DYNAMIC_HILBERT_BTREE
+        DYNAMIC_HILBERT_BTREE,
+        DYNAMIC_HILBERTVALUE_BTREE
     };
 
     public enum ExternalDatasetTransactionState {

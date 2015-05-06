@@ -499,6 +499,10 @@ IndexParams IndexType() throws ParseException:
   	{
   		type = IndexType.DYNAMIC_HILBERT_BTREE;
   	}
+  | "dhvbtree"
+  	{
+  		type = IndexType.DYNAMIC_HILBERTVALUE_BTREE;
+  	}
   )
     {
       return new IndexParams(type, tp);

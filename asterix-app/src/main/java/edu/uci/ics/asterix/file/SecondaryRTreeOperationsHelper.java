@@ -96,10 +96,12 @@ public class SecondaryRTreeOperationsHelper extends SecondaryIndexOperationsHelp
     protected int[] rtreeFields;
     protected boolean isPointMBR;
     protected RecordDescriptor secondaryRecDescForPointMBR = null;
+    private final IndexType indexType;
 
     protected SecondaryRTreeOperationsHelper(PhysicalOptimizationConfig physOptConf,
-            IAsterixPropertiesProvider propertiesProvider) {
+            IAsterixPropertiesProvider propertiesProvider, IndexType indexType) {
         super(physOptConf, propertiesProvider);
+        this.indexType = indexType;
     }
 
     @Override
@@ -166,8 +168,8 @@ public class SecondaryRTreeOperationsHelper extends SecondaryIndexOperationsHelp
     }
 
     @Override
-    public void setSecondaryRecDescAndComparators(IndexType indexType, IndexTypeProperty indexTypeProperty,
-            List<String> secondaryKeyFields, AqlMetadataProvider metadata) throws AlgebricksException, AsterixException {
+    public void setSecondaryRecDescAndComparators(IndexTypeProperty indexTypeProperty, List<String> secondaryKeyFields,
+            AqlMetadataProvider metadata) throws AlgebricksException, AsterixException {
         int numSecondaryKeys = secondaryKeyFields.size();
         if (numSecondaryKeys != 1) {
             throw new AsterixException(

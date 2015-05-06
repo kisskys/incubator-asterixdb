@@ -163,6 +163,7 @@ import edu.uci.ics.asterix.runtime.evaluators.functions.CastListDescriptor;
 import edu.uci.ics.asterix.runtime.evaluators.functions.CastRecordDescriptor;
 import edu.uci.ics.asterix.runtime.evaluators.functions.ClosedRecordConstructorDescriptor;
 import edu.uci.ics.asterix.runtime.evaluators.functions.CodePointToStringDescriptor;
+import edu.uci.ics.asterix.runtime.evaluators.functions.ComputeInt64HilbertValueDescriptor;
 import edu.uci.ics.asterix.runtime.evaluators.functions.ContainsDescriptor;
 import edu.uci.ics.asterix.runtime.evaluators.functions.CountHashedGramTokensDescriptor;
 import edu.uci.ics.asterix.runtime.evaluators.functions.CountHashedWordTokensDescriptor;
@@ -571,6 +572,7 @@ public class NonTaggedDataFormat implements IDataFormat {
 
         temp.add(SIFTokensDescriptor.FACTORY);
         temp.add(MultiLevelSIFTokensDescriptor.FACTORY);
+        temp.add(ComputeInt64HilbertValueDescriptor.FACTORY);
 
         temp.add(EditDistanceDescriptor.FACTORY);
         temp.add(EditDistanceCheckDescriptor.FACTORY);

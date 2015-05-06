@@ -291,13 +291,13 @@ public class BTreeAccessMethod implements IAccessMethod {
                 return null;
             }
             IAType keyType = keyPairType.first;
-            
-            //TODO extend HilbertBTree to support composite key. 
-            if (keyPos == 0 && keyType.getTypeTag() == ATypeTag.POINT) {
-                //if the key type is POINT, then must use a linearizer btree.
+
+            //TODO extend HilbertBTree to support composite key.
+            IndexType indexType = chosenIndex.getIndexType();
+            if (indexType == IndexType.DYNAMIC_HILBERT_BTREE || indexType == IndexType.DYNAMIC_HILBERTVALUE_BTREE
+                    || indexType == IndexType.STATIC_HILBERT_BTREE) {
                 useLinearizerBTree = true;
-                IndexType indexType = chosenIndex.getIndexType();
-                if (indexType == IndexType.DYNAMIC_HILBERT_BTREE) {
+                if (indexType == IndexType.DYNAMIC_HILBERT_BTREE || indexType == IndexType.DYNAMIC_HILBERTVALUE_BTREE) {
                     limit = LimitType.LOW_INCLUSIVE;
                 } else { //STATIC_HILBERT_BTREE
                     limit = LimitType.EQUAL;
@@ -554,7 +554,8 @@ public class BTreeAccessMethod implements IAccessMethod {
             assignOpPoints.getInputs().add(new MutableObject<ILogicalOperator>(assignConstantSearchKeys));
             assignOpRectangle.getInputs().add(new MutableObject<ILogicalOperator>(assignOpPoints));
 
-            if (chosenIndexType == IndexType.DYNAMIC_HILBERT_BTREE) {
+            if (chosenIndexType == IndexType.DYNAMIC_HILBERT_BTREE
+                    || chosenIndexType == IndexType.DYNAMIC_HILBERTVALUE_BTREE) {
                 inputOp = assignOpRectangle;
                 jobGenParams.setLowKeyInclusive(lowKeyInclusive[0]);
                 jobGenParams.setHighKeyInclusive(highKeyInclusive[0]);
@@ -626,7 +627,7 @@ public class BTreeAccessMethod implements IAccessMethod {
                 tokenizeKeyExprs.add(new MutableObject<ILogicalExpression>(new VariableReferenceExpression(tokenVar)));
                 varTypes.add(BuiltinType.ABINARY);
 
-                // TokenizeOperator to tokenzie SK
+                // TokenizeOperator to tokenize SK
                 AqlIndex dataSourceIndex = new AqlIndex(chosenIndex, chosenIndex.getDataverseName(),
                         chosenIndex.getDatasetName(), (AqlMetadataProvider) context.getMetadataProvider());
                 List<Mutable<ILogicalExpression>> primaryExpressions = new ArrayList<Mutable<ILogicalExpression>>();

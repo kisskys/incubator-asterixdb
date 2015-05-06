@@ -249,6 +249,7 @@ public class IntroduceSecondaryIndexInsertDeleteRule implements IAlgebraicRewrit
             // BTree, Keyword, or n-gram index case
             IndexType indexType = index.getIndexType();
             if (indexType == IndexType.BTREE || indexType == IndexType.STATIC_HILBERT_BTREE
+                    || indexType == IndexType.DYNAMIC_HILBERTVALUE_BTREE
                     || indexType == IndexType.DYNAMIC_HILBERT_BTREE
                     || indexType == IndexType.SINGLE_PARTITION_WORD_INVIX
                     || indexType == IndexType.SINGLE_PARTITION_NGRAM_INVIX
@@ -263,15 +264,11 @@ public class IntroduceSecondaryIndexInsertDeleteRule implements IAlgebraicRewrit
                 AqlIndex dataSourceIndex = new AqlIndex(index, dataverseName, datasetName, mp);
 
                 // Introduce a TokenizeOperator for the following cases
-                if (indexType == IndexType.STATIC_HILBERT_BTREE || 
-                        ( insertOp.isBulkload() && 
-                                (indexType == IndexType.SINGLE_PARTITION_WORD_INVIX 
+                if (indexType == IndexType.STATIC_HILBERT_BTREE
+                        || (insertOp.isBulkload() && (indexType == IndexType.SINGLE_PARTITION_WORD_INVIX
                                 || indexType == IndexType.SINGLE_PARTITION_NGRAM_INVIX
                                 || indexType == IndexType.LENGTH_PARTITIONED_WORD_INVIX
-                                || indexType == IndexType.LENGTH_PARTITIONED_NGRAM_INVIX 
-                                || indexType == IndexType.SIF))
-                        ) 
-                {
+                                || indexType == IndexType.LENGTH_PARTITIONED_NGRAM_INVIX || indexType == IndexType.SIF))) {
 
                     // Check whether the index is length-partitioned or not.
                     // If partitioned, [input variables to TokenizeOperator,
@@ -322,7 +319,8 @@ public class IntroduceSecondaryIndexInsertDeleteRule implements IAlgebraicRewrit
                     // TokenizeOperator to tokenize [SK, PK] pairs
                     TokenizeOperator tokenUpdate = new TokenizeOperator(dataSourceIndex,
                             insertOp.getPrimaryKeyExpressions(), secondaryExpressions, tokenizeKeyVars,
-                            filterExpression, insertOp.getOperation(), insertOp.isBulkload(), isPartitioned, varTypes, false);
+                            filterExpression, insertOp.getOperation(), insertOp.isBulkload(), isPartitioned, varTypes,
+                            false);
                     tokenUpdate.getInputs().add(new MutableObject<ILogicalOperator>(assign));
                     context.computeAndSetTypeEnvironmentForOperator(tokenUpdate);
 
@@ -336,6 +334,48 @@ public class IntroduceSecondaryIndexInsertDeleteRule implements IAlgebraicRewrit
 
                     currentTop = indexUpdate;
                     op0.getInputs().add(new MutableObject<ILogicalOperator>(currentTop));
+
+                } else if (indexType == IndexType.DYNAMIC_HILBERTVALUE_BTREE) {
+                    /*
+                     * Fields of an entry in DYNAMIC_HILBERTVALUE_BTREE index will be aligned as follows:
+                     * [ Hilbert value (AINT64) | point (APOINT) | PK ]
+                     */
+                    
+                    // AssignOperator is required to compute a Hilbert value from the given point 
+                    ArrayList<LogicalVariable> hilbertValueAssignOpVarList = new ArrayList<LogicalVariable>();
+                    ArrayList<Mutable<ILogicalExpression>> hilbertValueAssignExprList = new ArrayList<Mutable<ILogicalExpression>>();
+                    AbstractFunctionCallExpression computeHilbertValueFunc = new ScalarFunctionCallExpression(
+                            FunctionUtils.getFunctionInfo(AsterixBuiltinFunctions.COMPUTE_INT64_HILBERT_VALUE));
+                    computeHilbertValueFunc.getArguments().add(
+                            new MutableObject<ILogicalExpression>(new VariableReferenceExpression(assign.getVariables()
+                                    .get(0))));
+                    hilbertValueAssignOpVarList.add(context.newVar());
+                    hilbertValueAssignExprList.add(new MutableObject<ILogicalExpression>(computeHilbertValueFunc));
+                    AssignOperator hilbertValueAssignOp = new AssignOperator(hilbertValueAssignOpVarList,
+                            hilbertValueAssignExprList);
+                    hilbertValueAssignOp.getInputs().add(new MutableObject<ILogicalOperator>(assign));
+                    context.computeAndSetTypeEnvironmentForOperator(hilbertValueAssignOp);
+
+                    //add the hilbert value computer expression at the first field of the secondary expression list.
+                    secondaryExpressions.add(0, new MutableObject<ILogicalExpression>(new VariableReferenceExpression(
+                            hilbertValueAssignOpVarList.get(0))));
+
+                    //reset filter expression
+                    filterExpression = null;
+                    filterExpression = createFilterExpression(hilbertValueAssignOpVarList,
+                            context.getOutputTypeEnvironment(hilbertValueAssignOp), false);
+                    
+                    IndexInsertDeleteOperator indexUpdate = new IndexInsertDeleteOperator(dataSourceIndex,
+                            insertOp.getPrimaryKeyExpressions(), secondaryExpressions, filterExpression,
+                            insertOp.getOperation(), insertOp.isBulkload());
+                    indexUpdate.setAdditionalFilteringExpressions(additionalFilteringExpressions);
+                    indexUpdate.getInputs().add(new MutableObject<ILogicalOperator>(hilbertValueAssignOp));
+
+                    currentTop = indexUpdate;
+                    context.computeAndSetTypeEnvironmentForOperator(indexUpdate);
+
+                    if (insertOp.isBulkload())
+                        op0.getInputs().add(new MutableObject<ILogicalOperator>(currentTop));
 
                 } else {
                     // When TokenizeOperator is not needed

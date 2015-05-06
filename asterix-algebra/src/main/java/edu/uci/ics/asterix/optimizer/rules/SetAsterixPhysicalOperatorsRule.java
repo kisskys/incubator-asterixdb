@@ -219,6 +219,7 @@ public class SetAsterixPhysicalOperatorsRule implements IAlgebraicRewriteRule {
                         switch (indexType) {
                             case BTREE: 
                             case STATIC_HILBERT_BTREE:
+                            case DYNAMIC_HILBERTVALUE_BTREE:
                             case DYNAMIC_HILBERT_BTREE:{
                                 BTreeJobGenParams btreeJobGenParams = new BTreeJobGenParams();
                                 btreeJobGenParams.readFromFuncArgs(f.getArguments());

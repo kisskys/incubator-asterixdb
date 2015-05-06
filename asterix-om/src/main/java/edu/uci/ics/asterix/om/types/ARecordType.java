@@ -432,6 +432,7 @@ public class ARecordType extends AbstractComplexType {
                                     + fieldType.getTypeTag() + " cannot be indexed using the Static Hilbert BTree index.");
                     }
                     break;
+                case DYNAMIC_HILBERTVALUE_BTREE:
                 case DYNAMIC_HILBERT_BTREE:
                     switch (fieldType.getTypeTag()) {
                         case POINT:

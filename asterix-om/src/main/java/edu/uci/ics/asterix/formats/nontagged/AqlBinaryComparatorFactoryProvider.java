@@ -85,23 +85,6 @@ public class AqlBinaryComparatorFactoryProvider implements IBinaryComparatorFact
         return getBinaryComparatorFactory(type, ascending);
     }
 
-    public IBinaryComparatorFactory getHilbertBinaryComparatorFactory(Object type, boolean ascending)
-            throws AlgebricksException {
-        if (type == null) {
-            throw new AlgebricksException("Unsupported Hilbert binary comparator for type: null");
-        }
-        ATypeTag typeTag = ((IAType) type).getTypeTag();
-        switch (typeTag) {
-            case POINT: {
-                return addOffset(AHilbertPointBinaryComparatorFactory.INSTANCE, ascending);
-            }
-
-            default: {
-                throw new AlgebricksException("Unsupported Hilbert binary comparator for type: " + typeTag);
-            }
-        }
-    }
-
     @Override
     public IBinaryComparatorFactory getBinaryComparatorFactory(Object type, boolean ascending) {
         if (type == null) {

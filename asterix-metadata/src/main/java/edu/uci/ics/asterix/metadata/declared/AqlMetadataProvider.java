@@ -780,32 +780,52 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
     private Pair<IBinaryComparatorFactory[], ITypeTraits[]> getComparatorFactoriesAndTypeTraitsOfSecondaryBTreeIndex(
             IndexType indexType, List<String> sidxKeyFieldNames, List<String> pidxKeyFieldNames, ARecordType recType)
             throws AlgebricksException {
+
+        /*
+         * DYNAMIC_HILBERTVALUE_BTREE index entries have 2 secondary key fields as follows:
+         * [ Hilbert value (AINT64) | point (APOINT) ]
+         * where Hilbert value is generated from point.
+         * Thus, the secondary index comparators and types should reflect this fact correctly.   
+         */
+
+        boolean isDHVBtree = indexType == IndexType.DYNAMIC_HILBERTVALUE_BTREE;
         IBinaryComparatorFactory[] comparatorFactories;
         ITypeTraits[] typeTraits;
-        int sidxKeyFieldCount = sidxKeyFieldNames.size();
+        int sidxKeyFieldCount = isDHVBtree ? sidxKeyFieldNames.size() + 1 : sidxKeyFieldNames.size();
         int pidxKeyFieldCount = pidxKeyFieldNames.size();
         typeTraits = new ITypeTraits[sidxKeyFieldCount + pidxKeyFieldCount];
         comparatorFactories = new IBinaryComparatorFactory[sidxKeyFieldCount + pidxKeyFieldCount];
 
         int i = 0;
-        for (; i < sidxKeyFieldCount; ++i) {
-            Pair<IAType, Boolean> keyPairType = Index.getNonNullableKeyFieldType(sidxKeyFieldNames.get(i).toString(),
-                    recType);
-            IAType keyType = keyPairType.first;
-            if (indexType == IndexType.STATIC_HILBERT_BTREE
-                    && (keyType.getTypeTag() == ATypeTag.POINT || keyType.getTypeTag() == ATypeTag.RECTANGLE)) {
-                keyType = BuiltinType.ABINARY;
-            } else if (indexType == IndexType.DYNAMIC_HILBERT_BTREE
-                    && (keyType.getTypeTag() == ATypeTag.POINT || keyType.getTypeTag() == ATypeTag.RECTANGLE)) {
-                keyType = BuiltinType.APOINT;
-            } else if (indexType == IndexType.DYNAMIC_HILBERTVALUE_BTREE
-                    && (keyType.getTypeTag() == ATypeTag.POINT || keyType.getTypeTag() == ATypeTag.RECTANGLE)) {
-                keyType = BuiltinType.AINT64;
-            }
+        if (isDHVBtree) {
+            comparatorFactories[i] = AqlBinaryComparatorFactoryProvider.INSTANCE.getBinaryComparatorFactory(
+                    BuiltinType.AINT64, true);
+            typeTraits[i] = AqlTypeTraitProvider.INSTANCE.getTypeTrait(BuiltinType.AINT64);
+            ++i;
+            comparatorFactories[i] = AqlBinaryComparatorFactoryProvider.INSTANCE.getBinaryComparatorFactory(
+                    BuiltinType.APOINT, true);
+            typeTraits[i] = AqlTypeTraitProvider.INSTANCE.getTypeTrait(BuiltinType.APOINT);
+            ++i;
+        } else {
+            for (; i < sidxKeyFieldCount; ++i) {
+                Pair<IAType, Boolean> keyPairType = Index.getNonNullableKeyFieldType(sidxKeyFieldNames.get(i)
+                        .toString(), recType);
+                IAType keyType = keyPairType.first;
+                if (indexType == IndexType.STATIC_HILBERT_BTREE
+                        && (keyType.getTypeTag() == ATypeTag.POINT || keyType.getTypeTag() == ATypeTag.RECTANGLE)) {
+                    keyType = BuiltinType.ABINARY;
+                } else if (indexType == IndexType.DYNAMIC_HILBERT_BTREE
+                        && (keyType.getTypeTag() == ATypeTag.POINT || keyType.getTypeTag() == ATypeTag.RECTANGLE)) {
+                    keyType = BuiltinType.APOINT;
+                } else if (indexType == IndexType.DYNAMIC_HILBERTVALUE_BTREE
+                        && (keyType.getTypeTag() == ATypeTag.POINT || keyType.getTypeTag() == ATypeTag.RECTANGLE)) {
+                    keyType = BuiltinType.AINT64;
+                }
 
-            comparatorFactories[i] = AqlBinaryComparatorFactoryProvider.INSTANCE.getBinaryComparatorFactory(keyType,
-                    true);
-            typeTraits[i] = AqlTypeTraitProvider.INSTANCE.getTypeTrait(keyType);
+                comparatorFactories[i] = AqlBinaryComparatorFactoryProvider.INSTANCE.getBinaryComparatorFactory(
+                        keyType, true);
+                typeTraits[i] = AqlTypeTraitProvider.INSTANCE.getTypeTrait(keyType);
+            }
         }
 
         for (int j = 0; j < pidxKeyFieldCount; ++j, ++i) {

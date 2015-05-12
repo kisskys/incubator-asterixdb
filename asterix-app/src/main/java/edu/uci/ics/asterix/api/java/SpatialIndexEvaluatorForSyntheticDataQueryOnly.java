@@ -334,6 +334,8 @@ public class SpatialIndexEvaluatorForSyntheticDataQueryOnly {
                 runQuery("SHBTree", j);
             } else if (indexType.contains("dhbtree")) {
                 runQuery("DHBTree", j);
+            } else if (indexType.contains("dhvbtree")) {
+                runQuery("DHVBTree", j);
             } else if (indexType.contains("rtree")) {
                 runQuery("RTree", j);
             } else if (indexType.contains("sif")) {

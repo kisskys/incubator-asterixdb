@@ -303,7 +303,7 @@ public class SpatialIndexEvaluatorForSyntheticData10CopyQueryOnly {
         if (args.length < 7) {
             System.out
                     .println("Example Usage: java -jar SpatialIndexEvaluatorForSyntheticData10CopyQueryOnly.jar <index type> <workload type> <dataset name> <iteration count> <circle radius> <cc ipAddress> <cc portnum>");
-            System.out.println("\targ0: index type - shbtree, dhbtree, sif, or rtree");
+            System.out.println("\targ0: index type - shbtree, dhbtree, dhvbtree, sif, or rtree");
             System.out.println("\targ1: workload type - load or query");
             System.out.println("\targ2: dataset name to use");
             System.out.println("\targ3: iteration count");
@@ -334,6 +334,8 @@ public class SpatialIndexEvaluatorForSyntheticData10CopyQueryOnly {
                 runQuery("SHBTree", j);
             } else if (indexType.contains("dhbtree")) {
                 runQuery("DHBTree", j);
+            } else if (indexType.contains("dhvbtree")) {
+                runQuery("DHVBTree", j);
             } else if (indexType.contains("rtree")) {
                 runQuery("RTree", j);
             } else if (indexType.contains("sif")) {

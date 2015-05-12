@@ -307,7 +307,7 @@ public class SpatialIndexEvaluatorForSyntheticData {
         if (args.length < 8) {
             System.out
                     .println("Example Usage: java -jar SpatialIndexEvaluatorForSyntheticData.jar <index type> <workload type> <dataset name> <iteration count> <circle radius> <cc ipAddress> <cc portnum> <admFilePath> [rand]");
-            System.out.println("\targ0: index type - shbtree, dhbtree, sif, or rtree");
+            System.out.println("\targ0: index type - shbtree, dhbtree, dhvbtree, sif, or rtree");
             System.out.println("\targ1: workload type - load or query");
             System.out.println("\targ2: dataset name to use");
             System.out.println("\targ3: iteration count");
@@ -339,6 +339,8 @@ public class SpatialIndexEvaluatorForSyntheticData {
                     runSHBTreeLoad(0);
                 } else if (indexType.contains("dhbtree") && workType.contains("query")) {
                     runDHBTreeLoad(0);
+                } else if (indexType.contains("dhvbtree") && workType.contains("query")) {
+                    runDHVBTreeLoad(0);
                 } else if (indexType.contains("rtree") && workType.contains("query")) {
                     runRTreeLoad(0);
                 } else if (indexType.contains("sif") && workType.contains("query")) {
@@ -363,6 +365,12 @@ public class SpatialIndexEvaluatorForSyntheticData {
                     runDHBTreeLoad(j);
                 } else if (args[1].contains("query")) {
                     runQuery("DHBTree", j);
+                }
+            } else if (args[0].contains("dhvbtree")) {
+                if (args[1].contains("load")) {
+                    runDHVBTreeLoad(j);
+                } else if (args[1].contains("query")) {
+                    runQuery("DHVBTree", j);
                 }
             } else if (args[0].contains("rtree")) {
                 if (args[1].contains("load")) {
@@ -438,6 +446,31 @@ public class SpatialIndexEvaluatorForSyntheticData {
             response = ahc.execute();
             sw.stop();
             sb.append("DHBTreeIndex: " + sw.getElapsedTime() + "\n");
+            ahc.printResult(response, fosLoadHBTree);
+        } finally {
+            ahc.closeOutputFile(fosLoadHBTree);
+            System.out.println(sb.toString());
+        }
+    }
+    
+    private static void runDHVBTreeLoad(int runCount) throws URISyntaxException, IOException {
+        HttpResponse response;
+        AsterixHttpClient ahc = new AsterixHttpClient(ipAddress, portNum);
+        StringBuilder sb = new StringBuilder();
+        FileOutputStream fosLoadHBTree = ahc.openOutputFile("./DHVBTreeLoadResult" + runCount + ".txt");
+
+        try {
+            //drop existing index
+            ahc.prepareDDL(getDropDHVBTreeAQL());
+            response = ahc.execute();
+            ahc.printResult(response, fosLoadHBTree);
+
+            //create a new index
+            ahc.prepareDDL(getCreateDHVBTreeAQL());
+            sw.start();
+            response = ahc.execute();
+            sw.stop();
+            sb.append("DHVBTreeIndex: " + sw.getElapsedTime() + "\n");
             ahc.printResult(response, fosLoadHBTree);
         } finally {
             ahc.closeOutputFile(fosLoadHBTree);
@@ -606,6 +639,22 @@ public class SpatialIndexEvaluatorForSyntheticData {
         }
         throw new IllegalArgumentException("Unknown dataset name: " + datasetName);
     }
+    
+    private static String getCreateDHVBTreeAQL() {
+        if (datasetName.contains("SimpleGeoPlace")) {
+            return " use dataverse STBench;"
+                    + " create index dhvbtreePlaceCoordinate on SimpleGeoPlace(coordinates) type dhvbtree;  ";
+        }
+        if (datasetName.contains("FsqCheckinTweet")) {
+            return " use dataverse STBench;"
+                    + " create index dhvbtreeCheckinCoordinate on FsqCheckinTweet(coordinates) type dhvbtree;  ";
+        }
+        if (datasetName.contains("FsqVenue")) {
+            return " use dataverse STBench;"
+                    + " create index dhvbtreeVenueCoordinate on FsqVenue(coordinates) type dhvbtree;  ";
+        }
+        throw new IllegalArgumentException("Unknown dataset name: " + datasetName);
+    }
 
     private static String getCreateRTreeAQL() {
         if (datasetName.contains("SimpleGeoPlace")) {
@@ -665,6 +714,19 @@ public class SpatialIndexEvaluatorForSyntheticData {
         throw new IllegalArgumentException("Unknown dataset name: " + datasetName);
     }
 
+    private static String getDropDHVBTreeAQL() {
+        if (datasetName.contains("SimpleGeoPlace")) {
+            return " use dataverse STBench;" + " drop index SimpleGeoPlace.dhvbtreePlaceCoordinate;  ";
+        }
+        if (datasetName.contains("FsqCheckinTweet")) {
+            return " use dataverse STBench;" + " drop index FsqCheckinTweet.dhvbtreeCheckinCoordinate;  ";
+        }
+        if (datasetName.contains("FsqVenue")) {
+            return " use dataverse STBench;" + " drop index FsqVenue.dhvbtreeVenueCoordinate;  ";
+        }
+        throw new IllegalArgumentException("Unknown dataset name: " + datasetName);
+    }
+    
     private static String getDropRTreeAQL() {
         if (datasetName.contains("SimpleGeoPlace")) {
             return " use dataverse STBench;" + " drop index SimpleGeoPlace.rtreePlaceCoordinate;  ";

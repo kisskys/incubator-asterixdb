@@ -14,7 +14,7 @@ public class SpatialIndexEvaluatorForSyntheticData10CopyPopulator {
         if (args.length < 3) {
             System.out
                     .println("Example Usage: java -jar SpatialIndexEvaluatorForSyntheticData10CopyPopulator.jar <index type> <cc ip address> <asterix api port num>");
-            System.out.println("\targ0: index type - rtree, shbtree, dhbtree, or sif");
+            System.out.println("\targ0: index type - rtree, shbtree, dhbtree, dhvbtree, or sif");
             System.out.println("\targ1: asterix cc ip address");
             System.out.println("\targ2: asterix api port number");
             System.exit(-1);
@@ -59,7 +59,7 @@ public class SpatialIndexEvaluatorForSyntheticData10CopyPopulator {
         sb.append(" create dataset FsqCheckinTweet9 (FsqCheckinTweetType) primary key id; \n");
 
         //create indexes
-        if (indexType.contains("rtree") || indexType.contains("dhbtree")) {
+        if (indexType.contains("rtree") || indexType.contains("dhbtree") || indexType.contains("dhvbtree")) {
             sb.append("create index " + indexType + "CheckinCoordinate0 on FsqCheckinTweet0(coordinates) type "
                     + indexType + " ;\n");
             sb.append("create index " + indexType + "CheckinCoordinate1 on FsqCheckinTweet1(coordinates) type "

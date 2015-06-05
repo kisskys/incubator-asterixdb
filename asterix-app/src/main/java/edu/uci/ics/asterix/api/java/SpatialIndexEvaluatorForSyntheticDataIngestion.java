@@ -19,7 +19,7 @@ public class SpatialIndexEvaluatorForSyntheticDataIngestion {
         if (args.length < 4) {
             System.out
                     .println("Example Usage: java -jar SpatialIndexEvaluatorForSyntheticDataIngestion.jar <index type> <cc ip address> <asterix api port num> <adm file path>");
-            System.out.println("\targ0: index type - rtree, shbtree, dhbtree, or sif");
+            System.out.println("\targ0: index type - rtree, shbtree, dhbtree, dhvbtree, or sif");
             System.out.println("\targ1: asterix cc ip address");
             System.out.println("\targ2: asterix api port number");
             System.out.println("\targ3: adm file path");
@@ -73,7 +73,7 @@ public class SpatialIndexEvaluatorForSyntheticDataIngestion {
         sb.append(" create dataset FsqCheckinTweet (FsqCheckinTweetType) primary key id \n");
 
         //create indexes
-        if (indexType.contains("rtree") || indexType.contains("dhbtree")) {
+        if (indexType.contains("rtree") || indexType.contains("dhbtree") || indexType.contains("dhvbtree")) {
             sb.append("create index " + indexType + "CheckinCoordinate on FsqCheckinTweet(coordinates) type "
                     + indexType + " ;\n");
         } else {

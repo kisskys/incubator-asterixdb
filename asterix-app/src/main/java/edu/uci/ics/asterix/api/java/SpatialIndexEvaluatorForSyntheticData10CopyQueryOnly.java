@@ -315,31 +315,37 @@ public class SpatialIndexEvaluatorForSyntheticData10CopyQueryOnly {
 
         indexType = args[0];
         workType = args[1]; //either select or join.
-        if (workType.contains("join")) isJoin = true;
+        if (workType.contains("join"))
+            isJoin = true;
         datasetName = args[2];
         int runCount = Integer.parseInt(args[3]);
-        circleRadius = Double.parseDouble(args[4]);
+        double radius = Double.parseDouble(args[4]);
         ipAddress = args[5];
         portNum = args[6];
 
         //datasets and indexes are already populated.
-        for (int j = 0; j < runCount; j++) {
-            if (j != 0) {
-                circleRadius *= 10;
-            }
-            System.out.println("running " + indexType + " " + workType + " " + datasetName + " " + runCount + "(" + j
-                    + ") " + circleRadius + " " + ipAddress + " " + portNum);
+        for (int i = 0; i < 2; i++) { //1 for cache warm-up and 1 for measure.
+            joinIdx = 0;
+            coordCircleIdx = 0;
+            circleRadius = radius;
+            for (int j = 0; j < runCount; j++) {
+                if (j != 0) {
+                    circleRadius *= 10;
+                }
+                System.out.println("running " + indexType + " " + workType + " " + datasetName + " " + runCount + "("
+                        + j + ") " + circleRadius + " " + ipAddress + " " + portNum);
 
-            if (indexType.contains("shbtree")) {
-                runQuery("SHBTree", j);
-            } else if (indexType.contains("dhbtree")) {
-                runQuery("DHBTree", j);
-            } else if (indexType.contains("dhvbtree")) {
-                runQuery("DHVBTree", j);
-            } else if (indexType.contains("rtree")) {
-                runQuery("RTree", j);
-            } else if (indexType.contains("sif")) {
-                runQuery("SIF", j);
+                if (indexType.contains("shbtree")) {
+                    runQuery("SHBTree", j);
+                } else if (indexType.contains("dhbtree")) {
+                    runQuery("DHBTree", j);
+                } else if (indexType.contains("dhvbtree")) {
+                    runQuery("DHVBTree", j);
+                } else if (indexType.contains("rtree")) {
+                    runQuery("RTree", j);
+                } else if (indexType.contains("sif")) {
+                    runQuery("SIF", j);
+                }
             }
         }
     }
@@ -423,7 +429,7 @@ public class SpatialIndexEvaluatorForSyntheticData10CopyQueryOnly {
 
     private static String getJoinQueryAQL(int datasetNumber) {
         Double radius = circleRadius;
-        int lowId = joinIdx * 1000; 
+        int lowId = joinIdx * 1000;
         int highId = lowId + 100; //for every 1000 records, use the first 100 records for probe side.
 
         /* example query
@@ -449,7 +455,5 @@ public class SpatialIndexEvaluatorForSyntheticData10CopyQueryOnly {
 
         return sb.toString();
     }
-    
-    
 
 }

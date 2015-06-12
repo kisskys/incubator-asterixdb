@@ -31,6 +31,7 @@ import edu.uci.ics.hyracks.storage.am.common.api.ITokenFactory;
 
 public abstract class SpatialCellBinaryTokenizer implements IBinaryTokenizer {
 
+    protected final static boolean DEBUG = false;
     protected final static int MAX_LEVEL = IndexTypeProperty.CELL_BASED_SPATIAL_INDEX_MAX_LEVEL;
     protected final double bottomLeftX;
     protected final double bottomLeftY;
@@ -150,7 +151,7 @@ public abstract class SpatialCellBinaryTokenizer implements IBinaryTokenizer {
     public abstract void next() throws HyracksDataException;
 
     //for debugging
-    protected void printCellId(byte[] cId) {
+    protected String cellId2String(byte[] cId) {
         StringBuilder sb = new StringBuilder();
         sb.append("cellId: [");
         for (int i = 0; i < tokenSize; i++) {
@@ -160,7 +161,7 @@ public abstract class SpatialCellBinaryTokenizer implements IBinaryTokenizer {
             }
         }
         sb.append("]");
-        System.out.println(sb.toString());
+        return sb.toString();
     }
 
     // This method returns a set of cell Ids overlapped or completely contained in a given point or a rectangle.
@@ -300,6 +301,12 @@ public abstract class SpatialCellBinaryTokenizer implements IBinaryTokenizer {
             cellIdSorter.quicksort(hilbertValue, hilbertValueCount);
         }
 
+        if (DEBUG) {
+            System.out.println("------- generatedCellIds -------");
+            for (int i = 0; i < hilbertValueCount; i++) {
+                System.out.println("[" + i + "] range? " + (highkeyFlag.get(i) ? "y " : "n ") +  cellId2String(hilbertValue[i]));
+            }
+        }
     }
 
     @Override
@@ -348,6 +355,14 @@ public abstract class SpatialCellBinaryTokenizer implements IBinaryTokenizer {
             ++head;
         }
         hilbertValueCount = highkey + 1;
+        
+        if (DEBUG && merged) {
+            System.out.println("------- mergedCellIds -------");
+            for (int i = 0; i < hilbertValueCount; i++) {
+                System.out.println("[" + i + "] range? " + (highkeyFlag.get(i) ? "y " : "n ") +  cellId2String(hilbertValue[i]));
+            }
+        }
+        
         return merged;
     }
 

@@ -128,6 +128,9 @@ public class MultiLevelSIFBinaryTokenizer extends SpatialCellBinaryTokenizer {
             throw new HyracksDataException(e);
         }
         token.reset(bytearr, 0, bytearr.length, strCellId.length(), 1);
+        if (DEBUG) {
+            System.out.println(cellId2String(tHilbertValue));
+        }
     }
 
     @Override
@@ -217,6 +220,14 @@ public class MultiLevelSIFBinaryTokenizer extends SpatialCellBinaryTokenizer {
         }
 
         hilbertValueCount = tail;
+
+        if (DEBUG && promoted) {
+            System.out.println("------- promotededCellIds -------");
+            for (int i = 0; i < hilbertValueCount; i++) {
+                System.out.println("[" + i + "] range? " + (highkeyFlag.get(i) ? "y " : "n ")
+                        + cellId2String(hilbertValue[i]));
+            }
+        }
 
         return promoted;
     }

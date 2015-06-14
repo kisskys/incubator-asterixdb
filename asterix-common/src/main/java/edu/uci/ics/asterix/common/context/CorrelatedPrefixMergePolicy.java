@@ -46,7 +46,7 @@ public class CorrelatedPrefixMergePolicy implements ILSMMergePolicy {
     }
 
     @Override
-    public void diskComponentAdded(final ILSMIndex index, boolean fullMergeIsRequested, AbstractDiskLSMComponent newComponent) throws HyracksDataException,
+    public void diskComponentAdded(final ILSMIndex index, boolean fullMergeIsRequested, AbstractDiskLSMComponent newComponent, boolean isMergeOp) throws HyracksDataException,
             IndexException {
         // This merge policy will only look at primary indexes in order to evaluate if a merge operation is needed. If it decides that
         // a merge operation is needed, then it will merge *all* the indexes that belong to the dataset. The criteria to decide if a merge

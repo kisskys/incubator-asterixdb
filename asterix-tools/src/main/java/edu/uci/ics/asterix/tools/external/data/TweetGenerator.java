@@ -32,6 +32,8 @@ public class TweetGenerator {
     public static final String KEY_DURATION = "duration";
     public static final String KEY_TPS = "tps";
     public static final String KEY_GUID_SEED = "guid-seed";
+    public static final String KEY_OPENSTREETMAP_FILEPATH = "open-street-map-filepath";
+    public static final String KEY_LOCATION_SAMPLE_INTERVAL = "location-sample-interval";
 
     public static final String OUTPUT_FORMAT = "output-format";
     public static final String OUTPUT_FORMAT_ARECORD = "arecord";
@@ -39,6 +41,7 @@ public class TweetGenerator {
 
     private static final int DEFAULT_DURATION = 60; //seconds
     private static final int DEFAULT_GUID_SEED = 0;
+    private static final int DEFAULT_SAMPLE_INTERVAL = 1;
 
     private int duration;
     private TweetMessageIterator tweetIterator = null;
@@ -50,6 +53,8 @@ public class TweetGenerator {
     private DataGenerator dataGenerator = null;
     private ByteBuffer outputBuffer = ByteBuffer.allocate(32 * 1024);
     private GULongIDGenerator uidGenerator;
+    private String openStreetMapFilePath;
+    private int locationSampleInterval;
 
     public int getTweetCount() {
         return tweetCount;
@@ -60,10 +65,14 @@ public class TweetGenerator {
         this.partition = partition;
         String value = configuration.get(KEY_DURATION);
         this.duration = value != null ? Integer.parseInt(value) : DEFAULT_DURATION;
+        openStreetMapFilePath = configuration.get(KEY_OPENSTREETMAP_FILEPATH);
+        String lsi = configuration.get(KEY_LOCATION_SAMPLE_INTERVAL);
+        this.locationSampleInterval = lsi != null ? Integer.parseInt(lsi) : DEFAULT_SAMPLE_INTERVAL;
+        
         int guidSeed = configuration.get(KEY_GUID_SEED) != null ? Integer.parseInt(configuration.get(KEY_GUID_SEED))
                 : DEFAULT_GUID_SEED;
         uidGenerator = new GULongIDGenerator(partition, (byte) (guidSeed));
-        dataGenerator = new DataGenerator(new InitializationInfo());
+        dataGenerator = new DataGenerator(new InitializationInfo(), openStreetMapFilePath, locationSampleInterval);
         tweetIterator = dataGenerator.new TweetMessageIterator(duration, uidGenerator);
         this.os = os;
     }
@@ -99,6 +108,8 @@ public class TweetGenerator {
         if (!moreData) {
             if (outputBuffer.position() > 0) {
                 flush();
+                numFlushedTweets += frameTweetCount;
+                frameTweetCount = 0;
             }
             if (LOGGER.isLoggable(Level.INFO)) {
                 LOGGER.info("Reached end of batch. Tweet Count: [" + partition + "]" + tweetCount);
@@ -112,5 +123,12 @@ public class TweetGenerator {
             }
             return true;
         }
+    }
+    
+    public void resetDurationAndFlushedTweetCount(int duration) {
+        tweetIterator.resetDuration(duration);
+        numFlushedTweets = 0;
+        tweetCount = 0;
+        
     }
 }

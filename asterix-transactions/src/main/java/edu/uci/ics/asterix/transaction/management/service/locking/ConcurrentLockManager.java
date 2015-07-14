@@ -893,6 +893,8 @@ public class ConcurrentLockManager implements ILockManager, ILifeCycleComponent 
 
     private void requestAbort(ITransactionContext txnContext, String msg) throws ACIDException {
         txnContext.setTimeout(true);
+        LOGGER.info("Exception: Transaction " + txnContext.getJobId() + " should abort (requested by the Lock Manager)" + ":\n" + msg);
+        System.out.println("Exception: Transaction " + txnContext.getJobId() + " should abort (requested by the Lock Manager)" + ":\n" + msg);
         throw new ACIDException("Transaction " + txnContext.getJobId()
                 + " should abort (requested by the Lock Manager)" + ":\n" + msg);
     }

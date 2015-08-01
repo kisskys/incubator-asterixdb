@@ -150,7 +150,7 @@ public class SIE1ReportBuilderRunner{
         for (int i = 0; i < 1; i++) {
             sb.setLength(0);
             sb.append("# sie1 1node(1 dataGen) instantaneous inserts per second report\n");
-            sb.append(sie1DDhbtree.getInstantaneousInsertPS(i, true));
+            sb.append(sie1ADhbtree.getInstantaneousInsertPS(i, true));
             FileOutputStream fos = ReportBuilderHelper.openOutputFile(filePath + "sie1_gantt_1node_instantaneous_insert_ps_dhbtree_gen"+i+".txt");
             fos.write(sb.toString().getBytes());
             ReportBuilderHelper.closeOutputFile(fos);
@@ -158,7 +158,7 @@ public class SIE1ReportBuilderRunner{
         for (int i = 0; i < 1; i++) {
             sb.setLength(0);
             sb.append("# sie1 1node(1 dataGen) instantaneous inserts per second report\n");
-            sb.append(sie1DDhvbtree.getInstantaneousInsertPS(i, true));
+            sb.append(sie1ADhvbtree.getInstantaneousInsertPS(i, true));
             FileOutputStream fos = ReportBuilderHelper.openOutputFile(filePath + "sie1_gantt_1node_instantaneous_insert_ps_dhvbtree_gen"+i+".txt");
             fos.write(sb.toString().getBytes());
             ReportBuilderHelper.closeOutputFile(fos);
@@ -166,7 +166,7 @@ public class SIE1ReportBuilderRunner{
         for (int i = 0; i < 1; i++) {
             sb.setLength(0);
             sb.append("# sie1 1node(1 dataGen) instantaneous inserts per second report\n");
-            sb.append(sie1DRtree.getInstantaneousInsertPS(i, true));
+            sb.append(sie1ARtree.getInstantaneousInsertPS(i, true));
             FileOutputStream fos = ReportBuilderHelper.openOutputFile(filePath + "sie1_gantt_1node_instantaneous_insert_ps_rtree_gen"+i+".txt");
             fos.write(sb.toString().getBytes());
             ReportBuilderHelper.closeOutputFile(fos);
@@ -174,7 +174,7 @@ public class SIE1ReportBuilderRunner{
         for (int i = 0; i < 1; i++) {
             sb.setLength(0);
             sb.append("# sie1 1node(1 dataGen) instantaneous inserts per second report\n");
-            sb.append(sie1DShbtree.getInstantaneousInsertPS(i, true));
+            sb.append(sie1AShbtree.getInstantaneousInsertPS(i, true));
             FileOutputStream fos = ReportBuilderHelper.openOutputFile(filePath + "sie1_gantt_1node_instantaneous_insert_ps_shbtree_gen"+i+".txt");
             fos.write(sb.toString().getBytes());
             ReportBuilderHelper.closeOutputFile(fos);
@@ -182,7 +182,7 @@ public class SIE1ReportBuilderRunner{
         for (int i = 0; i < 1; i++) {
             sb.setLength(0);
             sb.append("# sie1 1node(1 dataGen) instantaneous inserts per second report\n");
-            sb.append(sie1DSif.getInstantaneousInsertPS(i, true));
+            sb.append(sie1ASif.getInstantaneousInsertPS(i, true));
             FileOutputStream fos = ReportBuilderHelper.openOutputFile(filePath + "sie1_gantt_1node_instantaneous_insert_ps_sif_gen"+i+".txt");
             fos.write(sb.toString().getBytes());
             ReportBuilderHelper.closeOutputFile(fos);
@@ -192,7 +192,39 @@ public class SIE1ReportBuilderRunner{
         NCLogReportBuilder ncLogReportBuilder = new NCLogReportBuilder("/Users/kisskys/workspace/asterix_experiment/run-log/measure-with-balloon/sie1-8dgen/log-1436511417368/SpatialIndexExperiment1ADhbtree/logs/a1_node1.log");
         sb.setLength(0);
         sb.append(ncLogReportBuilder.getFlushMergeEventAsGanttChartFormat(dataGenStartTime));
-        FileOutputStream fos = ReportBuilderHelper.openOutputFile(filePath + "sie1_gantt_1node_flush_merge.txt");
+        FileOutputStream fos = ReportBuilderHelper.openOutputFile(filePath + "sie1_gantt_1node_flush_merge_dhbtree.txt");
+        fos.write(sb.toString().getBytes());
+        ReportBuilderHelper.closeOutputFile(fos);
+        
+        dataGenStartTime = sie1ADhvbtree.getDataGenStartTimeStamp();
+        ncLogReportBuilder = new NCLogReportBuilder("/Users/kisskys/workspace/asterix_experiment/run-log/measure-with-balloon/sie1-8dgen/log-1436511417368/SpatialIndexExperiment1ADhvbtree/logs/a1_node1.log");
+        sb.setLength(0);
+        sb.append(ncLogReportBuilder.getFlushMergeEventAsGanttChartFormat(dataGenStartTime));
+        fos = ReportBuilderHelper.openOutputFile(filePath + "sie1_gantt_1node_flush_merge_dhvbtree.txt");
+        fos.write(sb.toString().getBytes());
+        ReportBuilderHelper.closeOutputFile(fos);
+        
+        dataGenStartTime = sie1ARtree.getDataGenStartTimeStamp();
+        ncLogReportBuilder = new NCLogReportBuilder("/Users/kisskys/workspace/asterix_experiment/run-log/measure-with-balloon/sie1-8dgen/log-1436511417368/SpatialIndexExperiment1ARtree/logs/a1_node1.log");
+        sb.setLength(0);
+        sb.append(ncLogReportBuilder.getFlushMergeEventAsGanttChartFormat(dataGenStartTime));
+        fos = ReportBuilderHelper.openOutputFile(filePath + "sie1_gantt_1node_flush_merge_rtree.txt");
+        fos.write(sb.toString().getBytes());
+        ReportBuilderHelper.closeOutputFile(fos);
+        
+        dataGenStartTime = sie1AShbtree.getDataGenStartTimeStamp();
+        ncLogReportBuilder = new NCLogReportBuilder("/Users/kisskys/workspace/asterix_experiment/run-log/measure-with-balloon/sie1-8dgen/log-1436511417368/SpatialIndexExperiment1AShbtree/logs/a1_node1.log");
+        sb.setLength(0);
+        sb.append(ncLogReportBuilder.getFlushMergeEventAsGanttChartFormat(dataGenStartTime));
+        fos = ReportBuilderHelper.openOutputFile(filePath + "sie1_gantt_1node_flush_merge_shbtree.txt");
+        fos.write(sb.toString().getBytes());
+        ReportBuilderHelper.closeOutputFile(fos);
+        
+        dataGenStartTime = sie1ASif.getDataGenStartTimeStamp();
+        ncLogReportBuilder = new NCLogReportBuilder("/Users/kisskys/workspace/asterix_experiment/run-log/measure-with-balloon/sie1-8dgen/log-1436511417368/SpatialIndexExperiment1ASif/logs/a1_node1.log");
+        sb.setLength(0);
+        sb.append(ncLogReportBuilder.getFlushMergeEventAsGanttChartFormat(dataGenStartTime));
+        fos = ReportBuilderHelper.openOutputFile(filePath + "sie1_gantt_1node_flush_merge_sif.txt");
         fos.write(sb.toString().getBytes());
         ReportBuilderHelper.closeOutputFile(fos);
     }

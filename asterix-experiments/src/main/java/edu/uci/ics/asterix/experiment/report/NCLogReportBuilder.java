@@ -32,6 +32,16 @@ public class NCLogReportBuilder {
                 if ((msgLine = br.readLine()) == null) {
                     break;
                 }
+                while (!msgLine.contains("INFO:")) {
+                    timeLine = msgLine;
+                    msgLine = br.readLine();
+                    if (msgLine == null) {
+                        break;
+                    }
+                }
+                if (msgLine == null) {
+                    break;
+                }
 
                 //flush start
                 if (msgLine.contains("Started a flush operation for index")) {
@@ -56,11 +66,13 @@ public class NCLogReportBuilder {
                     }
 
                     indexName = ReportBuilderHelper.getString(msgLine, "experiments/Tweets_idx_", "/]");
-                    flushStartTimeStamp = flushMap.remove(indexName);
-
-                    sb.append("f-"+indexName).append("\t").append((flushStartTimeStamp - testBeginTimeStamp) / 1000)
-                            .append("\t").append((flushFinishTimeStamp - testBeginTimeStamp) / 1000).append("\t")
-                            .append("flush").append("\n");
+                    
+                    if (flushMap.containsKey(indexName)) {
+                        flushStartTimeStamp = flushMap.remove(indexName);
+                        sb.append("f-"+indexName).append("\t").append((flushStartTimeStamp - testBeginTimeStamp) / 1000)
+                                .append("\t").append((flushFinishTimeStamp - testBeginTimeStamp) / 1000).append("\t")
+                                .append("flush").append("\n");
+                    } 
                 }
 
                 //merge start
@@ -86,12 +98,14 @@ public class NCLogReportBuilder {
                     }
 
                     indexName = ReportBuilderHelper.getString(msgLine, "experiments/Tweets_idx_", "/]");
-                    mergeStartTimeStamp = mergeMap.remove(indexName);
-
-                    sb.append("m-"+indexName).append("\t")
-                            .append((mergeStartTimeStamp - testBeginTimeStamp) / 1000).append("\t")
-                            .append((mergeFinishTimeStamp - testBeginTimeStamp) / 1000).append("\t")
-                            .append("merge").append("\n");
+                    
+                    if (mergeMap.containsKey(indexName)) {
+                        mergeStartTimeStamp = mergeMap.remove(indexName);
+                        sb.append("m-"+indexName).append("\t")
+                                .append((mergeStartTimeStamp - testBeginTimeStamp) / 1000).append("\t")
+                                .append((mergeFinishTimeStamp - testBeginTimeStamp) / 1000).append("\t")
+                                .append("merge").append("\n");
+                    }
                 }
             }
 

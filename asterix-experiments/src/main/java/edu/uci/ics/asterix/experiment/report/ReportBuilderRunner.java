@@ -17,6 +17,9 @@ public class ReportBuilderRunner {
         sie2.generate20MinAverageQueryResultCount();
         sie2.generate20MinAverageQueryResponseTime();
         sie2.generateInstantaneousInsertPS();
+        sie2.generateGanttInstantaneousInsertPS();
+        sie2.generateSelectQueryResponseTime();
+        sie2.generateSelectQueryResultCount();
         
         SIE3ReportBuilderRunner sie3 = new SIE3ReportBuilderRunner();
         sie3.generateIndexCreationTime();

@@ -98,12 +98,16 @@ public abstract class AbstractDynamicDataEvalReportBuilder implements IDynamicDa
         try {
             String line;
             while ((line = br.readLine()) != null) {
-                //2015-07-10 01:52:03,658 INFO  [ParallelActionThread 0] direct.SessionChannel (SessionChannel.java:exec(120)) - Will request to exec `JAVA_HOME=/home/youngsk2/jdk1.7.0_65/ /scratch/youngsk2/spatial-index-experiment/ingestion-experiment-root/ingestion-experiment-binary-and-configs/bin/datagenrunner -si 1 -of /mnt/data/sdb/youngsk2/data/simple-gps-points-120312.txt -p 0 -d 1200 128.195.9.23:10001`
-                if (line.contains("Will request to exec `JAVA_HOME=/home/youngsk2/jdk1.7.0_65/ /scratch/youngsk2/spatial-index-experiment/ingestion-experiment-root/ingestion-experiment-binary-and-configs/bin/datagenrunner")) {
-                    //format1 = new SimpleDateFormat("MMM dd, yyyy hh:mm:ss aa");
-                    //format2 = new SimpleDateFormat("yyyy-MM-dd hh:mm:ss");
-                    SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd hh:mm:ss");
-                    return ReportBuilderHelper.getTimeStampAsLong(line, format);
+                if (line.contains("Running experiment: " + expName)) {
+                    while ((line = br.readLine()) != null) {
+                        //2015-07-10 01:52:03,658 INFO  [ParallelActionThread 0] direct.SessionChannel (SessionChannel.java:exec(120)) - Will request to exec `JAVA_HOME=/home/youngsk2/jdk1.7.0_65/ /scratch/youngsk2/spatial-index-experiment/ingestion-experiment-root/ingestion-experiment-binary-and-configs/bin/datagenrunner -si 1 -of /mnt/data/sdb/youngsk2/data/simple-gps-points-120312.txt -p 0 -d 1200 128.195.9.23:10001`
+                        if (line.contains("Will request to exec `JAVA_HOME=/home/youngsk2/jdk1.7.0_65/ /scratch/youngsk2/spatial-index-experiment/ingestion-experiment-root/ingestion-experiment-binary-and-configs/bin/datagenrunner")) {
+                            //format1 = new SimpleDateFormat("MMM dd, yyyy hh:mm:ss aa");
+                            //format2 = new SimpleDateFormat("yyyy-MM-dd hh:mm:ss");
+                            SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd hh:mm:ss");
+                            return ReportBuilderHelper.getTimeStampAsLong(line, format);
+                        }
+                    }
                 }
             }
             return -1;

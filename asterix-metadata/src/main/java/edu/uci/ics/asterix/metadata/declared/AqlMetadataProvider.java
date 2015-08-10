@@ -176,6 +176,7 @@ import edu.uci.ics.hyracks.storage.am.lsm.invertedindex.dataflow.LSMInvertedInde
 import edu.uci.ics.hyracks.storage.am.lsm.invertedindex.dataflow.PartitionedLSMInvertedIndexDataflowHelperFactory;
 import edu.uci.ics.hyracks.storage.am.lsm.rtree.dataflow.ExternalRTreeDataflowHelperFactory;
 import edu.uci.ics.hyracks.storage.am.lsm.rtree.dataflow.LSMRTreeDataflowHelperFactory;
+import edu.uci.ics.hyracks.storage.am.lsm.rtree.dataflow.LSMRTreeWithAntiMatterTuplesDataflowHelperFactory;
 import edu.uci.ics.hyracks.storage.am.rtree.dataflow.RTreeSearchOperatorDescriptor;
 import edu.uci.ics.hyracks.storage.am.rtree.frames.RTreePolicyType;
 
@@ -939,17 +940,47 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
 
             RTreeSearchOperatorDescriptor rtreeSearchOp;
             if (dataset.getDatasetType() == DatasetType.INTERNAL) {
+                
+                IBinaryComparatorFactory[] btreeCompFactories = null;
+                if (LSMRTreeWithAntiMatterTuplesDataflowHelperFactory.USE_LSMRTREE_WITH_ANTIMATTER_TUPLE) {
+                    int btreeCompFactoriesCount = comparatorFactories.length + primaryComparatorFactories.length;
+                    btreeCompFactories = new IBinaryComparatorFactory[btreeCompFactoriesCount];
+                    int i = 0;
+                    for ( ; i < comparatorFactories.length; i++) {
+                        btreeCompFactories[i] = comparatorFactories[i];
+                    }
+                    for (int j = 0; i < btreeCompFactoriesCount; i++, j++) {
+                        btreeCompFactories[i] = primaryComparatorFactories[j];
+                    }
+                } else {
+                    btreeCompFactories = primaryComparatorFactories;
+                }
+                
+                IIndexDataflowHelperFactory idff = null;
+                if (LSMRTreeWithAntiMatterTuplesDataflowHelperFactory.USE_LSMRTREE_WITH_ANTIMATTER_TUPLE) {
+                    idff = new LSMRTreeWithAntiMatterTuplesDataflowHelperFactory(
+                            valueProviderFactories, RTreePolicyType.RTREE, btreeCompFactories,
+                            new AsterixVirtualBufferCacheProvider(dataset.getDatasetId()), compactionInfo.first,
+                            compactionInfo.second, new SecondaryIndexOperationTrackerProvider(
+                                    dataset.getDatasetId()), AsterixRuntimeComponentsProvider.RUNTIME_PROVIDER,
+                            LSMRTreeIOOperationCallbackFactory.INSTANCE, AqlMetadataProvider.proposeLinearizer(
+                                    nestedKeyType.getTypeTag(), comparatorFactories.length),
+                            rtreeFields, filterTypeTraits, filterCmpFactories, filterFields, isPointMBR);
+                } else {
+                    idff = new LSMRTreeDataflowHelperFactory(
+                            valueProviderFactories, RTreePolicyType.RTREE, btreeCompFactories,
+                            new AsterixVirtualBufferCacheProvider(dataset.getDatasetId()), compactionInfo.first,
+                            compactionInfo.second, new SecondaryIndexOperationTrackerProvider(
+                                    dataset.getDatasetId()), AsterixRuntimeComponentsProvider.RUNTIME_PROVIDER,
+                            LSMRTreeIOOperationCallbackFactory.INSTANCE, AqlMetadataProvider.proposeLinearizer(
+                                    nestedKeyType.getTypeTag(), comparatorFactories.length),
+                            storageProperties.getBloomFilterFalsePositiveRate(), rtreeFields, btreeFields,
+                            filterTypeTraits, filterCmpFactories, filterFields, isPointMBR);
+                }
+                
                 rtreeSearchOp = new RTreeSearchOperatorDescriptor(jobSpec, outputRecDesc,
                         appContext.getStorageManagerInterface(), appContext.getIndexLifecycleManagerProvider(),
-                        spPc.first, typeTraits, comparatorFactories, keyFields, new LSMRTreeDataflowHelperFactory(
-                                valueProviderFactories, RTreePolicyType.RTREE, primaryComparatorFactories,
-                                new AsterixVirtualBufferCacheProvider(dataset.getDatasetId()), compactionInfo.first,
-                                compactionInfo.second, new SecondaryIndexOperationTrackerProvider(
-                                        dataset.getDatasetId()), AsterixRuntimeComponentsProvider.RUNTIME_PROVIDER,
-                                LSMRTreeIOOperationCallbackFactory.INSTANCE, proposeLinearizer(
-                                        nestedKeyType.getTypeTag(), comparatorFactories.length),
-                                storageProperties.getBloomFilterFalsePositiveRate(), rtreeFields, btreeFields,
-                                filterTypeTraits, filterCmpFactories, filterFields, isPointMBR), retainInput,
+                        spPc.first, typeTraits, comparatorFactories, keyFields, idff, retainInput,
                         retainNull, context.getNullWriterFactory(), searchCallbackFactory, minFilterFieldIndexes,
                         maxFilterFieldIndexes);
             } else {
@@ -2149,14 +2180,42 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
 
             Pair<ILSMMergePolicyFactory, Map<String, String>> compactionInfo = DatasetUtils.getMergePolicyFactory(
                     dataset, mdTxnCtx);
-            IIndexDataflowHelperFactory idfh = new LSMRTreeDataflowHelperFactory(valueProviderFactories,
-                    RTreePolicyType.RTREE, primaryComparatorFactories, new AsterixVirtualBufferCacheProvider(
+            
+            IBinaryComparatorFactory[] btreeCompFactories = null;
+            if (LSMRTreeWithAntiMatterTuplesDataflowHelperFactory.USE_LSMRTREE_WITH_ANTIMATTER_TUPLE) {
+                int btreeCompFactoriesCount = comparatorFactories.length + primaryComparatorFactories.length;
+                btreeCompFactories = new IBinaryComparatorFactory[btreeCompFactoriesCount];
+                i = 0;
+                for ( ; i < comparatorFactories.length; i++) {
+                    btreeCompFactories[i] = comparatorFactories[i];
+                }
+                for ( j = 0; i < btreeCompFactoriesCount; i++, j++) {
+                    btreeCompFactories[i] = primaryComparatorFactories[j];
+                }
+            } else {
+                btreeCompFactories = primaryComparatorFactories;
+            }
+            
+            IIndexDataflowHelperFactory idfh = null;
+            if (LSMRTreeWithAntiMatterTuplesDataflowHelperFactory.USE_LSMRTREE_WITH_ANTIMATTER_TUPLE) {
+                idfh = new LSMRTreeWithAntiMatterTuplesDataflowHelperFactory(
+                        valueProviderFactories, RTreePolicyType.RTREE, btreeCompFactories,
+                        new AsterixVirtualBufferCacheProvider(dataset.getDatasetId()),compactionInfo.first, compactionInfo.second,
+                        new SecondaryIndexOperationTrackerProvider(dataset.getDatasetId()), 
+                        AsterixRuntimeComponentsProvider.RUNTIME_PROVIDER,LSMRTreeIOOperationCallbackFactory.INSTANCE, 
+                        AqlMetadataProvider.proposeLinearizer(nestedKeyType.getTypeTag(), comparatorFactories.length),
+                        rtreeFields, filterTypeTraits, filterCmpFactories, filterFields, isPointMBR);
+                
+            } else { 
+                idfh = new LSMRTreeDataflowHelperFactory(valueProviderFactories,
+                    RTreePolicyType.RTREE, btreeCompFactories, new AsterixVirtualBufferCacheProvider(
                             dataset.getDatasetId()), compactionInfo.first, compactionInfo.second,
                     new SecondaryIndexOperationTrackerProvider(dataset.getDatasetId()),
                     AsterixRuntimeComponentsProvider.RUNTIME_PROVIDER, LSMRTreeIOOperationCallbackFactory.INSTANCE,
                     proposeLinearizer(nestedKeyType.getTypeTag(), comparatorFactories.length),
                     storageProperties.getBloomFilterFalsePositiveRate(), rtreeFields, btreeFields, filterTypeTraits,
                     filterCmpFactories, filterFields, isPointMBR);
+            }
             IOperatorDescriptor op;
             if (bulkload) {
                 long numElementsHint = getCardinalityPerPartitionHint(dataset);
@@ -2168,15 +2227,7 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
                 op = new AsterixLSMTreeInsertDeleteOperatorDescriptor(spec, recordDesc,
                         appContext.getStorageManagerInterface(), appContext.getIndexLifecycleManagerProvider(),
                         splitsAndConstraint.first, typeTraits, comparatorFactories, null, fieldPermutation, indexOp,
-                        new LSMRTreeDataflowHelperFactory(valueProviderFactories, RTreePolicyType.RTREE,
-                                primaryComparatorFactories, new AsterixVirtualBufferCacheProvider(dataset
-                                        .getDatasetId()), compactionInfo.first, compactionInfo.second,
-                                new SecondaryIndexOperationTrackerProvider(dataset.getDatasetId()),
-                                AsterixRuntimeComponentsProvider.RUNTIME_PROVIDER,
-                                LSMRTreeIOOperationCallbackFactory.INSTANCE, proposeLinearizer(
-                                        nestedKeyType.getTypeTag(), comparatorFactories.length), storageProperties
-                                        .getBloomFilterFalsePositiveRate(), rtreeFields, btreeFields, filterTypeTraits,
-                                filterCmpFactories, filterFields, isPointMBR), filterFactory,
+                        idfh, filterFactory,
                         modificationCallbackFactory, false, indexName);
             }
             return new Pair<IOperatorDescriptor, AlgebricksPartitionConstraint>(op, splitsAndConstraint.second);

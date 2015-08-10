@@ -34,7 +34,9 @@ public class LSMRTreeIOOperationCallback extends AbstractLSMIOOperationCallback 
         if (newComponent != null) {
             LSMRTreeDiskComponent rtreeComponent = (LSMRTreeDiskComponent) newComponent;
             putLSNIntoMetadata(rtreeComponent.getRTree(), oldComponents);
-            putLSNIntoMetadata(rtreeComponent.getBTree(), oldComponents);
+            if (rtreeComponent.getBTree() != null) {
+                putLSNIntoMetadata(rtreeComponent.getBTree(), oldComponents);
+            }
         }
     }
 

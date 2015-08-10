@@ -15,6 +15,7 @@
 package edu.uci.ics.asterix.file;
 
 import java.util.List;
+import java.util.Map;
 
 import edu.uci.ics.asterix.common.api.ILocalResourceMetadata;
 import edu.uci.ics.asterix.common.config.AsterixStorageProperties;
@@ -65,6 +66,7 @@ import edu.uci.ics.hyracks.algebricks.runtime.operators.std.EmptyTupleSourceRunt
 import edu.uci.ics.hyracks.algebricks.runtime.operators.std.StreamSelectRuntimeFactory;
 import edu.uci.ics.hyracks.api.dataflow.IOperatorDescriptor;
 import edu.uci.ics.hyracks.api.dataflow.value.IBinaryComparatorFactory;
+import edu.uci.ics.hyracks.api.dataflow.value.ILinearizeComparatorFactory;
 import edu.uci.ics.hyracks.api.dataflow.value.ISerializerDeserializer;
 import edu.uci.ics.hyracks.api.dataflow.value.ITypeTraits;
 import edu.uci.ics.hyracks.api.dataflow.value.RecordDescriptor;
@@ -79,9 +81,15 @@ import edu.uci.ics.hyracks.storage.am.common.dataflow.IIndexDataflowHelperFactor
 import edu.uci.ics.hyracks.storage.am.common.dataflow.TreeIndexBulkLoadOperatorDescriptor;
 import edu.uci.ics.hyracks.storage.am.common.dataflow.TreeIndexCreateOperatorDescriptor;
 import edu.uci.ics.hyracks.storage.am.common.impls.NoOpOperationCallbackFactory;
+import edu.uci.ics.hyracks.storage.am.lsm.common.api.ILSMIOOperationCallbackFactory;
+import edu.uci.ics.hyracks.storage.am.lsm.common.api.ILSMIOOperationSchedulerProvider;
+import edu.uci.ics.hyracks.storage.am.lsm.common.api.ILSMMergePolicyFactory;
+import edu.uci.ics.hyracks.storage.am.lsm.common.api.ILSMOperationTrackerProvider;
+import edu.uci.ics.hyracks.storage.am.lsm.common.api.IVirtualBufferCacheProvider;
 import edu.uci.ics.hyracks.storage.am.lsm.common.dataflow.LSMTreeIndexCompactOperatorDescriptor;
 import edu.uci.ics.hyracks.storage.am.lsm.rtree.dataflow.ExternalRTreeDataflowHelperFactory;
 import edu.uci.ics.hyracks.storage.am.lsm.rtree.dataflow.LSMRTreeDataflowHelperFactory;
+import edu.uci.ics.hyracks.storage.am.lsm.rtree.dataflow.LSMRTreeWithAntiMatterTuplesDataflowHelperFactory;
 import edu.uci.ics.hyracks.storage.am.rtree.frames.RTreePolicyType;
 import edu.uci.ics.hyracks.storage.common.file.ILocalResourceFactoryProvider;
 import edu.uci.ics.hyracks.storage.common.file.LocalResource;
@@ -113,23 +121,50 @@ public class SecondaryRTreeOperationsHelper extends SecondaryIndexOperationsHelp
         IIndexDataflowHelperFactory indexDataflowHelperFactory;
         ILocalResourceFactoryProvider localResourceFactoryProvider;
         if (dataset.getDatasetType() == DatasetType.INTERNAL) {
+            
+            IBinaryComparatorFactory[] btreeCompFactories = null;
+            if (LSMRTreeWithAntiMatterTuplesDataflowHelperFactory.USE_LSMRTREE_WITH_ANTIMATTER_TUPLE) {
+                btreeCompFactories = new IBinaryComparatorFactory[secondaryTypeTraits.length];
+                int i = 0;
+                for ( ; i < secondaryComparatorFactories.length; i++) {
+                    btreeCompFactories[i] = secondaryComparatorFactories[i];
+                }
+                for (int j = 0 ; i < secondaryTypeTraits.length; i++, j++) {
+                    btreeCompFactories[i] = primaryComparatorFactories[j];
+                }
+            } else {
+                btreeCompFactories = primaryComparatorFactories;
+            }
+            
             //prepare a LocalResourceMetadata which will be stored in NC's local resource repository
             ILocalResourceMetadata localResourceMetadata = new LSMRTreeLocalResourceMetadata(secondaryTypeTraits,
-                    secondaryComparatorFactories, primaryComparatorFactories, valueProviderFactories,
+                    secondaryComparatorFactories, btreeCompFactories, valueProviderFactories,
                     RTreePolicyType.RTREE, AqlMetadataProvider.proposeLinearizer(keyType,
                             secondaryComparatorFactories.length), dataset.getDatasetId(), mergePolicyFactory,
                     mergePolicyFactoryProperties, filterTypeTraits, filterCmpFactories, rtreeFields, primaryKeyFields,
                     secondaryFilterFields, isPointMBR);
             localResourceFactoryProvider = new PersistentLocalResourceFactoryProvider(localResourceMetadata,
                     LocalResource.LSMRTreeResource);
-            indexDataflowHelperFactory = new LSMRTreeDataflowHelperFactory(valueProviderFactories,
-                    RTreePolicyType.RTREE, primaryComparatorFactories, new AsterixVirtualBufferCacheProvider(
-                            dataset.getDatasetId()), mergePolicyFactory, mergePolicyFactoryProperties,
-                    new SecondaryIndexOperationTrackerProvider(dataset.getDatasetId()),
-                    AsterixRuntimeComponentsProvider.RUNTIME_PROVIDER, LSMRTreeIOOperationCallbackFactory.INSTANCE,
-                    AqlMetadataProvider.proposeLinearizer(keyType, secondaryComparatorFactories.length),
-                    storageProperties.getBloomFilterFalsePositiveRate(), rtreeFields, primaryKeyFields,
-                    filterTypeTraits, filterCmpFactories, secondaryFilterFields, isPointMBR);
+            if (LSMRTreeWithAntiMatterTuplesDataflowHelperFactory.USE_LSMRTREE_WITH_ANTIMATTER_TUPLE) {
+                indexDataflowHelperFactory = new LSMRTreeWithAntiMatterTuplesDataflowHelperFactory(
+                        valueProviderFactories, RTreePolicyType.RTREE, btreeCompFactories,
+                        new AsterixVirtualBufferCacheProvider(dataset.getDatasetId()), mergePolicyFactory,
+                        mergePolicyFactoryProperties, new SecondaryIndexOperationTrackerProvider(
+                                dataset.getDatasetId()), AsterixRuntimeComponentsProvider.RUNTIME_PROVIDER,
+                        LSMRTreeIOOperationCallbackFactory.INSTANCE, AqlMetadataProvider.proposeLinearizer(keyType,
+                                secondaryComparatorFactories.length),
+                        rtreeFields, filterTypeTraits, filterCmpFactories, secondaryFilterFields, isPointMBR);
+            } else {
+                indexDataflowHelperFactory = new LSMRTreeDataflowHelperFactory(
+                        valueProviderFactories, RTreePolicyType.RTREE, btreeCompFactories,
+                        new AsterixVirtualBufferCacheProvider(dataset.getDatasetId()), mergePolicyFactory,
+                        mergePolicyFactoryProperties, new SecondaryIndexOperationTrackerProvider(
+                                dataset.getDatasetId()), AsterixRuntimeComponentsProvider.RUNTIME_PROVIDER,
+                        LSMRTreeIOOperationCallbackFactory.INSTANCE, AqlMetadataProvider.proposeLinearizer(keyType,
+                                secondaryComparatorFactories.length),
+                        storageProperties.getBloomFilterFalsePositiveRate(), rtreeFields, primaryKeyFields,
+                        filterTypeTraits, filterCmpFactories, secondaryFilterFields, isPointMBR);
+            }
         } else {
             // External dataset
             // Prepare a LocalResourceMetadata which will be stored in NC's local resource repository
@@ -292,19 +327,48 @@ public class SecondaryRTreeOperationsHelper extends SecondaryIndexOperationsHelp
                             : secondaryRecDesc);
 
             AsterixStorageProperties storageProperties = propertiesProvider.getStorageProperties();
+            
+            IBinaryComparatorFactory[] btreeCompFactories = null;
+            if (LSMRTreeWithAntiMatterTuplesDataflowHelperFactory.USE_LSMRTREE_WITH_ANTIMATTER_TUPLE) {
+                btreeCompFactories = new IBinaryComparatorFactory[secondaryTypeTraits.length];
+                int i = 0;
+                for ( ; i < secondaryComparatorFactories.length; i++) {
+                    btreeCompFactories[i] = secondaryComparatorFactories[i];
+                }
+                for (int j = 0 ; i < secondaryTypeTraits.length; i++, j++) {
+                    btreeCompFactories[i] = primaryComparatorFactories[j];
+                }
+            } else {
+                btreeCompFactories = primaryComparatorFactories;
+            }
+            
+            IIndexDataflowHelperFactory idff = null;
+            if (LSMRTreeWithAntiMatterTuplesDataflowHelperFactory.USE_LSMRTREE_WITH_ANTIMATTER_TUPLE) {
+                idff = new LSMRTreeWithAntiMatterTuplesDataflowHelperFactory(
+                        valueProviderFactories, RTreePolicyType.RTREE, btreeCompFactories,
+                        new AsterixVirtualBufferCacheProvider(dataset.getDatasetId()), mergePolicyFactory,
+                        mergePolicyFactoryProperties, new SecondaryIndexOperationTrackerProvider(
+                                dataset.getDatasetId()), AsterixRuntimeComponentsProvider.RUNTIME_PROVIDER,
+                        LSMRTreeIOOperationCallbackFactory.INSTANCE, AqlMetadataProvider.proposeLinearizer(keyType,
+                                secondaryComparatorFactories.length),
+                        rtreeFields, filterTypeTraits, filterCmpFactories, secondaryFilterFields, isPointMBR);
+            } else {
+                idff = new LSMRTreeDataflowHelperFactory(
+                        valueProviderFactories, RTreePolicyType.RTREE, btreeCompFactories,
+                        new AsterixVirtualBufferCacheProvider(dataset.getDatasetId()), mergePolicyFactory,
+                        mergePolicyFactoryProperties, new SecondaryIndexOperationTrackerProvider(
+                                dataset.getDatasetId()), AsterixRuntimeComponentsProvider.RUNTIME_PROVIDER,
+                        LSMRTreeIOOperationCallbackFactory.INSTANCE, AqlMetadataProvider.proposeLinearizer(keyType,
+                                secondaryComparatorFactories.length),
+                        storageProperties.getBloomFilterFalsePositiveRate(), rtreeFields, primaryKeyFields,
+                        filterTypeTraits, filterCmpFactories, secondaryFilterFields, isPointMBR);
+            }
+            
             // Create secondary RTree bulk load op.
             TreeIndexBulkLoadOperatorDescriptor secondaryBulkLoadOp = createTreeIndexBulkLoadOp(
                     spec,
                     numNestedSecondaryKeyFields,
-                    new LSMRTreeDataflowHelperFactory(valueProviderFactories, RTreePolicyType.RTREE,
-                            primaryComparatorFactories, new AsterixVirtualBufferCacheProvider(dataset.getDatasetId()),
-                            mergePolicyFactory, mergePolicyFactoryProperties,
-                            new SecondaryIndexOperationTrackerProvider(dataset.getDatasetId()),
-                            AsterixRuntimeComponentsProvider.RUNTIME_PROVIDER,
-                            LSMRTreeIOOperationCallbackFactory.INSTANCE, AqlMetadataProvider.proposeLinearizer(keyType,
-                                    secondaryComparatorFactories.length), storageProperties
-                                    .getBloomFilterFalsePositiveRate(), rtreeFields, primaryKeyFields,
-                            filterTypeTraits, filterCmpFactories, secondaryFilterFields, isPointMBR),
+                    idff,
                     GlobalConfig.DEFAULT_TREE_FILL_FACTOR);
             AlgebricksMetaOperatorDescriptor metaOp = new AlgebricksMetaOperatorDescriptor(spec, 1, 0,
                     new IPushRuntimeFactory[] { new SinkRuntimeFactory() }, new RecordDescriptor[] {});
@@ -535,18 +599,46 @@ public class SecondaryRTreeOperationsHelper extends SecondaryIndexOperationsHelp
         AsterixStorageProperties storageProperties = propertiesProvider.getStorageProperties();
         LSMTreeIndexCompactOperatorDescriptor compactOp;
         if (dataset.getDatasetType() == DatasetType.INTERNAL) {
+            
+            IBinaryComparatorFactory[] btreeCompFactories = null;
+            if (LSMRTreeWithAntiMatterTuplesDataflowHelperFactory.USE_LSMRTREE_WITH_ANTIMATTER_TUPLE) {
+                btreeCompFactories = new IBinaryComparatorFactory[secondaryTypeTraits.length];
+                int i = 0;
+                for ( ; i < secondaryComparatorFactories.length; i++) {
+                    btreeCompFactories[i] = secondaryComparatorFactories[i];
+                }
+                for (int j = 0; i < secondaryTypeTraits.length; i++, j++) {
+                    btreeCompFactories[i] = primaryComparatorFactories[j];
+                }
+            } else {
+                btreeCompFactories = primaryComparatorFactories;
+            }
+            
+            IIndexDataflowHelperFactory idff = null;
+            if (LSMRTreeWithAntiMatterTuplesDataflowHelperFactory.USE_LSMRTREE_WITH_ANTIMATTER_TUPLE) {
+                idff = new LSMRTreeWithAntiMatterTuplesDataflowHelperFactory(
+                        valueProviderFactories, RTreePolicyType.RTREE, btreeCompFactories,
+                        new AsterixVirtualBufferCacheProvider(dataset.getDatasetId()), mergePolicyFactory,
+                        mergePolicyFactoryProperties, new SecondaryIndexOperationTrackerProvider(
+                                dataset.getDatasetId()), AsterixRuntimeComponentsProvider.RUNTIME_PROVIDER,
+                        LSMRTreeIOOperationCallbackFactory.INSTANCE, AqlMetadataProvider.proposeLinearizer(keyType,
+                                secondaryComparatorFactories.length),
+                        rtreeFields, filterTypeTraits, filterCmpFactories, secondaryFilterFields, isPointMBR);
+            } else {
+                idff = new LSMRTreeDataflowHelperFactory(
+                        valueProviderFactories, RTreePolicyType.RTREE, btreeCompFactories,
+                        new AsterixVirtualBufferCacheProvider(dataset.getDatasetId()), mergePolicyFactory,
+                        mergePolicyFactoryProperties, new SecondaryIndexOperationTrackerProvider(
+                                dataset.getDatasetId()), AsterixRuntimeComponentsProvider.RUNTIME_PROVIDER,
+                        LSMRTreeIOOperationCallbackFactory.INSTANCE, AqlMetadataProvider.proposeLinearizer(keyType,
+                                secondaryComparatorFactories.length),
+                        storageProperties.getBloomFilterFalsePositiveRate(), rtreeFields, primaryKeyFields,
+                        filterTypeTraits, filterCmpFactories, secondaryFilterFields, isPointMBR);
+            }
             compactOp = new LSMTreeIndexCompactOperatorDescriptor(spec,
                     AsterixRuntimeComponentsProvider.RUNTIME_PROVIDER,
                     AsterixRuntimeComponentsProvider.RUNTIME_PROVIDER, secondaryFileSplitProvider, secondaryTypeTraits,
-                    secondaryComparatorFactories, secondaryBloomFilterKeyFields, new LSMRTreeDataflowHelperFactory(
-                            valueProviderFactories, RTreePolicyType.RTREE, primaryComparatorFactories,
-                            new AsterixVirtualBufferCacheProvider(dataset.getDatasetId()), mergePolicyFactory,
-                            mergePolicyFactoryProperties, new SecondaryIndexOperationTrackerProvider(
-                                    dataset.getDatasetId()), AsterixRuntimeComponentsProvider.RUNTIME_PROVIDER,
-                            LSMRTreeIOOperationCallbackFactory.INSTANCE, AqlMetadataProvider.proposeLinearizer(keyType,
-                                    secondaryComparatorFactories.length),
-                            storageProperties.getBloomFilterFalsePositiveRate(), rtreeFields, primaryKeyFields,
-                            filterTypeTraits, filterCmpFactories, secondaryFilterFields, isPointMBR),
+                    secondaryComparatorFactories, secondaryBloomFilterKeyFields, idff,
                     NoOpOperationCallbackFactory.INSTANCE);
         } else {
             // External dataset

@@ -33,6 +33,8 @@ import edu.uci.ics.asterix.experiment.action.derived.RunAQLFileAction;
 import edu.uci.ics.asterix.experiment.action.derived.SleepAction;
 import edu.uci.ics.asterix.experiment.client.LSMExperimentConstants;
 import edu.uci.ics.asterix.experiment.client.LSMExperimentSetRunner.LSMExperimentSetRunnerConfig;
+import edu.uci.ics.hyracks.api.util.ExperimentProfiler;
+import edu.uci.ics.hyracks.api.util.SpatialIndexProfiler;
 
 public abstract class AbstractLSMBaseExperimentBuilder extends AbstractExperimentBuilder {
 
@@ -116,8 +118,13 @@ public abstract class AbstractLSMBaseExperimentBuilder extends AbstractExperimen
                     String ipPortPairs = StringUtils.join(rcvrs.iterator(), " ");
                     String binary = "JAVA_HOME=" + javaHomePath + " "
                             + localExperimentRoot.resolve("bin").resolve("datagenrunner").toString();
-                    return StringUtils.join(new String[] { binary, "-si", "" + locationSampleInterval, "-of",
-                            openStreetMapFilePath, "-p", "" + p, "-d", "" + duration, ipPortPairs }, " ");
+                    if (openStreetMapFilePath == null) { 
+                        return StringUtils.join(new String[] { binary, "-si", "" + locationSampleInterval, 
+                                "-p", "" + p, "-d", "" + duration, ipPortPairs }, " ");
+                    } else {
+                        return StringUtils.join(new String[] { binary, "-si", "" + locationSampleInterval, "-of",
+                                openStreetMapFilePath, "-p", "" + p, "-d", "" + duration, ipPortPairs }, " ");
+                    }
                 }
             });
             partition += rcvrs.size();
@@ -246,6 +253,22 @@ public abstract class AbstractLSMBaseExperimentBuilder extends AbstractExperimen
             }
             execs.add(collectIOActions);
         }
+        
+        //collect profile information
+        if (ExperimentProfiler.PROFILE_MODE) {
+            ParallelActionSet collectProfileInfo = new ParallelActionSet();
+            for (String ncHost : ncHosts) {
+                collectProfileInfo.add(new AbstractRemoteExecutableAction(ncHost, username, sshKeyLocation) {
+                    @Override
+                    protected String getCommand() {
+                        String cmd = "mv " + SpatialIndexProfiler.PROFILE_HOME_DIR + "*.txt " + cluster.getLogDir();
+                        return cmd;
+                    }
+                });
+            }
+            execs.add(collectProfileInfo);
+        }
+        
         execs.add(new LogAsterixManagixAction(managixHomePath, ASTERIX_INSTANCE_NAME, localExperimentRoot
                 .resolve(LSMExperimentConstants.LOG_DIR + "-" + logDirSuffix).resolve(getName()).toString()));
 

@@ -2,7 +2,9 @@ package edu.uci.ics.asterix.experiment.report;
 
 public class SIE2ReportBuilder extends AbstractDynamicDataEvalReportBuilder {
     private static final int SELECT_QUERY_RADIUS_COUNT = 5;
-    private static final int MAX_SELECT_QUERY_COUNT_TO_CONSIDER = 200;
+    private static final int INITIAL_SELECT_QUERY_COUNT_TO_CONSIDER = 100;
+    private static final int MAX_SELECT_QUERY_COUNT_TO_CONSIDER = 1000 + INITIAL_SELECT_QUERY_COUNT_TO_CONSIDER;
+
 
     public SIE2ReportBuilder(String expName, String runLogFilePath) {
         super(expName, runLogFilePath);
@@ -14,7 +16,7 @@ public class SIE2ReportBuilder extends AbstractDynamicDataEvalReportBuilder {
     }
 
     @Override
-    public String get20minInsertPS() throws Exception {
+    public String get20minInsertPS(int minutes) throws Exception {
         renewStringBuilder();
         openRunLog();
         try {
@@ -33,14 +35,14 @@ public class SIE2ReportBuilder extends AbstractDynamicDataEvalReportBuilder {
                     break;
                 }
             }
-            rsb.append(insertCount/1200);
+            rsb.append(insertCount/(minutes * 60));
             return rsb.toString();
         } finally {
             closeRunLog();
         }
     }
     
-    public long getFirstXminInsertPS(int minutes, int genId) throws Exception {
+    public double getFirstXminInsertPS(int minutes, int genId, int unitMinutes) throws Exception {
         renewStringBuilder();
         openRunLog();
         try {
@@ -72,10 +74,11 @@ public class SIE2ReportBuilder extends AbstractDynamicDataEvalReportBuilder {
                     break;
                 }
             }
-            if (haveResult || totalTimeToInsert > (minutes*60000 - 1200000)) {
-                return  (count * INSTANTAEOUS_INSERT_COUNT) / (totalTimeToInsert/1000);
+            if (haveResult || totalTimeToInsert > (minutes*60000 - unitMinutes*60000)) {
+                return  (count * INSTANTAEOUS_INSERT_COUNT) / ((double)totalTimeToInsert/1000);
             } else {
                 return 0;
+                //return  ((count * INSTANTAEOUS_INSERT_COUNT) / ((double)totalTimeToInsert/1000)) * -1;
             }
         } finally {
             closeRunLog();
@@ -88,7 +91,7 @@ public class SIE2ReportBuilder extends AbstractDynamicDataEvalReportBuilder {
     }
 
     @Override
-    public String get20minQueryPS() throws Exception {
+    public String get20minQueryPS(int minutes) throws Exception {
         renewStringBuilder();
         openRunLog();
         try {
@@ -107,7 +110,7 @@ public class SIE2ReportBuilder extends AbstractDynamicDataEvalReportBuilder {
                     break;
                 }
             }
-            rsb.append(queryCount/(float)1200);
+            rsb.append(queryCount/(float)(minutes * 60));
             return rsb.toString();
         } finally {
             closeRunLog();
@@ -190,7 +193,7 @@ public class SIE2ReportBuilder extends AbstractDynamicDataEvalReportBuilder {
                     while(true) {
                         line = br.readLine();
                         if (line.contains("Elapsed time =") && selectQueryCount < MAX_SELECT_QUERY_COUNT_TO_CONSIDER) {
-                            if (selectQueryCount % SELECT_QUERY_RADIUS_COUNT == radiusIdx) {
+                            if (selectQueryCount % SELECT_QUERY_RADIUS_COUNT == radiusIdx && selectQueryCount >= INITIAL_SELECT_QUERY_COUNT_TO_CONSIDER) {
                                 queryResponseTime += ReportBuilderHelper.getLong(line, "=", "for");
                                 ++targetRadiusSelectQueryCount;
                             }
@@ -233,7 +236,7 @@ public class SIE2ReportBuilder extends AbstractDynamicDataEvalReportBuilder {
                     // read and calculate the average query response time for the requested(target) radius
                     while(true) {
                         if (line.contains("i64") && selectQueryCount < MAX_SELECT_QUERY_COUNT_TO_CONSIDER) {
-                            if (selectQueryCount % SELECT_QUERY_RADIUS_COUNT == radiusIdx) {
+                            if (selectQueryCount % SELECT_QUERY_RADIUS_COUNT == radiusIdx && selectQueryCount >= INITIAL_SELECT_QUERY_COUNT_TO_CONSIDER) {
                                 queryResultCount += ReportBuilderHelper.getLong(line, "[", "i64");
                                 ++targetRadiusSelectQueryCount;
                             }

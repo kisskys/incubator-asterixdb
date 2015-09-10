@@ -2,7 +2,7 @@ package edu.uci.ics.asterix.experiment.report;
 
 public class SIE3ReportBuilder extends AbstractDynamicDataEvalReportBuilder {
     private static final int WARM_UP_QUERY_COUNT = 500;
-    private static final int SELECT_QUERY_COUNT = 250;
+    private static final int SELECT_QUERY_COUNT = 5000;
     private static final int JOIN_QUERY_COUNT = 200;
     private static final int SELECT_QUERY_RADIUS_COUNT = 5; //0.00001, 0.0001, 0.001, 0.01, 0.1
     private static final int JOIN_QUERY_RADIUS_COUNT = 4; ////0.00001, 0.0001, 0.001, 0.01
@@ -17,7 +17,7 @@ public class SIE3ReportBuilder extends AbstractDynamicDataEvalReportBuilder {
     }
 
     @Override
-    public String get20minInsertPS() throws Exception {
+    public String get20minInsertPS(int minutes) throws Exception {
         return null;
     }
 
@@ -27,7 +27,7 @@ public class SIE3ReportBuilder extends AbstractDynamicDataEvalReportBuilder {
     }
 
     @Override
-    public String get20minQueryPS() throws Exception {
+    public String get20minQueryPS(int minutes) throws Exception {
         return null;
     }
     
@@ -138,6 +138,7 @@ public class SIE3ReportBuilder extends AbstractDynamicDataEvalReportBuilder {
                         line = br.readLine();
                         if (line.contains("i64")) {
                             if (selectQueryCount % SELECT_QUERY_RADIUS_COUNT == radiusIdx) {
+                                System.out.println("radiusIdx["+ radiusIdx +"] : " + ReportBuilderHelper.getLong(line, "[", "i64"));
                                 queryResultCount += ReportBuilderHelper.getLong(line, "[", "i64");
                                 ++targetRadiusSelectQueryCount;
                             }

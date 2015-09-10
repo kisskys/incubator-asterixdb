@@ -5,9 +5,9 @@ public interface IDynamicDataEvalReportBuilder {
 
     public String getOverallInsertPS() throws Exception;
 
-    public String get20minInsertPS() throws Exception;
+    public String get20minInsertPS(int minutes) throws Exception;
 
     public String getInstantaneousQueryPS() throws Exception;
 
-    public String get20minQueryPS() throws Exception;
+    public String get20minQueryPS(int minutes) throws Exception;
 }

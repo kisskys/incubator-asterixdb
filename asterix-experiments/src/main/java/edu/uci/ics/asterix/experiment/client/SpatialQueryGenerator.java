@@ -26,7 +26,7 @@ import edu.uci.ics.asterix.experiment.action.derived.TimedAction;
 public class SpatialQueryGenerator {
 
     private static final int SKIP_LINE_COUNT = 199;
-    
+
     private final ExecutorService threadPool;
 
     private final int partitionRangeStart;
@@ -92,6 +92,7 @@ public class SpatialQueryGenerator {
         private final Random randGen;
         private BufferedReader br;
         private long queryCount;
+        private Random random = new Random(211);
 
         public QueryGenerator(Semaphore sem, String restHost, int restPort, String orchHost, int orchPort,
                 int partitionRangeStart, int queryDuration, String openStreetMapFilePath) {
@@ -111,7 +112,9 @@ public class SpatialQueryGenerator {
         @Override
         public void run() {
             try {
-                this.br = new BufferedReader(new FileReader(openStreetMapFilePath));
+                if (openStreetMapFilePath != null) {
+                    this.br = new BufferedReader(new FileReader(openStreetMapFilePath));
+                }
                 Socket s = new Socket(restHost, restPort);
                 try {
                     //connect to orchestrator socket
@@ -136,12 +139,14 @@ public class SpatialQueryGenerator {
                             queryCount++;
                             curTS = System.currentTimeMillis();
                             if (LOGGER.isLoggable(Level.INFO) && queryCount % 100 == 0) {
-                                LOGGER.info("QueryGen[" + partition + "][TimeToQuery100] " + (curTS - prevTS) + " in milliseconds");
+                                LOGGER.info("QueryGen[" + partition + "][TimeToQuery100] " + (curTS - prevTS)
+                                        + " in milliseconds");
                                 prevTS = curTS;
                             }
                         }
                         if (LOGGER.isLoggable(Level.INFO)) {
-                            LOGGER.info("QueryGen[" + partition + "][QueryCount] " + queryCount + " in " + (queryDuration/1000) + " seconds");
+                            LOGGER.info("QueryGen[" + partition + "][QueryCount] " + queryCount + " in "
+                                    + (queryDuration / 1000) + " seconds");
                         }
 
                         //send reqched message to orchestrator
@@ -154,7 +159,9 @@ public class SpatialQueryGenerator {
                 } catch (Throwable t) {
                     t.printStackTrace();
                 } finally {
-                    br.close();
+                    if (openStreetMapFilePath != null) {
+                        br.close();
+                    }
                     s.close();
                 }
             } catch (Throwable t) {
@@ -171,22 +178,34 @@ public class SpatialQueryGenerator {
             int lineCount = 0;
             String line = null;;
             String strPoints[] = null;
-            while(lineCount < skipLineCount) {
-                if ((line = br.readLine()) == null) {
-                    //reopen file
-                    br.close();
-                    br = new BufferedReader(new FileReader(openStreetMapFilePath));
-                    line = br.readLine();
+            float x = 0, y = 0;
+            int beginX = -180, endX = 180, beginY = -90, endY = 90;
+            if (openStreetMapFilePath != null) {
+                while (lineCount < skipLineCount) {
+                    if ((line = br.readLine()) == null) {
+                        //reopen file
+                        br.close();
+                        br = new BufferedReader(new FileReader(openStreetMapFilePath));
+                        line = br.readLine();
+                    }
+                    strPoints = line.split(",");
+                    if (strPoints.length != 2) {
+                        continue;
+                    }
+                    lineCount++;
                 }
-                strPoints = line.split(",");
-                if (strPoints.length != 2) {
-                    continue;
-                }
-                lineCount++;
+                y = Float.parseFloat(strPoints[0]) / 10000000; //latitude (y value)
+                x = Float.parseFloat(strPoints[1]) / 10000000; //longitude (x value)
+            } else {
+                int xMajor = beginX + random.nextInt(endX - beginX);
+                int xMinor = random.nextInt(100);
+                x = xMajor + ((float) xMinor) / 100;
+
+                int yMajor = beginY + random.nextInt(endY - beginY);
+                int yMinor = random.nextInt(100);
+                y = yMajor + ((float) yMinor) / 100;
             }
-            float y = Float.parseFloat(strPoints[0]) / 10000000; //latitude (y value)
-            float x = Float.parseFloat(strPoints[1]) / 10000000; //longitude (x value)
-            
+
             //create action
             SequentialActionList sAction = new SequentialActionList();
             IAction rangeQueryAction = new TimedAction(new RunAQLStringAction(httpClient, restHost, restPort,

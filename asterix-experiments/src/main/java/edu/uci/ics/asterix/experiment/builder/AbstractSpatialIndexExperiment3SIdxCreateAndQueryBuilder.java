@@ -38,6 +38,7 @@ import edu.uci.ics.asterix.experiment.action.derived.TimedAction;
 import edu.uci.ics.asterix.experiment.client.LSMExperimentConstants;
 import edu.uci.ics.asterix.experiment.client.LSMExperimentSetRunner.LSMExperimentSetRunnerConfig;
 import edu.uci.ics.hyracks.api.util.ExperimentProfiler;
+import edu.uci.ics.hyracks.api.util.SpatialIndexProfiler;
 
 /**
  * This class is used to create experiments for spatial index static data evaluation, that is, no ingestion is involved.
@@ -46,9 +47,9 @@ import edu.uci.ics.hyracks.api.util.ExperimentProfiler;
 public abstract class AbstractSpatialIndexExperiment3SIdxCreateAndQueryBuilder extends AbstractExperimentBuilder {
 
     private static final String ASTERIX_INSTANCE_NAME = "a1";
-    private static final int SKIP_LINE_COUNT = 199;
+    private static final int SKIP_LINE_COUNT = 223;
     private static final int CACHE_WARM_UP_QUERY_COUNT = 500;
-    private static final int SELECT_QUERY_COUNT = 250;
+    private static final int SELECT_QUERY_COUNT = 5000;
     private static final int JOIN_QUERY_COUNT = 200;
     private static final int JOIN_CANDIDATE_COUNT = 100;
     private static final int MAX_QUERY_SEED = 10000;
@@ -220,7 +221,7 @@ public abstract class AbstractSpatialIndexExperiment3SIdxCreateAndQueryBuilder e
             execs.add(new RunAQLFileAction(httpClient, restHost, restPort, localExperimentRoot.resolve(
                     LSMExperimentConstants.AQL_DIR).resolve(countFileName)));
         }
-        
+
         //run cache warm-up queries: run CACHE_WARM_UP_QUERY_COUNT select queries
         br = new BufferedReader(new FileReader(querySeedFilePath));
         radiusIter = 0;
@@ -243,20 +244,20 @@ public abstract class AbstractSpatialIndexExperiment3SIdxCreateAndQueryBuilder e
         //---------- main experiment body ends -----------
 
         //kill io state action
-        if (statFile != null) {
-            ParallelActionSet ioCountKillActions = new ParallelActionSet();
-            for (String ncHost : ncHosts) {
-                ioCountKillActions.add(new AbstractRemoteExecutableAction(ncHost, username, sshKeyLocation) {
-
-                    @Override
-                    protected String getCommand() {
-                        String cmd = "screen -X -S `screen -list | grep Detached | awk '{print $1}'` quit";
-                        return cmd;
-                    }
-                });
-            }
-            execs.add(ioCountKillActions);
-        }
+//        if (statFile != null) {
+//            ParallelActionSet ioCountKillActions = new ParallelActionSet();
+//            for (String ncHost : ncHosts) {
+//                ioCountKillActions.add(new AbstractRemoteExecutableAction(ncHost, username, sshKeyLocation) {
+//
+//                    @Override
+//                    protected String getCommand() {
+//                        String cmd = "screen -X -S `screen -list | grep Detached | awk '{print $1}'` quit";
+//                        return cmd;
+//                    }
+//                });
+//            }
+//            execs.add(ioCountKillActions);
+//        }
 
         //add ls action
         execs.add(postLSAction);
@@ -292,16 +293,13 @@ public abstract class AbstractSpatialIndexExperiment3SIdxCreateAndQueryBuilder e
         if (ExperimentProfiler.PROFILE_MODE) {
             ParallelActionSet collectProfileInfo = new ParallelActionSet();
             for (String ncHost : ncHosts) {
-                for (final String sRoot : storageRoots) {
-                    collectProfileInfo.add(new AbstractRemoteExecutableAction(ncHost, username, sshKeyLocation) {
-
-                        @Override
-                        protected String getCommand() {
-                            String cmd = "mv " + sRoot + "/*.txt " + cluster.getLogDir();
-                            return cmd;
-                        }
-                    });
-                }
+                collectProfileInfo.add(new AbstractRemoteExecutableAction(ncHost, username, sshKeyLocation) {
+                    @Override
+                    protected String getCommand() {
+                        String cmd = "mv " + SpatialIndexProfiler.PROFILE_HOME_DIR + "*.txt " + cluster.getLogDir();
+                        return cmd;
+                    }
+                });
             }
             execs.add(collectProfileInfo);
         }
@@ -398,7 +396,7 @@ public abstract class AbstractSpatialIndexExperiment3SIdxCreateAndQueryBuilder e
         //create action
         SequentialActionList sAction = new SequentialActionList();
         IAction queryAction = new TimedAction(new RunAQLStringAction(httpClient, restHost, restPort, getJoinQueryAQL(
-                radiusType[radiusIter++ % (radiusType.length-1)], lowId, highId)));
+                radiusType[radiusIter++ % (radiusType.length - 1)], lowId, highId)));
         sAction.add(queryAction);
 
         return sAction;
@@ -412,7 +410,8 @@ public abstract class AbstractSpatialIndexExperiment3SIdxCreateAndQueryBuilder e
         sb.append(" let $area := create-circle($x.sender-location, ").append(String.format("%f", radius))
                 .append(" ) \n");
         sb.append(" for $y in dataset Tweets \n");
-        sb.append(" where $x.tweetid >= int64(\"" + lowId + "\") ").append("and $x.tweetid < int64(\"" + highId + "\") and ");
+        sb.append(" where $x.tweetid >= int64(\"" + lowId + "\") ").append(
+                "and $x.tweetid < int64(\"" + highId + "\") and ");
         sb.append(" spatial-intersect($y.sender-location, $area) \n");
         sb.append(" return $y \n");
         sb.append(" );\n");

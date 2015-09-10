@@ -207,12 +207,13 @@ public class SocketTweetGenerator {
 
                             prevTS = System.currentTimeMillis();
                             batchCount = 0;
+                            int batchNum = 1;
                             //start sending record
-                            while (tg.setNextRecordBatch(1)) {
+                            while (tg.setNextRecordBatch(batchNum)) {
                                 curTS = System.currentTimeMillis();
                                 if (LOGGER.isLoggable(Level.INFO)) {
                                     batchCount++;
-                                    if (batchCount % 100000 == 0) {
+                                    if (batchCount % (100000 / batchNum) == 0) {
                                         System.out.println("DataGen[" + partition + "][During ingestion + queries][TimeToInsert100000] " + (curTS - prevTS)  + " in milliseconds");
                                         batchCount = 0;
                                         prevTS = curTS;

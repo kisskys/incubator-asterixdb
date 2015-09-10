@@ -11,7 +11,7 @@ public class SIE1ReportBuilder extends AbstractDynamicDataEvalReportBuilder {
     }
 
     @Override
-    public String get20minInsertPS() throws Exception {
+    public String get20minInsertPS(int minutes) throws Exception {
         renewStringBuilder();
         openRunLog();
         try {
@@ -23,7 +23,7 @@ public class SIE1ReportBuilder extends AbstractDynamicDataEvalReportBuilder {
             String line;
             while((line = br.readLine()) != null) {
                 if (line.contains("i64")) {
-                    rsb.append(ReportBuilderHelper.getLong(line, "[ ", "i64") / 1200);
+                    rsb.append(ReportBuilderHelper.getLong(line, "[ ", "i64") / (minutes * 60));
                     break;
                 }
             }
@@ -40,7 +40,7 @@ public class SIE1ReportBuilder extends AbstractDynamicDataEvalReportBuilder {
     }
 
     @Override
-    public String get20minQueryPS() throws Exception {
+    public String get20minQueryPS(int minutes) throws Exception {
         return null;
 //        renewStringBuilder();
 //        openRunLog();

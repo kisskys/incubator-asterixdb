@@ -5,6 +5,8 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.HashMap;
+import java.util.Iterator;
+import java.util.Map.Entry;
 
 public class NCLogReportBuilder {
 
@@ -27,6 +29,7 @@ public class NCLogReportBuilder {
         SimpleDateFormat format = new SimpleDateFormat("MMM dd, yyyy hh:mm:ss aa");
         HashMap<String, Long> flushMap = new HashMap<String, Long>();
         HashMap<String, Long> mergeMap = new HashMap<String, Long>();
+        long sTime, fTime;
         try {
             while ((timeLine = br.readLine()) != null) {
                 if ((msgLine = br.readLine()) == null) {
@@ -69,9 +72,18 @@ public class NCLogReportBuilder {
                     
                     if (flushMap.containsKey(indexName)) {
                         flushStartTimeStamp = flushMap.remove(indexName);
-                        sb.append("f-"+indexName).append("\t").append((flushStartTimeStamp - testBeginTimeStamp) / 1000)
-                                .append("\t").append((flushFinishTimeStamp - testBeginTimeStamp) / 1000).append("\t")
-                                .append("flush").append("\n");
+                        sTime = (flushStartTimeStamp - testBeginTimeStamp) / 1000;
+                        fTime = (flushFinishTimeStamp - testBeginTimeStamp) / 1000;
+                        if (fTime == sTime) {
+                            ++fTime;
+                        }
+                        //only for sie1
+//                        if (fTime > 1200) {
+//                            fTime = 1200;
+//                        }
+                        sb.append("f-"+getPrintName(indexName)).append("\t").append(sTime)
+                                .append("\t").append(fTime).append("\t")
+                                .append(indexName.contains("Tweets") ? "flushPidx" : "flushSidx").append("\n");
                     } 
                 }
 
@@ -98,21 +110,71 @@ public class NCLogReportBuilder {
                     }
 
                     indexName = ReportBuilderHelper.getString(msgLine, "experiments/Tweets_idx_", "/]");
-                    
+
                     if (mergeMap.containsKey(indexName)) {
                         mergeStartTimeStamp = mergeMap.remove(indexName);
-                        sb.append("m-"+indexName).append("\t")
-                                .append((mergeStartTimeStamp - testBeginTimeStamp) / 1000).append("\t")
-                                .append((mergeFinishTimeStamp - testBeginTimeStamp) / 1000).append("\t")
-                                .append("merge").append("\n");
+                        sTime = (mergeStartTimeStamp - testBeginTimeStamp) / 1000;
+                        fTime= (mergeFinishTimeStamp - testBeginTimeStamp) / 1000;
+                        if (fTime == sTime) {
+                            ++fTime;
+                        }
+                        //only for sie1
+//                        if (fTime > 1200) {
+//                            fTime = 1200;
+//                        }
+                        sb.append("m-"+getPrintName(indexName)).append("\t")
+                                .append(sTime).append("\t")
+                                .append(fTime).append("\t")
+                                .append(indexName.contains("Tweets") ? "mergePidx" : "mergeSidx").append("\n");
                     }
                 }
+            }
+            
+            Iterator<Entry<String, Long>> mergeMapIter = mergeMap.entrySet().iterator();
+            Entry<String, Long> entry = null;
+            while (mergeMapIter.hasNext()) {
+               entry = mergeMapIter.next();
+               sb.append("m-"+getPrintName(entry.getKey())).append("\t")
+               .append((entry.getValue() - testBeginTimeStamp)/1000).append("\t")
+               .append(60 * 20).append("\t")
+               .append(entry.getKey().contains("Tweets") ? "mergePidx" : "mergeSidx").append("\n");
+            }
+            
+            Iterator<Entry<String, Long>> flushMapIter = mergeMap.entrySet().iterator();
+            while (mergeMapIter.hasNext()) {
+               entry = flushMapIter.next();
+               sb.append("f-"+getPrintName(entry.getKey())).append("\t")
+               .append((entry.getValue() - testBeginTimeStamp)/1000).append("\t")
+               .append(60*20).append("\t")
+               .append(entry.getKey().contains("Tweets") ? "flushPidx" : "flushSidx").append("\n");
             }
 
             return sb.toString();
         } finally {
             closeNCLog();
         }
+    }
+    
+    private String getPrintName(String indexName) {
+        String name = null;
+        if (indexName.contains("Tweets")) {
+            if (indexName.contains("0")) {
+                name = "pidx0";
+            } else if (indexName.contains("1")) {
+                name = "pidx1";
+            } else if (indexName.contains("2")) {
+                name = "pidx2";
+            }
+        } else if (indexName.contains("Location")) {
+            if (indexName.contains("0")) {
+                name = "sidx0"; //ReportBuilderHelper.getString(indexName, "Location") + "0";
+            } else if (indexName.contains("1")) {
+                name = "sidx1"; //ReportBuilderHelper.getString(indexName, "Location") + "1";
+            } else if (indexName.contains("2")) {
+                name = "sidx2"; //ReportBuilderHelper.getString(indexName, "Location") + "2";
+            }
+        }
+        return name;
     }
 
     protected void openNCLog() throws IOException {

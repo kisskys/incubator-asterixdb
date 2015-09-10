@@ -85,10 +85,16 @@ public abstract class AbstractSpatialIndexExperiment2Builder extends AbstractLSM
                     String ipPortPairs = StringUtils.join(rcvrs.iterator(), " ");
                     String binary = "JAVA_HOME=" + javaHomePath + " "
                             + localExperimentRoot.resolve("bin").resolve("datagenrunner").toString();
-                    return StringUtils.join(new String[] { binary, "-si", "" + locationSampleInterval, "-of",
-                            openStreetMapFilePath, "-p", "" + p, "-di", "" + dataInterval, "-ni", "" + nIntervals,
-                            "-qd", "" + queryGenDuration, "-oh", dataGenOrchHost, "-op", "" + dataGenOrchPort,
-                            ipPortPairs }, " ");
+                    if (openStreetMapFilePath == null) {
+                        return StringUtils.join(new String[] { binary, "-si", "" + locationSampleInterval, "-p",
+                                "" + p, "-di", "" + dataInterval, "-ni", "" + nIntervals, "-qd", "" + queryGenDuration,
+                                "-oh", dataGenOrchHost, "-op", "" + dataGenOrchPort, ipPortPairs }, " ");
+                    } else {
+                        return StringUtils.join(new String[] { binary, "-si", "" + locationSampleInterval, "-of",
+                                openStreetMapFilePath, "-p", "" + p, "-di", "" + dataInterval, "-ni", "" + nIntervals,
+                                "-qd", "" + queryGenDuration, "-oh", dataGenOrchHost, "-op", "" + dataGenOrchPort,
+                                ipPortPairs }, " ");
+                    }
                 }
             });
 
@@ -100,9 +106,15 @@ public abstract class AbstractSpatialIndexExperiment2Builder extends AbstractLSM
                     String ipPortPairs = StringUtils.join(rcvrs.iterator(), " ");
                     String binary = "JAVA_HOME=" + javaHomePath + " "
                             + localExperimentRoot.resolve("bin").resolve("querygenrunner").toString();
-                    return StringUtils.join(new String[] { binary, "-of", openStreetMapFilePath, "-p", "" + p, "-qd",
-                            "" + queryGenDuration, "-qoh", "" + queryGenOrchHost, "-qop", "" + queryGenOrchPort, "-rh",
-                            restHost, "-rp", "" + restPort }, " ");
+                    if (openStreetMapFilePath == null) {
+                        return StringUtils.join(new String[] { binary, "-p", "" + p,
+                                "-qd", "" + queryGenDuration, "-qoh", "" + queryGenOrchHost, "-qop",
+                                "" + queryGenOrchPort, "-rh", restHost, "-rp", "" + restPort }, " ");
+                    } else {
+                        return StringUtils.join(new String[] { binary, "-of", openStreetMapFilePath, "-p", "" + p,
+                                "-qd", "" + queryGenDuration, "-qoh", "" + queryGenOrchHost, "-qop",
+                                "" + queryGenOrchPort, "-rh", restHost, "-rp", "" + restPort }, " ");
+                    }
                 }
             });
 

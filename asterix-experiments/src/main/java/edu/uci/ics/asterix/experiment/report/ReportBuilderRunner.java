@@ -28,6 +28,18 @@ public class ReportBuilderRunner {
         sie3.generateJoinQueryResponseTime();
         sie3.generateSelectQueryResultCount();
         sie3.generateJoinQueryResultCount();
+        sie3.generateSelectQueryProfiledSidxSearchTime();
+        sie3.generateSelectQueryProfiledPidxSearchTime();
+        sie3.generateJoinQueryProfiledSidxSearchTime();
+        sie3.generateJoinQueryProfiledPidxSearchTime();
+        sie3.generateJoinQueryProfiledSeedPidxSearchTime();
+        sie3.generateSelectQueryProfiledSidxCacheMiss();
+        sie3.generateSelectQueryProfiledPidxCacheMiss();
+        sie3.generateJoinQueryProfiledSidxCacheMiss();
+        sie3.generateJoinQueryProfiledPidxCacheMiss();
+        sie3.generateJoinQueryProfiledSeedPidxCacheMiss();
+        sie3.generateSelectQueryProfiledFalsePositive();
+        sie3.generateJoinQueryProfiledFalsePositive();
     }
 
 }

@@ -51,6 +51,11 @@ public class ReportBuilderHelper {
         int idEndIdx = line.indexOf(endPattern, idBeginIdx);
         return line.substring(idBeginIdx, idEndIdx).trim();
     }
+    
+    public static String getString(String line, String endPattern) {
+        int idEndIdx = line.indexOf(endPattern, 0);
+        return line.substring(0, idEndIdx).trim();
+    }
 
     public static long getTimeStampAsLong(String line, SimpleDateFormat format) throws ParseException {
         //Jul 09, 2015 11:58:08

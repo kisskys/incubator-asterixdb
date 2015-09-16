@@ -1,3 +1,17 @@
+/*
+ * Copyright 2009-2013 by The Regents of the University of California
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * you may obtain a copy of the License from
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package edu.uci.ics.asterix.experiment.client;
 
 import java.io.File;
@@ -7,9 +21,9 @@ import java.io.IOException;
 import org.kohsuke.args4j.CmdLineException;
 import org.kohsuke.args4j.CmdLineParser;
 
-import edu.uci.ics.asterix.tools.external.data.DataGenerator;
-import edu.uci.ics.asterix.tools.external.data.DataGenerator.InitializationInfo;
-import edu.uci.ics.asterix.tools.external.data.DataGenerator.TweetMessageIterator;
+import edu.uci.ics.asterix.tools.external.data.DataGeneratorForSpatialIndexEvaluation;
+import edu.uci.ics.asterix.tools.external.data.DataGeneratorForSpatialIndexEvaluation.InitializationInfo;
+import edu.uci.ics.asterix.tools.external.data.DataGeneratorForSpatialIndexEvaluation.TweetMessageIterator;
 import edu.uci.ics.asterix.tools.external.data.GULongIDGenerator;
 
 public class SyntheticDataGeneratorForSpatialIndexEvaluation {
@@ -28,7 +42,7 @@ public class SyntheticDataGeneratorForSpatialIndexEvaluation {
         GULongIDGenerator uidGenerator = new GULongIDGenerator(config.getPartitionId(), (byte) (0));
         String pointSourceFilePath = config.getPointSourceFile();
         int pointSampleInterval = config.getpointSamplingInterval();
-        DataGenerator dataGenerator = new DataGenerator(new InitializationInfo(), pointSourceFilePath,
+        DataGeneratorForSpatialIndexEvaluation dataGenerator = new DataGeneratorForSpatialIndexEvaluation(new InitializationInfo(), pointSourceFilePath,
                 pointSampleInterval);
 
         //get record count to be generated

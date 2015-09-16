@@ -3,9 +3,9 @@
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * you may obtain a copy of the License from
- * 
+ *
  *     http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -191,7 +191,9 @@ public class PushAggFuncIntoStandaloneAggregateRule implements IAlgebraicRewrite
         }
 
         List<Mutable<ILogicalExpression>> srcAssignExprRefs = new LinkedList<Mutable<ILogicalExpression>>();
-        fingAggFuncExprRef(assignOp.getExpressions(), aggVar, srcAssignExprRefs);
+        if (fingAggFuncExprRef(assignOp.getExpressions(), aggVar, srcAssignExprRefs) == false) {
+            return false;
+        }
         if (srcAssignExprRefs.isEmpty()) {
             return false;
         }
@@ -226,10 +228,17 @@ public class PushAggFuncIntoStandaloneAggregateRule implements IAlgebraicRewrite
         return true;
     }
 
-    private void fingAggFuncExprRef(List<Mutable<ILogicalExpression>> exprRefs, LogicalVariable aggVar,
+    private boolean fingAggFuncExprRef(List<Mutable<ILogicalExpression>> exprRefs, LogicalVariable aggVar,
             List<Mutable<ILogicalExpression>> srcAssignExprRefs) {
         for (Mutable<ILogicalExpression> exprRef : exprRefs) {
             ILogicalExpression expr = exprRef.getValue();
+
+            if (expr.getExpressionTag() == LogicalExpressionTag.VARIABLE) {
+                if (((VariableReferenceExpression) expr).getVariableReference().equals(aggVar)) {
+                    return false;
+                }
+            }
+
             if (expr.getExpressionTag() != LogicalExpressionTag.FUNCTION_CALL) {
                 continue;
             }
@@ -238,7 +247,9 @@ public class PushAggFuncIntoStandaloneAggregateRule implements IAlgebraicRewrite
                     .getFunctionIdentifier());
             if (funcIdent == null) {
                 // Recursively look in func args.
-                fingAggFuncExprRef(funcExpr.getArguments(), aggVar, srcAssignExprRefs);
+                if (fingAggFuncExprRef(funcExpr.getArguments(), aggVar, srcAssignExprRefs) == false) {
+                    return false;
+                }
 
             } else {
                 // Check if this is the expr that uses aggVar.
@@ -249,5 +260,6 @@ public class PushAggFuncIntoStandaloneAggregateRule implements IAlgebraicRewrite
                 }
             }
         }
+        return true;
     }
 }

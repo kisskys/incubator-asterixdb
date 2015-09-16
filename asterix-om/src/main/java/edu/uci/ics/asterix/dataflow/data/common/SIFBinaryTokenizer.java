@@ -207,4 +207,9 @@ public class SIFBinaryTokenizer implements IBinaryTokenizer {
         return !(x >= bottomLeftX && x <= topRightX && y >= bottomLeftY && y <= topRightY);
     }
 
+    @Override
+    public short getTokensCount() {
+        return 0;
+    }
+
 }

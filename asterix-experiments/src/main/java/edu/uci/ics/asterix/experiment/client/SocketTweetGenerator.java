@@ -1,3 +1,17 @@
+/*
+ * Copyright 2009-2013 by The Regents of the University of California
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * you may obtain a copy of the License from
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package edu.uci.ics.asterix.experiment.client;
 
 import java.io.DataInputStream;
@@ -19,7 +33,7 @@ import java.util.logging.Logger;
 
 import org.apache.commons.lang3.tuple.Pair;
 
-import edu.uci.ics.asterix.tools.external.data.TweetGenerator;
+import edu.uci.ics.asterix.tools.external.data.TweetGeneratorForSpatialIndexEvaluation;
 
 public class SocketTweetGenerator {
 
@@ -142,17 +156,17 @@ public class SocketTweetGenerator {
                     if (m == Mode.DATA) {
                         orchSocket = new Socket(orchHost, orchPort);
                     }
-                    TweetGenerator tg = null;
+                    TweetGeneratorForSpatialIndexEvaluation tg = null;
                     try {
                         Map<String, String> config = new HashMap<>();
                         String durationVal = m == Mode.TIME ? String.valueOf(dataGenDuration) : "0";
-                        config.put(TweetGenerator.KEY_DURATION, String.valueOf(durationVal));
+                        config.put(TweetGeneratorForSpatialIndexEvaluation.KEY_DURATION, String.valueOf(durationVal));
                         if (openStreetMapFilePath != null) {
-                            config.put(TweetGenerator.KEY_OPENSTREETMAP_FILEPATH, openStreetMapFilePath);
-                            config.put(TweetGenerator.KEY_LOCATION_SAMPLE_INTERVAL,
+                            config.put(TweetGeneratorForSpatialIndexEvaluation.KEY_OPENSTREETMAP_FILEPATH, openStreetMapFilePath);
+                            config.put(TweetGeneratorForSpatialIndexEvaluation.KEY_LOCATION_SAMPLE_INTERVAL,
                                     String.valueOf(locationSampleInterval));
                         }
-                        tg = new TweetGenerator(config, partition, TweetGenerator.OUTPUT_FORMAT_ADM_STRING,
+                        tg = new TweetGeneratorForSpatialIndexEvaluation(config, partition, TweetGeneratorForSpatialIndexEvaluation.OUTPUT_FORMAT_ADM_STRING,
                                 s.getOutputStream());
                         long startTS = System.currentTimeMillis();
                         long prevTS = startTS;

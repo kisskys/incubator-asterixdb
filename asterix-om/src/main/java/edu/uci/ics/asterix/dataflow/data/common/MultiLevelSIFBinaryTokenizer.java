@@ -262,4 +262,9 @@ public class MultiLevelSIFBinaryTokenizer extends SpatialCellBinaryTokenizer {
         }
         hilbertValue[dest][MAX_LEVEL] = (byte) newValidLevelCount;
     }
+
+    @Override
+    public short getTokensCount() {
+        return 0;
+    }
 }

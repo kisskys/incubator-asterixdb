@@ -41,8 +41,6 @@ import edu.uci.ics.hyracks.storage.am.common.api.IBinaryTokenizerFactory;
 
 public final class NonTaggedFormatUtil {
 
-    public static final int OPTIONAL_TYPE_INDEX_IN_UNION_LIST = 1;
-
     public static final boolean isFixedSizedCollection(IAType type) {
         switch (type.getTypeTag()) {
             case STRING:
@@ -50,14 +48,14 @@ public final class NonTaggedFormatUtil {
             case RECORD:
             case ORDEREDLIST:
             case UNORDEREDLIST:
+            case POLYGON:
             case ANY:
                 return false;
             case UNION:
-                if (!NonTaggedFormatUtil.isOptionalField((AUnionType) type))
+                if (!((AUnionType) type).isNullableType())
                     return false;
                 else
-                    return isFixedSizedCollection(((AUnionType) type).getUnionList().get(
-                            OPTIONAL_TYPE_INDEX_IN_UNION_LIST));
+                    return isFixedSizedCollection(((AUnionType) type).getNullableType());
             default:
                 return true;
         }
@@ -83,11 +81,14 @@ public final class NonTaggedFormatUtil {
         return false;
     }
 
-    public static boolean isOptionalField(AUnionType unionType) {
-        if (unionType.getUnionList().size() == 2)
-            if (unionType.getUnionList().get(0).getTypeTag() == ATypeTag.NULL)
-                return true;
-        return false;
+    /**
+     * Decide whether a type is an optional type
+     *
+     * @param type
+     * @return true if it is optional; false otherwise
+     */
+    public static boolean isOptional(IAType type) {
+        return type.getTypeTag() == ATypeTag.UNION && ((AUnionType) type).isNullableType();
     }
 
     public static int getFieldValueLength(byte[] serNonTaggedAObject, int offset, ATypeTag typeTag, boolean tagged)

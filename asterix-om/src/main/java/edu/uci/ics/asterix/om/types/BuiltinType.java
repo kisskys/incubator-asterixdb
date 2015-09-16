@@ -51,7 +51,7 @@ public abstract class BuiltinType implements IAType {
 
         @Override
         public String getTypeName() {
-            return "atype";
+            return "ASTERIX_TYPE";
         }
 
         @Override
@@ -62,7 +62,7 @@ public abstract class BuiltinType implements IAType {
         @Override
         public JSONObject toJSON() throws JSONException {
             JSONObject type = new JSONObject();
-            type.put("type", "AsterixType");
+            type.put("type", "ASTERIX_TYPE");
             return type;
         }
     };
@@ -305,7 +305,7 @@ public abstract class BuiltinType implements IAType {
         @Override
         public JSONObject toJSON() throws JSONException {
             JSONObject type = new JSONObject();
-            type.put("type", "Null");
+            type.put("type", "ANULL");
             return type;
         }
     };
@@ -738,9 +738,10 @@ public abstract class BuiltinType implements IAType {
         }
     };
 
-    // AUUID_STRING is used when converting between the string representation of
-    // UUID and corresponding a UUID instance
+    // AUUID_STRING is used when converting between the string representation of        
+    // UUID and corresponding a UUID instance       
     public static final BuiltinType AUUID_STRING = new LowerCaseConstructorType() {
+        private static final long serialVersionUID = 1L;
 
         @Override
         public ATypeTag getTypeTag() {
@@ -765,7 +766,7 @@ public abstract class BuiltinType implements IAType {
         }
     };
 
-    public static final IAType ANY = new BuiltinType() {
+    public static final BuiltinType ANY = new BuiltinType() {
 
         private static final long serialVersionUID = 1L;
 
@@ -881,6 +882,8 @@ public abstract class BuiltinType implements IAType {
             return BuiltinType.ADOUBLE;
         } else if (str.equals(BuiltinType.AFLOAT.getTypeName())) {
             return BuiltinType.AFLOAT;
+        } else if (str.equals(BuiltinType.ANY.getTypeName())) {
+            return BuiltinType.ANY;
         }
         throw new AsterixException("No string translation for type: " + str + " .");
     }

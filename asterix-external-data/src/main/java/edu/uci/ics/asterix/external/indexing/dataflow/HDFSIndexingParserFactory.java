@@ -24,6 +24,7 @@ import edu.uci.ics.asterix.external.adapter.factory.HDFSIndexingAdapterFactory;
 import edu.uci.ics.asterix.external.adapter.factory.StreamBasedAdapterFactory;
 import edu.uci.ics.asterix.om.types.ARecordType;
 import edu.uci.ics.asterix.runtime.operators.file.ADMDataParser;
+import edu.uci.ics.asterix.runtime.operators.file.AsterixTupleParserFactory;
 import edu.uci.ics.asterix.runtime.operators.file.DelimitedDataParser;
 import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
@@ -38,24 +39,24 @@ public class HDFSIndexingParserFactory implements ITupleParserFactory {
 
     private static final long serialVersionUID = 1L;
     // file input-format <text, seq, rc>
-    private String inputFormat;
+    private final String inputFormat;
     // content format <adm, delimited-text, binary>
-    private String format;
+    private final String format;
     // delimiter in case of delimited text
-    private char delimiter;
+    private final char delimiter;
     // quote in case of delimited text
-    private char quote;
+    private final char quote;
     // parser class name in case of binary format
-    private String parserClassName;
+    private final String parserClassName;
     // the expected data type
-    private ARecordType atype;
+    private final ARecordType atype;
     // the hadoop job conf
     private transient JobConf jobConf;
     // adapter arguments
     private Map<String, String> arguments;
 
     public HDFSIndexingParserFactory(ARecordType atype, String inputFormat, String format, char delimiter,
-            char quote, String parserClassName) {
+                                     char quote, String parserClassName) {
         this.inputFormat = inputFormat;
         this.format = format;
         this.parserClassName = parserClassName;
@@ -84,14 +85,14 @@ public class HDFSIndexingParserFactory implements ITupleParserFactory {
          * 2. RC indexing tuple parser
          * 3. textual data tuple parser
          */
-        if (format.equalsIgnoreCase(StreamBasedAdapterFactory.FORMAT_ADM)) {
+        if (format.equalsIgnoreCase(AsterixTupleParserFactory.FORMAT_ADM)) {
             // choice 3 with adm data parser
             ADMDataParser dataParser = new ADMDataParser();
             return new AdmOrDelimitedIndexingTupleParser(ctx, atype, dataParser);
-        } else if (format.equalsIgnoreCase(StreamBasedAdapterFactory.FORMAT_DELIMITED_TEXT)) {
+        } else if (format.equalsIgnoreCase(AsterixTupleParserFactory.FORMAT_DELIMITED_TEXT)) {
             // choice 3 with delimited data parser
-            DelimitedDataParser dataParser = HDFSIndexingAdapterFactory.getDilimitedDataParser(atype,
-                    delimiter, quote);
+            DelimitedDataParser dataParser = HDFSIndexingAdapterFactory.getDelimitedDataParser(atype,
+                delimiter, quote); 
             return new AdmOrDelimitedIndexingTupleParser(ctx, atype, dataParser);
         }
 

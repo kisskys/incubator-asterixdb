@@ -43,8 +43,7 @@ import edu.uci.ics.hyracks.algebricks.core.algebra.properties.UnorderedPartition
 public abstract class AqlDataSource implements IDataSource<AqlSourceId> {
 
     private final AqlSourceId id;
-    private final String datasourceDataverse;
-    private final String datasourceName;
+   private final IAType itemType;
     private final AqlDataSourceType datasourceType;
     protected IAType[] schemaTypes;
     protected INodeDomain domain;
@@ -54,23 +53,22 @@ public abstract class AqlDataSource implements IDataSource<AqlSourceId> {
         INTERNAL_DATASET,
         EXTERNAL_DATASET,
         FEED,
-        ADAPTED_LOADABLE
+        LOADABLE
     }
 
     public AqlDataSource(AqlSourceId id, String datasourceDataverse, String datasourceName,
-            AqlDataSourceType datasourceType) throws AlgebricksException {
+            IAType itemType, AqlDataSourceType datasourceType) throws AlgebricksException {
         this.id = id;
-        this.datasourceDataverse = datasourceDataverse;
-        this.datasourceName = datasourceName;
+        this.itemType = itemType;
         this.datasourceType = datasourceType;
     }
 
     public String getDatasourceDataverse() {
-        return datasourceDataverse;
+        return id.getDataverseName();
     }
 
     public String getDatasourceName() {
-        return datasourceName;
+        return id.getDatasourceName();
     }
 
     @Override
@@ -128,7 +126,7 @@ public abstract class AqlDataSource implements IDataSource<AqlSourceId> {
             List<ILocalStructuralProperty> propsLocal;
             int n;
             switch (ds.getDatasourceType()) {
-                case ADAPTED_LOADABLE:
+                case LOADABLE:
                 case EXTERNAL_DATASET:
                     pp = new RandomPartitioningProperty(domain);
                     propsLocal = new ArrayList<ILocalStructuralProperty>();
@@ -196,7 +194,10 @@ public abstract class AqlDataSource implements IDataSource<AqlSourceId> {
     public Map<String, Serializable> getProperties() {
         return properties;
     }
-
+    
+    public IAType getItemType() {
+        return itemType;
+    }
     public void setProperties(Map<String, Serializable> properties) {
         this.properties = properties;
     }

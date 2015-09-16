@@ -3,9 +3,9 @@
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * you may obtain a copy of the License from
- * 
+ *
  *     http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -16,18 +16,18 @@ package edu.uci.ics.asterix.test.aql;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedReader;
-import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileReader;
-import java.io.FileWriter;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -43,15 +43,10 @@ import org.apache.commons.httpclient.params.HttpMethodParams;
 import org.apache.commons.io.IOUtils;
 import org.json.JSONObject;
 
-import com.fasterxml.jackson.core.JsonFactory;
-import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.core.JsonToken;
-
 import edu.uci.ics.asterix.common.config.GlobalConfig;
 import edu.uci.ics.asterix.testframework.context.TestCaseContext;
 import edu.uci.ics.asterix.testframework.context.TestCaseContext.OutputFormat;
 import edu.uci.ics.asterix.testframework.context.TestFileContext;
-import edu.uci.ics.asterix.testframework.xml.ComparisonEnum;
 import edu.uci.ics.asterix.testframework.xml.TestCase.CompilationUnit;
 
 public class TestsUtils {
@@ -95,8 +90,8 @@ public class TestsUtils {
                 }
 
                 if (!equalStrings(lineExpected.split("Time")[0], lineActual.split("Time")[0])) {
-                    throw new Exception("Result for " + scriptFile + " changed at line " + num + ":\n< " + lineExpected + "\n> "
-                            + lineActual);
+                    throw new Exception("Result for " + scriptFile + " changed at line " + num + ":\n< " + lineExpected
+                            + "\n> " + lineActual);
                 }
 
                 ++num;
@@ -128,13 +123,30 @@ public class TestsUtils {
             String[] fields1 = row1.split(" ");
             String[] fields2 = row2.split(" ");
 
+            boolean bagEncountered = false;
+            Set<String> bagElements1 = new HashSet<String>();
+            Set<String> bagElements2 = new HashSet<String>();
+
             for (int j = 0; j < fields1.length; j++) {
                 if (j >= fields2.length) {
                     return false;
-                }
-                else if (fields1[j].equals(fields2[j])) {
+                } else if (fields1[j].equals(fields2[j])) {
+                    if (fields1[j].equals("{{"))
+                        bagEncountered = true;
+                    if (fields1[j].startsWith("}}")) {
+                        if (!bagElements1.equals(bagElements2))
+                            return false;
+                        bagEncountered = false;
+                        bagElements1.clear();
+                        bagElements2.clear();
+                    }
                     continue;
                 } else if (fields1[j].indexOf('.') < 0) {
+                    if (bagEncountered) {
+                        bagElements1.add(fields1[j].replaceAll(",$", ""));
+                        bagElements2.add(fields2[j].replaceAll(",$", ""));
+                        continue;
+                    }
                     return false;
                 } else {
                     // If the fields are floating-point numbers, test them
@@ -152,8 +164,7 @@ public class TestsUtils {
                         else {
                             return false;
                         }
-                    }
-                    catch (NumberFormatException ignored) {
+                    } catch (NumberFormatException ignored) {
                         // Guess they weren't numbers - must simply not be equal
                         return false;
                     }
@@ -172,8 +183,7 @@ public class TestsUtils {
             while ((len = resultStream.read(buffer)) != -1) {
                 out.write(buffer, 0, len);
             }
-        }
-        finally {
+        } finally {
             out.close();
         }
     }
@@ -195,12 +205,10 @@ public class TestsUtils {
             String errorBody = method.getResponseBodyAsString();
             JSONObject result = new JSONObject(errorBody);
             String[] errors = { result.getJSONArray("error-code").getString(0), result.getString("summary"),
-                                result.getString("stacktrace") };
+                    result.getString("stacktrace") };
             GlobalConfig.ASTERIX_LOGGER.log(Level.SEVERE, errors[2]);
-            throw new Exception("HTTP operation failed: " + errors[0] + 
-                                "\nSTATUS LINE: " + method.getStatusLine() +
-                                "\nSUMMARY: " + errors[1] +
-                                "\nSTACKTRACE: " + errors[2]);
+            throw new Exception("HTTP operation failed: " + errors[0] + "\nSTATUS LINE: " + method.getStatusLine()
+                    + "\nSUMMARY: " + errors[1] + "\nSTACKTRACE: " + errors[2]);
         }
         return statusCode;
     }
@@ -237,7 +245,7 @@ public class TestsUtils {
     }
 
     //Executes AQL in either async or async-defer mode.
-    public static InputStream executeAnyAQLAsync(String str, boolean defer) throws Exception {
+    public static InputStream executeAnyAQLAsync(String str, boolean defer, OutputFormat fmt) throws Exception {
         final String url = "http://localhost:19002/aql";
 
         // Create a method instance.
@@ -248,6 +256,7 @@ public class TestsUtils {
             method.setQueryString(new NameValuePair[] { new NameValuePair("mode", "asynchronous") });
         }
         method.setRequestEntity(new StringRequestEntity(str));
+        method.setRequestHeader("Accept", fmt.mimeType());
 
         // Provide custom retry handler is necessary
         method.getParams().setParameter(HttpMethodParams.RETRY_HANDLER, new DefaultHttpMethodRetryHandler(3, false));
@@ -257,16 +266,17 @@ public class TestsUtils {
         String theHandle = IOUtils.toString(resultStream, "UTF-8");
 
         //take the handle and parse it so results can be retrieved 
-        InputStream handleResult = getHandleResult(theHandle);
+        InputStream handleResult = getHandleResult(theHandle, fmt);
         return handleResult;
     }
 
-    private static InputStream getHandleResult(String handle) throws Exception {
+    private static InputStream getHandleResult(String handle, OutputFormat fmt) throws Exception {
         final String url = "http://localhost:19002/query/result";
 
         // Create a method instance.
         GetMethod method = new GetMethod(url);
         method.setQueryString(new NameValuePair[] { new NameValuePair("handle", handle) });
+        method.setRequestHeader("Accept", fmt.mimeType());
 
         // Provide custom retry handler is necessary
         method.getParams().setParameter(HttpMethodParams.RETRY_HANDLER, new DefaultHttpMethodRetryHandler(3, false));
@@ -374,21 +384,21 @@ public class TestsUtils {
 
         List<CompilationUnit> cUnits = testCaseCtx.getTestCase().getCompilationUnit();
         for (CompilationUnit cUnit : cUnits) {
-//            if (!cUnit.getName().contains("load-with-ngram-index")) {
+//            if (!cUnit.getName().contains("primary_plus_ngram_index")) {
 //                continue;
 //            }
-            if (cUnit.getName().contains("feeds")) {
-                //due to the change of the tweetdatagenerator's record schema, feeds test fails for spatial index study branch. 
-                LOGGER.info("Skipping [TEST]: " + testCaseCtx.getTestCase().getFilePath() + "/" + cUnit.getName() + " ... ");
-                continue;
-            }
+//            if (!cUnit.getName().contains("feeds")) {
+//                //due to the change of the tweetdatagenerator's record schema, feeds test fails for spatial index study branch. 
+//                LOGGER.info("Skipping [TEST]: " + testCaseCtx.getTestCase().getFilePath() + "/" + cUnit.getName() + " ... ");
+//                continue;
+//            }
             LOGGER.info("Starting [TEST]: " + testCaseCtx.getTestCase().getFilePath() + "/" + cUnit.getName() + " ... ");
             testFileCtxs = testCaseCtx.getTestFiles(cUnit);
             expectedResultFileCtxs = testCaseCtx.getExpectedResultFiles(cUnit);
-
             for (TestFileContext ctx : testFileCtxs) {
                 testFile = ctx.getFile();
                 statement = TestsUtils.readTestFile(testFile);
+                boolean failed = false;
                 try {
                     switch (ctx.getType()) {
                         case "ddl":
@@ -418,9 +428,9 @@ public class TestsUtils {
                             if (ctx.getType().equalsIgnoreCase("query"))
                                 resultStream = executeQuery(statement, fmt);
                             else if (ctx.getType().equalsIgnoreCase("async"))
-                                resultStream = executeAnyAQLAsync(statement, false);
+                                resultStream = executeAnyAQLAsync(statement, false, fmt);
                             else if (ctx.getType().equalsIgnoreCase("asyncdefer"))
-                                resultStream = executeAnyAQLAsync(statement, true);
+                                resultStream = executeAnyAQLAsync(statement, true, fmt);
 
                             if (queryCount >= expectedResultFileCtxs.size()) {
                                 throw new IllegalStateException("no result file for " + testFile.toString());
@@ -467,7 +477,14 @@ public class TestsUtils {
                                 TestsUtils.executeUpdate(statement);
                             } catch (Exception e) {
                                 //An exception is expected.
+                                failed = true;
+                                e.printStackTrace();
                             }
+                            if (!failed) {
+                                throw new Exception("Test \"" + testFile + "\" FAILED!\n  An exception"
+                                        + "is expected.");
+                            }
+                            System.err.println("...but that was expected.");
                             break;
                         case "script":
                             try {
@@ -488,10 +505,16 @@ public class TestsUtils {
                         case "errddl": // a ddlquery that expects error
                             try {
                                 TestsUtils.executeDDL(statement);
-
                             } catch (Exception e) {
                                 // expected error happens
+                                failed = true;
+                                e.printStackTrace();
                             }
+                            if (!failed) {
+                                throw new Exception("Test \"" + testFile + "\" FAILED!\n  An exception"
+                                        + "is expected.");
+                            }
+                            System.err.println("...but that was expected.");
                             break;
                         default:
                             throw new IllegalArgumentException("No statements of type " + ctx.getType());
@@ -504,9 +527,9 @@ public class TestsUtils {
                         System.err.println("...Unexpected!");
                         throw new Exception("Test \"" + testFile + "\" FAILED!", e);
                     } else {
-                        System.err.println("...but that was expected.");
                         LOGGER.info("[TEST]: " + testCaseCtx.getTestCase().getFilePath() + "/" + cUnit.getName()
                                 + " failed as expected: " + e.getMessage());
+                        System.err.println("...but that was expected.");
                     }
                 }
             }

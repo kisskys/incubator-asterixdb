@@ -18,8 +18,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.Map;
 
+import edu.uci.ics.asterix.common.feeds.api.IFeedAdapter;
 import edu.uci.ics.asterix.external.dataset.adapter.FileSystemBasedAdapter;
-import edu.uci.ics.asterix.metadata.feeds.IFeedAdapter;
 import edu.uci.ics.asterix.om.types.ARecordType;
 import edu.uci.ics.hyracks.api.context.IHyracksTaskContext;
 import edu.uci.ics.hyracks.dataflow.std.file.ITupleParserFactory;
@@ -38,7 +38,7 @@ public class RateControlledFileSystemBasedAdapter extends FileSystemBasedAdapter
     public RateControlledFileSystemBasedAdapter(ARecordType atype, Map<String, String> configuration,
             FileSystemBasedAdapter coreAdapter, String format, ITupleParserFactory parserFactory,
             IHyracksTaskContext ctx) throws Exception {
-        super(parserFactory, atype, ctx, false, -1);
+        super(parserFactory, atype, ctx);
         this.coreAdapter = coreAdapter;
     }
 
@@ -49,12 +49,17 @@ public class RateControlledFileSystemBasedAdapter extends FileSystemBasedAdapter
 
     @Override
     public void stop() {
-        ((RateControlledTupleParser) tupleParser).stop();
+       // ((RateControlledTupleParser) tupleParser).stop();
     }
 
     @Override
     public DataExchangeMode getDataExchangeMode() {
         return DataExchangeMode.PULL;
+    }
+
+    @Override
+    public boolean handleException(Exception e) {
+        return false;
     }
 
 }

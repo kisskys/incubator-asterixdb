@@ -84,7 +84,7 @@ public abstract class AbstractDataParser implements IDataParser {
     protected AMutableDouble aDouble = new AMutableDouble(0);
     protected AMutableFloat aFloat = new AMutableFloat(0);
     protected AMutableString aString = new AMutableString("");
-    protected AMutableBinary aBinary = new AMutableBinary(new byte[] { }, 0, 0);
+    protected AMutableBinary aBinary = new AMutableBinary(new byte[] {}, 0, 0);
     protected AMutableString aStringFieldName = new AMutableString("");
     protected AMutableUUID aUUID = new AMutableUUID(0, 0);
     // For temporal and spatial data types
@@ -131,11 +131,13 @@ public abstract class AbstractDataParser implements IDataParser {
     @SuppressWarnings("unchecked")
     protected ISerializerDeserializer<ANull> nullSerde = AqlSerializerDeserializerProvider.INSTANCE
             .getSerializerDeserializer(BuiltinType.ANULL);
+
     // For UUID, we assume that the format is the string representation of UUID
     // (xxxxxxxx-xxxx-xxxx-xxxxxxxxxxxx) when parsing the data.
+    // Thus, we need to call UUID.fromStringToAMuatbleUUID() to convert it to the internal representation (two long values).
     @SuppressWarnings("unchecked")
     protected ISerializerDeserializer<AUUID> uuidSerde = AqlSerializerDeserializerProvider.INSTANCE
-            .getSerializerDeserializer(BuiltinType.AUUID_STRING);
+            .getSerializerDeserializer(BuiltinType.AUUID);
 
     // To avoid race conditions, the serdes for temporal and spatial data types needs to be one per parser
     @SuppressWarnings("unchecked")
@@ -333,17 +335,16 @@ public abstract class AbstractDataParser implements IDataParser {
 
     protected void parseHexBinaryString(char[] input, int start, int length, DataOutput out)
             throws HyracksDataException {
-        byte[] newBytes = ByteArrayHexParserFactory
-                .extractPointableArrayFromHexString(input, start, length, aBinary.getBytes());
+        byte[] newBytes = ByteArrayHexParserFactory.extractPointableArrayFromHexString(input, start, length,
+                aBinary.getBytes());
         aBinary.setValue(newBytes, 0, newBytes.length);
         binarySerde.serialize(aBinary, out);
     }
 
     protected void parseBase64BinaryString(char[] input, int start, int length, DataOutput out)
             throws HyracksDataException {
-        byte[] newBytes = ByteArrayBase64ParserFactory
-                .extractPointableArrayFromBase64String(input, start, length,
-                        aBinary.getBytes(), base64ParserQuadruplet);
+        byte[] newBytes = ByteArrayBase64ParserFactory.extractPointableArrayFromBase64String(input, start, length,
+                aBinary.getBytes(), base64ParserQuadruplet);
         aBinary.setValue(newBytes, 0, newBytes.length);
         binarySerde.serialize(aBinary, out);
     }

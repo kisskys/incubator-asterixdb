@@ -127,4 +127,9 @@ public class StaticHilbertBTreeBinaryTokenizer extends SpatialCellBinaryTokenize
         }
         return v;
     }
+
+    @Override
+    public short getTokensCount() {
+        return 0;
+    }
 }

@@ -20,7 +20,6 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.io.StringWriter;
-import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
 import java.util.HashMap;
 import java.util.Map;
@@ -32,12 +31,16 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-import edu.uci.ics.asterix.api.common.APIFramework;
+import edu.uci.ics.asterix.api.common.SessionConfig;
+import edu.uci.ics.asterix.api.common.SessionConfig.OutputFormat;
 import edu.uci.ics.asterix.api.http.servlet.APIServlet;
 import edu.uci.ics.asterix.om.types.ARecordType;
 import edu.uci.ics.hyracks.algebricks.common.exceptions.AlgebricksException;
+import edu.uci.ics.hyracks.api.comm.IFrame;
 import edu.uci.ics.hyracks.api.comm.IFrameTupleAccessor;
+import edu.uci.ics.hyracks.api.comm.VSizeFrame;
 import edu.uci.ics.hyracks.api.exceptions.HyracksDataException;
+import edu.uci.ics.hyracks.control.nc.resources.memory.FrameManager;
 import edu.uci.ics.hyracks.dataflow.common.comm.util.ByteBufferInputStream;
 
 public class ResultUtils {
@@ -61,28 +64,36 @@ public class ResultUtils {
         return s;
     }
 
-    public static void displayCSVHeader(ARecordType recordType, PrintWriter out) {
+    public static void displayCSVHeader(ARecordType recordType, SessionConfig conf) {
+        // If HTML-ifying, we have to output this here before the header -
+        // pretty ugly
+        if (conf.is(SessionConfig.FORMAT_HTML)) {
+            conf.out().println("<h4>Results:</h4>");
+            conf.out().println("<pre>");
+        }
+
         String[] fieldNames = recordType.getFieldNames();
         boolean notfirst = false;
         for (String name : fieldNames) {
             if (notfirst) {
-                out.print(',');
+                conf.out().print(',');
             }
             notfirst = true;
-            out.print('"');
-            out.print(name.replace("\"", "\"\""));
-            out.print('"');
+            conf.out().print('"');
+            conf.out().print(name.replace("\"", "\"\""));
+            conf.out().print('"');
         }
-        out.print("\r\n");
+        conf.out().print("\r\n");
     }
 
-    public static void displayResults(ResultReader resultReader, PrintWriter out, APIFramework.OutputFormat pdf)
+    public static FrameManager resultDisplayFrameMgr = new FrameManager(ResultReader.FRAME_SIZE);
+
+    public static void displayResults(ResultReader resultReader, SessionConfig conf)
             throws HyracksDataException {
         IFrameTupleAccessor fta = resultReader.getFrameTupleAccessor();
 
-        ByteBuffer buffer = ByteBuffer.allocate(ResultReader.FRAME_SIZE);
-        buffer.clear();
-        int bytesRead = resultReader.read(buffer);
+        IFrame frame = new VSizeFrame(resultDisplayFrameMgr);
+        int bytesRead = resultReader.read(frame);
         ByteBufferInputStream bbis = new ByteBufferInputStream();
 
         // Whether we need to separate top-level ADM instances with commas
@@ -90,11 +101,15 @@ public class ResultUtils {
         // Whether this is the first instance being output
         boolean notfirst = false;
 
-        switch (pdf) {
-            case HTML:
-                out.println("<h4>Results:</h4>");
-                out.println("<pre>");
-                // Fall through
+        // If we're outputting CSV with a header, the HTML header was already
+        // output by displayCSVHeader(), so skip it here
+        if (conf.is(SessionConfig.FORMAT_HTML) &&
+            ! (conf.fmt() == OutputFormat.CSV && conf.is(SessionConfig.FORMAT_CSV_HEADER))) {
+            conf.out().println("<h4>Results:</h4>");
+            conf.out().println("<pre>");
+        }
+
+        switch (conf.fmt()) {
             case CSV:
                 need_commas = false;
                 break;
@@ -103,38 +118,38 @@ public class ResultUtils {
                 // Conveniently, JSON and ADM have the same syntax for an
                 // "ordered list", and our representation of the result of a
                 // statement is an ordered list of instances.
-                out.print("[ ");
+                conf.out().print("[ ");
                 break;
         }
 
         if (bytesRead > 0) {
             do {
                 try {
-                    fta.reset(buffer);
+                    fta.reset(frame.getBuffer());
                     int last = fta.getTupleCount();
                     String result;
                     for (int tIndex = 0; tIndex < last; tIndex++) {
                         int start = fta.getTupleStartOffset(tIndex);
                         int length = fta.getTupleEndOffset(tIndex) - start;
-                        bbis.setByteBuffer(buffer, start);
+                        bbis.setByteBuffer(frame.getBuffer(), start);
                         byte[] recordBytes = new byte[length];
                         int numread = bbis.read(recordBytes, 0, length);
-                        if (pdf == APIFramework.OutputFormat.CSV) {
+                        if (conf.fmt() == OutputFormat.CSV) {
                             if ( (numread > 0) && (recordBytes[numread-1] == '\n') ) {
                                 numread--;
                             }
                         }
                         result = new String(recordBytes, 0, numread, UTF_8);
                         if (need_commas && notfirst) {
-                            out.print(", ");
+                            conf.out().print(", ");
                         }
                         notfirst = true;
-                        out.print(result);
-                        if (pdf == APIFramework.OutputFormat.CSV) {
-                            out.print("\r\n");
+                        conf.out().print(result);
+                        if (conf.fmt() == OutputFormat.CSV) {
+                            conf.out().print("\r\n");
                         }
                     }
-                    buffer.clear();
+                    frame.getBuffer().clear();
                 } finally {
                     try {
                         bbis.close();
@@ -142,24 +157,24 @@ public class ResultUtils {
                         throw new HyracksDataException(e);
                     }
                 }
-            } while (resultReader.read(buffer) > 0);
+            } while (resultReader.read(frame) > 0);
         }
 
-        out.flush();
+        conf.out().flush();
 
-        switch (pdf) {
-            case HTML:
-                out.println("</pre>");
-                break;
+        switch (conf.fmt()) {
             case JSON:
             case ADM:
-                out.println(" ]");
+                conf.out().println(" ]");
                 break;
             case CSV:
                 // Nothing to do
                 break;
         }
 
+        if (conf.is(SessionConfig.FORMAT_HTML)) {
+            conf.out().println("</pre>");
+        }
     }
 
     public static JSONObject getErrorResponse(int errorCode, String errorMessage, String errorSummary,

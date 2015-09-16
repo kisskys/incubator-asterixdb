@@ -25,23 +25,18 @@ import edu.uci.ics.hyracks.algebricks.core.algebra.base.ILogicalExpression;
 import edu.uci.ics.hyracks.algebricks.core.algebra.expressions.IVariableTypeEnvironment;
 import edu.uci.ics.hyracks.algebricks.core.algebra.metadata.IMetadataProvider;
 
-import java.util.ArrayList;
-import java.util.List;
-
 public class OptionalABinaryTypeComputer implements IResultTypeComputer {
     public static final OptionalABinaryTypeComputer INSTANCE = new OptionalABinaryTypeComputer();
 
-    private OptionalABinaryTypeComputer(){
+    private OptionalABinaryTypeComputer() {
 
     }
 
-    @Override public IAType computeType(ILogicalExpression expression, IVariableTypeEnvironment env,
+    @Override
+    public IAType computeType(ILogicalExpression expression, IVariableTypeEnvironment env,
             IMetadataProvider<?, ?> metadataProvider) throws AlgebricksException {
-        if (TypeComputerUtilities.nullableType(expression, env)) {
-            List<IAType> unionList = new ArrayList<IAType>();
-            unionList.add(BuiltinType.ANULL);
-            unionList.add(BuiltinType.ABINARY);
-            return new AUnionType(unionList, "OptionalBinary");
+        if (TypeComputerUtilities.inputInferednullableType(expression, env)) {
+            return AUnionType.createNullableType(BuiltinType.ABINARY, "OptionalBinary");
         } else {
             return BuiltinType.ABINARY;
         }

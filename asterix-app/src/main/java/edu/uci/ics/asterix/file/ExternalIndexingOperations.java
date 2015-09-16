@@ -16,6 +16,7 @@ package edu.uci.ics.asterix.file;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Date;
 import java.util.Iterator;
@@ -64,6 +65,7 @@ import edu.uci.ics.asterix.metadata.utils.DatasetUtils;
 import edu.uci.ics.asterix.metadata.utils.ExternalDatasetsRegistry;
 import edu.uci.ics.asterix.om.types.ARecordType;
 import edu.uci.ics.asterix.om.types.ATypeTag;
+import edu.uci.ics.asterix.om.types.BuiltinType;
 import edu.uci.ics.asterix.om.types.IAType;
 import edu.uci.ics.asterix.om.util.AsterixAppContextInfo;
 import edu.uci.ics.asterix.om.util.NonTaggedFormatUtil;
@@ -99,9 +101,11 @@ import edu.uci.ics.hyracks.storage.common.file.LocalResource;
 
 public class ExternalIndexingOperations {
 
-    public static final ArrayList<String> FILE_INDEX_FIELDS = new ArrayList<String>();
+    public static final List<List<String>> FILE_INDEX_FIELD_NAMES = new ArrayList<List<String>>();
+    public static final ArrayList<IAType> FILE_INDEX_FIELD_TYPES = new ArrayList<IAType>();
     static {
-        FILE_INDEX_FIELDS.add("");
+        FILE_INDEX_FIELD_NAMES.add(new ArrayList<String>(Arrays.asList("")));
+        FILE_INDEX_FIELD_TYPES.add(BuiltinType.ASTRING);
     }
 
     public static boolean isIndexible(ExternalDatasetDetails ds) {
@@ -165,7 +169,7 @@ public class ExternalIndexingOperations {
                 FileStatus[] fileStatuses = fs.listStatus(new Path(aPath));
                 for (int i = 0; i < fileStatuses.length; i++) {
                     int nextFileNumber = files.size();
-                    if (fileStatuses[i].isDir()) {
+                    if (fileStatuses[i].isDirectory()) {
                         listSubFiles(dataset, fs, fileStatuses[i], files);
                     } else {
                         files.add(new ExternalFile(dataset.getDataverseName(), dataset.getDatasetName(),
@@ -196,7 +200,7 @@ public class ExternalIndexingOperations {
         FileStatus[] fileStatuses = srcFs.listStatus(path);
         for (int i = 0; i < fileStatuses.length; i++) {
             int nextFileNumber = files.size();
-            if (fileStatuses[i].isDir()) {
+            if (fileStatuses[i].isDirectory()) {
                 listSubFiles(dataset, srcFs, fileStatuses[i], files);
             } else {
                 files.add(new ExternalFile(dataset.getDataverseName(), dataset.getDatasetName(), nextFileNumber,
@@ -208,7 +212,7 @@ public class ExternalIndexingOperations {
 
     public static FileSystem getFileSystemObject(Map<String, String> map) throws IOException {
         Configuration conf = new Configuration();
-        conf.set("fs.default.name", ((String) map.get(HDFSAdapterFactory.KEY_HDFS_URL)).trim());
+        conf.set("fs.default.name", map.get(HDFSAdapterFactory.KEY_HDFS_URL).trim());
         conf.set("fs.hdfs.impl", "org.apache.hadoop.hdfs.DistributedFileSystem");
         return FileSystem.get(conf);
     }
@@ -237,7 +241,7 @@ public class ExternalIndexingOperations {
                 mergePolicyFactory, mergePolicyFactoryProperties, new SecondaryIndexOperationTrackerProvider(
                         dataset.getDatasetId()), AsterixRuntimeComponentsProvider.RUNTIME_PROVIDER,
                 LSMBTreeIOOperationCallbackFactory.INSTANCE, storageProperties.getBloomFilterFalsePositiveRate(),
-                ExternalDatasetsRegistry.INSTANCE.getDatasetVersion(dataset), null);
+                ExternalDatasetsRegistry.INSTANCE.getDatasetVersion(dataset), null, true);
         ExternalFilesIndexOperatorDescriptor externalFilesOp = new ExternalFilesIndexOperatorDescriptor(spec,
                 AsterixRuntimeComponentsProvider.RUNTIME_PROVIDER, AsterixRuntimeComponentsProvider.RUNTIME_PROVIDER,
                 secondaryFileSplitProvider, indexDataflowHelperFactory, localResourceFactoryProvider,
@@ -267,7 +271,7 @@ public class ExternalIndexingOperations {
         HDFSIndexingAdapterFactory adapterFactory = new HDFSIndexingAdapterFactory();
         adapterFactory.setFiles(files);
         adapterFactory.configure(((ExternalDatasetDetails) dataset.getDatasetDetails()).getProperties(),
-                (ARecordType) itemType, false, null);
+                (ARecordType) itemType);
         return new Pair<ExternalDataScanOperatorDescriptor, AlgebricksPartitionConstraint>(
                 new ExternalDataScanOperatorDescriptor(jobSpec, indexerDesc, adapterFactory),
                 adapterFactory.getPartitionConstraint());
@@ -386,11 +390,11 @@ public class ExternalIndexingOperations {
     public static Dataset createTransactionDataset(Dataset dataset) {
         ExternalDatasetDetails originalDsd = (ExternalDatasetDetails) dataset.getDatasetDetails();
         ExternalDatasetDetails dsd = new ExternalDatasetDetails(originalDsd.getAdapter(), originalDsd.getProperties(),
-                originalDsd.getNodeGroupName(), originalDsd.getTimestamp(), ExternalDatasetTransactionState.BEGIN,
-                originalDsd.getCompactionPolicy(), originalDsd.getCompactionPolicyProperties());
+                originalDsd.getTimestamp(), ExternalDatasetTransactionState.BEGIN);
         Dataset transactionDatset = new Dataset(dataset.getDataverseName(), dataset.getDatasetName(),
-                dataset.getItemTypeName(), dsd, dataset.getHints(), DatasetType.EXTERNAL, dataset.getDatasetId(),
-                dataset.getPendingOp());
+                dataset.getItemTypeName(), dataset.getNodeGroupName(), dataset.getCompactionPolicy(),
+                dataset.getCompactionPolicyProperties(), dsd, dataset.getHints(), DatasetType.EXTERNAL,
+                dataset.getDatasetId(), dataset.getPendingOp());
         return transactionDatset;
     }
 
@@ -404,6 +408,7 @@ public class ExternalIndexingOperations {
                 : indexDropStmt.getDataverseName();
         String datasetName = indexDropStmt.getDatasetName();
         String indexName = indexDropStmt.getIndexName();
+        boolean temp = dataset.getDatasetDetails().isTemp();
         JobSpecification spec = JobSpecificationUtils.createJobSpecification();
         Pair<IFileSplitProvider, AlgebricksPartitionConstraint> splitsAndConstraint = metadataProvider
                 .splitProviderAndPartitionConstraintsForFilesIndex(dataverseName, datasetName, indexName, true);
@@ -416,7 +421,7 @@ public class ExternalIndexingOperations {
                         dataset.getDatasetId()), compactionInfo.first, compactionInfo.second,
                         new SecondaryIndexOperationTrackerProvider(dataset.getDatasetId()),
                         AsterixRuntimeComponentsProvider.RUNTIME_PROVIDER, LSMBTreeIOOperationCallbackFactory.INSTANCE,
-                        storageProperties.getBloomFilterFalsePositiveRate(), false, null, null, null, null));
+                        storageProperties.getBloomFilterFalsePositiveRate(), false, null, null, null, null, !temp));
         AlgebricksPartitionConstraintHelper
                 .setPartitionConstraintInJobSpec(spec, btreeDrop, splitsAndConstraint.second);
         spec.addRoot(btreeDrop);
@@ -472,9 +477,9 @@ public class ExternalIndexingOperations {
         }
 
         CompiledCreateIndexStatement ccis = new CompiledCreateIndexStatement(index.getIndexName(),
-                index.getDataverseName(), index.getDatasetName(), index.getKeyFieldNames(), index.getIndexType(),
-                null);
-        return IndexOperations.buildSecondaryIndexLoadingJobSpec(ccis, metadataProvider, files);
+                index.getDataverseName(), index.getDatasetName(), index.getKeyFieldNames(),  index.getKeyFieldTypes(), index.getIndexType(),
+                null, index.isEnforcingKeyFileds());
+        return IndexOperations.buildSecondaryIndexLoadingJobSpec(ccis, null, null, metadataProvider, files);
     }
 
     public static JobSpecification buildCommitJob(Dataset ds, List<Index> indexes, AqlMetadataProvider metadataProvider)
@@ -484,11 +489,12 @@ public class ExternalIndexingOperations {
         AsterixStorageProperties storageProperties = asterixPropertiesProvider.getStorageProperties();
         Pair<ILSMMergePolicyFactory, Map<String, String>> compactionInfo = DatasetUtils.getMergePolicyFactory(ds,
                 metadataProvider.getMetadataTxnContext());
+        boolean temp = ds.getDatasetDetails().isTemp();
         ILSMMergePolicyFactory mergePolicyFactory = compactionInfo.first;
         Map<String, String> mergePolicyFactoryProperties = compactionInfo.second;
         Pair<IFileSplitProvider, AlgebricksPartitionConstraint> filesIndexSplitsAndConstraint = metadataProvider
                 .splitProviderAndPartitionConstraintsForDataset(ds.getDataverseName(), ds.getDatasetName(),
-                        getFilesIndexName(ds.getDatasetName()));
+                        getFilesIndexName(ds.getDatasetName()), temp);
         IFileSplitProvider filesIndexSplitProvider = filesIndexSplitsAndConstraint.first;
         ExternalBTreeDataflowHelperFactory filesIndexDataflowHelperFactory = getFilesIndexDataflowHelperFactory(ds,
                 mergePolicyFactory, mergePolicyFactoryProperties, storageProperties, spec);
@@ -504,7 +510,7 @@ public class ExternalIndexingOperations {
             if (isValidIndexName(index.getDatasetName(), index.getIndexName())) {
                 Pair<IFileSplitProvider, AlgebricksPartitionConstraint> indexSplitsAndConstraint = metadataProvider
                         .splitProviderAndPartitionConstraintsForDataset(ds.getDataverseName(), ds.getDatasetName(),
-                                index.getIndexName());
+                                index.getIndexName(), temp);
                 if (index.getIndexType() == IndexType.BTREE) {
                     btreeDataflowHelperFactories.add(getBTreeDataflowHelperFactory(ds, index, mergePolicyFactory,
                             mergePolicyFactoryProperties, storageProperties, spec));
@@ -539,7 +545,7 @@ public class ExternalIndexingOperations {
                 new SecondaryIndexOperationTrackerProvider(ds.getDatasetId()),
                 AsterixRuntimeComponentsProvider.RUNTIME_PROVIDER, LSMBTreeIOOperationCallbackFactory.INSTANCE,
                 storageProperties.getBloomFilterFalsePositiveRate(),
-                ExternalDatasetsRegistry.INSTANCE.getDatasetVersion(ds), null);
+                ExternalDatasetsRegistry.INSTANCE.getDatasetVersion(ds), null, true);
     }
 
     private static ExternalBTreeWithBuddyDataflowHelperFactory getBTreeDataflowHelperFactory(Dataset ds, Index index,
@@ -550,7 +556,7 @@ public class ExternalIndexingOperations {
                 AsterixRuntimeComponentsProvider.RUNTIME_PROVIDER,
                 LSMBTreeWithBuddyIOOperationCallbackFactory.INSTANCE,
                 storageProperties.getBloomFilterFalsePositiveRate(), new int[] { index.getKeyFieldNames().size() },
-                ExternalDatasetsRegistry.INSTANCE.getDatasetVersion(ds));
+                ExternalDatasetsRegistry.INSTANCE.getDatasetVersion(ds), true);
     }
 
     @SuppressWarnings("rawtypes")
@@ -559,7 +565,7 @@ public class ExternalIndexingOperations {
             AsterixStorageProperties storageProperties, AqlMetadataProvider metadataProvider, JobSpecification spec)
             throws AlgebricksException, AsterixException {
         int numPrimaryKeys = getRIDSize(ds);
-        List<String> secondaryKeyFields = index.getKeyFieldNames();
+        List<List<String>> secondaryKeyFields = index.getKeyFieldNames();
         secondaryKeyFields.size();
         ARecordType itemType = (ARecordType) metadataProvider.findType(ds.getDataverseName(), ds.getItemTypeName());
         Pair<IAType, Boolean> spatialTypePair = Index.getNonNullableKeyFieldType(secondaryKeyFields.get(0), itemType);
@@ -606,7 +612,7 @@ public class ExternalIndexingOperations {
                 AsterixRuntimeComponentsProvider.RUNTIME_PROVIDER, LSMRTreeIOOperationCallbackFactory.INSTANCE,
                 AqlMetadataProvider.proposeLinearizer(keyType, secondaryComparatorFactories.length),
                 storageProperties.getBloomFilterFalsePositiveRate(), new int[] { index.getKeyFieldNames().size() },
-                ExternalDatasetsRegistry.INSTANCE.getDatasetVersion(ds), isPointMBR);
+                ExternalDatasetsRegistry.INSTANCE.getDatasetVersion(ds), true, isPointMBR);
     }
 
     public static JobSpecification buildAbortOp(Dataset ds, List<Index> indexes, AqlMetadataProvider metadataProvider)
@@ -618,9 +624,11 @@ public class ExternalIndexingOperations {
                 metadataProvider.getMetadataTxnContext());
         ILSMMergePolicyFactory mergePolicyFactory = compactionInfo.first;
         Map<String, String> mergePolicyFactoryProperties = compactionInfo.second;
+
+        boolean temp = ds.getDatasetDetails().isTemp();
         Pair<IFileSplitProvider, AlgebricksPartitionConstraint> filesIndexSplitsAndConstraint = metadataProvider
                 .splitProviderAndPartitionConstraintsForDataset(ds.getDataverseName(), ds.getDatasetName(),
-                        getFilesIndexName(ds.getDatasetName()));
+                        getFilesIndexName(ds.getDatasetName()), temp);
         IFileSplitProvider filesIndexSplitProvider = filesIndexSplitsAndConstraint.first;
         ExternalBTreeDataflowHelperFactory filesIndexDataflowHelperFactory = getFilesIndexDataflowHelperFactory(ds,
                 mergePolicyFactory, mergePolicyFactoryProperties, storageProperties, spec);
@@ -636,7 +644,7 @@ public class ExternalIndexingOperations {
             if (isValidIndexName(index.getDatasetName(), index.getIndexName())) {
                 Pair<IFileSplitProvider, AlgebricksPartitionConstraint> indexSplitsAndConstraint = metadataProvider
                         .splitProviderAndPartitionConstraintsForDataset(ds.getDataverseName(), ds.getDatasetName(),
-                                index.getIndexName());
+                                index.getIndexName(), temp);
                 if (index.getIndexType() == IndexType.BTREE) {
                     btreeDataflowHelperFactories.add(getBTreeDataflowHelperFactory(ds, index, mergePolicyFactory,
                             mergePolicyFactoryProperties, storageProperties, spec));
@@ -674,9 +682,11 @@ public class ExternalIndexingOperations {
                 metadataProvider.getMetadataTxnContext());
         ILSMMergePolicyFactory mergePolicyFactory = compactionInfo.first;
         Map<String, String> mergePolicyFactoryProperties = compactionInfo.second;
+        boolean temp = ds.getDatasetDetails().isTemp();
+
         Pair<IFileSplitProvider, AlgebricksPartitionConstraint> filesIndexSplitsAndConstraint = metadataProvider
                 .splitProviderAndPartitionConstraintsForDataset(ds.getDataverseName(), ds.getDatasetName(),
-                        getFilesIndexName(ds.getDatasetName()));
+                        getFilesIndexName(ds.getDatasetName()), temp);
         IFileSplitProvider filesIndexSplitProvider = filesIndexSplitsAndConstraint.first;
         ExternalBTreeDataflowHelperFactory filesIndexDataflowHelperFactory = getFilesIndexDataflowHelperFactory(ds,
                 mergePolicyFactory, mergePolicyFactoryProperties, storageProperties, spec);
@@ -692,7 +702,7 @@ public class ExternalIndexingOperations {
             if (isValidIndexName(index.getDatasetName(), index.getIndexName())) {
                 Pair<IFileSplitProvider, AlgebricksPartitionConstraint> indexSplitsAndConstraint = metadataProvider
                         .splitProviderAndPartitionConstraintsForDataset(ds.getDataverseName(), ds.getDatasetName(),
-                                index.getIndexName());
+                                index.getIndexName(), temp);
                 if (index.getIndexType() == IndexType.BTREE) {
                     btreeDataflowHelperFactories.add(getBTreeDataflowHelperFactory(ds, index, mergePolicyFactory,
                             mergePolicyFactoryProperties, storageProperties, spec));
@@ -737,7 +747,7 @@ public class ExternalIndexingOperations {
                 mergePolicyFactory, mergePolicyFactoryProperties, new SecondaryIndexOperationTrackerProvider(
                         dataset.getDatasetId()), AsterixRuntimeComponentsProvider.RUNTIME_PROVIDER,
                 LSMBTreeIOOperationCallbackFactory.INSTANCE, storageProperties.getBloomFilterFalsePositiveRate(),
-                ExternalDatasetsRegistry.INSTANCE.getDatasetVersion(dataset), null);
+                ExternalDatasetsRegistry.INSTANCE.getDatasetVersion(dataset), null, true);
         LSMTreeIndexCompactOperatorDescriptor compactOp = new LSMTreeIndexCompactOperatorDescriptor(spec,
                 AsterixRuntimeComponentsProvider.RUNTIME_PROVIDER, AsterixRuntimeComponentsProvider.RUNTIME_PROVIDER,
                 secondaryFileSplitProvider, FilesIndexDescription.EXTERNAL_FILE_INDEX_TYPE_TRAITS,

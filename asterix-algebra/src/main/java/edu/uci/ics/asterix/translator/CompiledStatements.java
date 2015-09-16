@@ -3,9 +3,9 @@
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * you may obtain a copy of the License from
- * 
+ *
  *     http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -35,6 +35,7 @@ import edu.uci.ics.asterix.aql.expression.WhereClause;
 import edu.uci.ics.asterix.aql.literal.StringLiteral;
 import edu.uci.ics.asterix.common.config.DatasetConfig.IndexType;
 import edu.uci.ics.asterix.common.config.DatasetConfig.IndexTypeProperty;
+import edu.uci.ics.asterix.common.feeds.FeedConnectionRequest;
 import edu.uci.ics.asterix.common.functions.FunctionConstants;
 import edu.uci.ics.asterix.common.functions.FunctionSignature;
 import edu.uci.ics.asterix.metadata.declared.AqlMetadataProvider;
@@ -198,20 +199,25 @@ public class CompiledStatements {
         protected final String indexName;
         protected final String dataverseName;
         protected final String datasetName;
-        protected final List<String> keyFields;
+        protected final List<List<String>> keyFields;
+        protected final List<IAType> keyTypes;
         protected final IndexType indexType;
         protected final IndexTypeProperty indexTypeProperty;
+        protected final boolean isEnforced;
 
         public AbstractCompiledIndexStatement(String indexName, String dataverseName, String datasetName,
-                List<String> keyFields, IndexType indexType, IndexTypeProperty indexTypeProperty) {
+        		List<List<String>> keyFields, List<IAType> keyTypes, IndexType indexType, 
+        		IndexTypeProperty indexTypeProperty, boolean isEnforced) {
             this.indexName = indexName;
             this.dataverseName = dataverseName;
             this.datasetName = datasetName;
             this.keyFields = keyFields;
+            this.keyTypes = keyTypes;
             this.indexType = indexType;
             this.indexTypeProperty = indexTypeProperty;
+            this.isEnforced = isEnforced;
         }
-
+        
         @Override
         public String getDatasetName() {
             return datasetName;
@@ -226,8 +232,12 @@ public class CompiledStatements {
             return indexName;
         }
 
-        public List<String> getKeyFields() {
+        public List<List<String>> getKeyFields() {
             return keyFields;
+        }
+
+        public List<IAType> getKeyFieldTypes() {
+            return keyTypes;
         }
 
         public IndexType getIndexType() {
@@ -237,12 +247,17 @@ public class CompiledStatements {
         public IndexTypeProperty getIndexTypeProperty() {
             return indexTypeProperty;
         }
+        
+        public boolean isEnforced() {
+            return isEnforced;
+        }
     }
 
     public static class CompiledCreateIndexStatement extends AbstractCompiledIndexStatement {
         public CompiledCreateIndexStatement(String indexName, String dataverseName, String datasetName,
-                List<String> keyFields, IndexType indexType, IndexTypeProperty indexTypeProperty) {
-            super(indexName, dataverseName, datasetName, keyFields, indexType, indexTypeProperty);
+        		List<List<String>> keyFields, List<IAType> keyTypes, IndexType indexType, 
+        		IndexTypeProperty indexTypeProperty, boolean isEnforced) {
+            super(indexName, dataverseName, datasetName, keyFields, keyTypes, indexType, indexTypeProperty, isEnforced);
         }
 
         @Override
@@ -253,8 +268,9 @@ public class CompiledStatements {
 
     public static class CompiledIndexCompactStatement extends AbstractCompiledIndexStatement {
         public CompiledIndexCompactStatement(String dataverseName, String datasetName, String indexName,
-                List<String> keyFields, IndexType indexType, IndexTypeProperty indexTypeProperty) {
-            super(indexName, dataverseName, datasetName, keyFields, indexType, indexTypeProperty);
+        		List<List<String>> keyFields, List<IAType> keyTypes, IndexType indexType, 
+        		IndexTypeProperty indexTypeProperty, boolean isEnforced) {
+            super(indexName, dataverseName, datasetName, keyFields, keyTypes, indexType, indexTypeProperty, isEnforced);
         }
 
         @Override
@@ -393,6 +409,48 @@ public class CompiledStatements {
             return policyName;
         }
     }
+    
+    public static class CompiledSubscribeFeedStatement implements ICompiledDmlStatement {
+
+        private final FeedConnectionRequest request;
+        private Query query;
+        private final int varCounter;
+
+        public CompiledSubscribeFeedStatement(FeedConnectionRequest request, Query query, int varCounter) {
+            this.request = request;
+            this.query = query;
+            this.varCounter = varCounter;
+        }
+
+        @Override
+        public String getDataverseName() {
+            return request.getReceivingFeedId().getDataverse();
+        }
+
+        @Override
+        public String getDatasetName() {
+            return request.getTargetDataset();
+        }
+
+        public int getVarCounter() {
+            return varCounter;
+        }
+
+        public Query getQuery() {
+            return query;
+        }
+
+        public void setQuery(Query query) {
+            this.query = query;
+        }
+
+        @Override
+        public Kind getKind() {
+            return Kind.SUBSCRIBE_FEED;
+        }
+
+    }
+
 
     public static class CompiledDisconnectFeedStatement implements ICompiledDmlStatement {
         private String dataverseName;

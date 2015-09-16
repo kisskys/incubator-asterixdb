@@ -3,9 +3,9 @@
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * you may obtain a copy of the License from
- * 
+ *
  *     http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -107,8 +107,8 @@ public class RecoveryManager implements IRecoveryManager, ILifeCycleComponent {
         try {
             checkpointObject = readCheckpoint();
         } catch (FileNotFoundException e) {
-            //This is initial bootstrap. 
-            //Otherwise, the checkpoint file is deleted unfortunately. What we can do in this case?
+            //The checkpoint file doesn't exist => Failure happened during NC initialization.
+            //Retry to initialize the NC by setting the state to NEW_UNIVERSE
             state = SystemState.NEW_UNIVERSE;
             if (LOGGER.isLoggable(Level.INFO)) {
                 LOGGER.info("The checkpoint file doesn't exist: systemState = NEW_UNIVERSE");

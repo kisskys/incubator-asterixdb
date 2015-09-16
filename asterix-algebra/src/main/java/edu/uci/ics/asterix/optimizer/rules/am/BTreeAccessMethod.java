@@ -3,9 +3,9 @@
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * you may obtain a copy of the License from
- * 
+ *
  *     http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -41,8 +41,8 @@ import edu.uci.ics.asterix.om.functions.AsterixBuiltinFunctions;
 import edu.uci.ics.asterix.om.types.ARecordType;
 import edu.uci.ics.asterix.om.types.ATypeTag;
 import edu.uci.ics.asterix.om.types.BuiltinType;
-import edu.uci.ics.asterix.om.types.IAType;
 import edu.uci.ics.asterix.om.util.NonTaggedFormatUtil;
+import edu.uci.ics.asterix.optimizer.rules.util.EquivalenceClassUtils;
 import edu.uci.ics.hyracks.algebricks.common.exceptions.AlgebricksException;
 import edu.uci.ics.hyracks.algebricks.common.utils.Pair;
 import edu.uci.ics.hyracks.algebricks.core.algebra.base.ILogicalExpression;
@@ -60,10 +60,10 @@ import edu.uci.ics.hyracks.algebricks.core.algebra.functions.AlgebricksBuiltinFu
 import edu.uci.ics.hyracks.algebricks.core.algebra.functions.FunctionIdentifier;
 import edu.uci.ics.hyracks.algebricks.core.algebra.functions.IFunctionInfo;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.AbstractBinaryJoinOperator;
+import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.AbstractDataSourceOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.AbstractLogicalOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.AbstractLogicalOperator.ExecutionMode;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.AssignOperator;
-import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.DataSourceScanOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.ExternalDataLookupOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.SelectOperator;
 import edu.uci.ics.hyracks.algebricks.core.algebra.operators.logical.TokenizeOperator;
@@ -162,8 +162,8 @@ public class BTreeAccessMethod implements IAccessMethod {
     @Override
     public boolean applyJoinPlanTransformation(Mutable<ILogicalOperator> joinRef,
             OptimizableOperatorSubTree leftSubTree, OptimizableOperatorSubTree rightSubTree, Index chosenIndex,
-            AccessMethodAnalysisContext analysisCtx, IOptimizationContext context, boolean isLeftOuterJoin)
-            throws AlgebricksException {
+            AccessMethodAnalysisContext analysisCtx, IOptimizationContext context, boolean isLeftOuterJoin,
+            boolean hasGroupBy) throws AlgebricksException {
         AbstractBinaryJoinOperator joinOp = (AbstractBinaryJoinOperator) joinRef.getValue();
         Mutable<ILogicalExpression> conditionRef = joinOp.getCondition();
         // Determine if the index is applicable on the left or right side (if both, we arbitrarily prefer the left side).
@@ -187,7 +187,7 @@ public class BTreeAccessMethod implements IAccessMethod {
 
         LogicalVariable newNullPlaceHolderVar = null;
         if (isLeftOuterJoin) {
-            //get a new null place holder variable that is the first field variable of the primary key 
+            //get a new null place holder variable that is the first field variable of the primary key
             //from the indexSubTree's datasourceScanOp
             newNullPlaceHolderVar = indexSubTree.getDataSourceVariables().get(0);
         }
@@ -198,7 +198,7 @@ public class BTreeAccessMethod implements IAccessMethod {
             return false;
         }
 
-        if (isLeftOuterJoin) {
+        if (isLeftOuterJoin && hasGroupBy) {
             //reset the null place holder variable
             AccessMethodUtils.resetLOJNullPlaceholderVariableInGroupByOp(analysisCtx, newNullPlaceHolderVar, context);
         }
@@ -226,8 +226,8 @@ public class BTreeAccessMethod implements IAccessMethod {
         Dataset dataset = indexSubTree.dataset;
         ARecordType recordType = indexSubTree.recordType;
         // we made sure indexSubTree has datasource scan
-        DataSourceScanOperator dataSourceScan = (DataSourceScanOperator) indexSubTree.dataSourceRef.getValue();
-        List<Integer> exprList = analysisCtx.indexExprs.get(chosenIndex);
+        AbstractDataSourceOperator dataSourceOp = (AbstractDataSourceOperator) indexSubTree.dataSourceRef.getValue();
+        List<Pair<Integer, Integer>> exprAndVarList = analysisCtx.indexExprsAndVars.get(chosenIndex);
         List<IOptimizableFuncExpr> matchedFuncExprs = analysisCtx.matchedFuncExprs;
         int numSecondaryKeys = analysisCtx.indexNumMatchedKeys.get(chosenIndex);
         // List of function expressions that will be replaced by the secondary-index search.
@@ -251,15 +251,19 @@ public class BTreeAccessMethod implements IAccessMethod {
         BitSet setLowKeys = new BitSet(numSecondaryKeys);
         BitSet setHighKeys = new BitSet(numSecondaryKeys);
 
-        //flag for using Hilbert btree
-        boolean useLinearizerBTree = false;
-
-        // Go through the func exprs listed as optimizable by the chosen index, 
+		//flag for using Hilbert btree
+		boolean useLinearizerBTree = false;
+        // Go through the func exprs listed as optimizable by the chosen index,
         // and formulate a range predicate on the secondary-index keys.
-        ILogicalExpression searchKeyExpr = null;
-        for (Integer exprIndex : exprList) {
+
+        // checks whether a type casting happened from a real (FLOAT, DOUBLE) value to an INT value
+        // since we have a round issues when dealing with LT(<) OR GT(>) operator.
+		ILogicalExpression searchKeyExpr = null;
+        boolean realTypeConvertedToIntegerType = false;
+        
+        for (Pair<Integer, Integer> exprIndex : exprAndVarList) {
             // Position of the field of matchedFuncExprs.get(exprIndex) in the chosen index's indexed exprs.
-            IOptimizableFuncExpr optFuncExpr = matchedFuncExprs.get(exprIndex);
+            IOptimizableFuncExpr optFuncExpr = matchedFuncExprs.get(exprIndex.first);
             int keyPos = indexOf(optFuncExpr.getFieldName(0), chosenIndex.getKeyFieldNames());
             if (keyPos < 0) {
                 if (optFuncExpr.getNumLogicalVars() > 1) {
@@ -273,24 +277,10 @@ public class BTreeAccessMethod implements IAccessMethod {
             }
 
             LimitType limit;
-            searchKeyExpr = AccessMethodUtils.createSearchKeyExpr(optFuncExpr, indexSubTree, probeSubTree);
-
-            //Get the key field type from the optFuncExpr
-            Pair<IAType, Boolean> keyPairType = null;
-            for (String fieldName : ((OptimizableFuncExpr) optFuncExpr).getFieldNames()) {
-                try {
-                    if (fieldName != null && recordType.getFieldType(fieldName) != null) {
-                        keyPairType = Index.getNonNullableKeyFieldType(fieldName, recordType);
-                        break;
-                    }
-                } catch (IOException e) {
-                    throw new AlgebricksException(e);
-                }
-            }
-            if (keyPairType == null) {
-                return null;
-            }
-            IAType keyType = keyPairType.first;
+            Pair<ILogicalExpression, Boolean> returnedSearchKeyExpr = AccessMethodUtils.createSearchKeyExpr(
+                    optFuncExpr, indexSubTree, probeSubTree);
+            searchKeyExpr = returnedSearchKeyExpr.first;
+            realTypeConvertedToIntegerType = returnedSearchKeyExpr.second;
 
             //TODO extend HilbertBTree to support composite key.
             IndexType indexType = chosenIndex.getIndexType();
@@ -309,11 +299,35 @@ public class BTreeAccessMethod implements IAccessMethod {
                     highKeyInclusive[keyPos] = true;
                     couldntFigureOut = false;
                     isEqCondition = false;
-                    replacedFuncExprs.add(matchedFuncExprs.get(exprIndex).getFuncExpr());
+                    replacedFuncExprs.add(matchedFuncExprs.get(exprIndex.first).getFuncExpr());
                     break;
                 }
             } else {
-                limit = getLimitType(optFuncExpr, probeSubTree);
+            	limit = getLimitType(optFuncExpr, probeSubTree);
+
+	            // If a DOUBLE or FLOAT constant is converted to an INT type value,
+	            // we need to check a corner case where two real values are located between an INT value.
+	            // For example, for the following query,
+	            //
+	            // for $emp in dataset empDataset
+	            // where $emp.age > double("2.3") and $emp.age < double("3.3")
+	            // return $emp.id;
+	            //
+	            // It should generate a result if there is a tuple that satisfies the condition, which is 3,
+	            // however, it does not generate the desired result since finding candidates
+	            // fail after truncating the fraction part (there is no INT whose value is greater than 2 and less than 3.)
+	            //
+	            // Therefore, we convert LT(<) to LE(<=) and GT(>) to GE(>=) to find candidates.
+	            // This does not change the result of an actual comparison since this conversion is only applied
+	            // for finding candidates from an index.
+	            //
+	            if (realTypeConvertedToIntegerType) {
+	                if (limit == LimitType.HIGH_EXCLUSIVE) {
+	                    limit = LimitType.HIGH_INCLUSIVE;
+	                } else if (limit == LimitType.LOW_EXCLUSIVE) {
+	                    limit = LimitType.LOW_INCLUSIVE;
+	                }
+	            }
             }
 
             switch (limit) {
@@ -417,7 +431,7 @@ public class BTreeAccessMethod implements IAccessMethod {
             }
             if (!couldntFigureOut) {
                 // Remember to remove this funcExpr later.
-                replacedFuncExprs.add(matchedFuncExprs.get(exprIndex).getFuncExpr());
+                replacedFuncExprs.add(matchedFuncExprs.get(exprIndex.first).getFuncExpr());
             }
             if (doneWithExprs) {
                 break;
@@ -444,16 +458,13 @@ public class BTreeAccessMethod implements IAccessMethod {
             }
         }
 
-        // Rule out the cases unsupported by the current btree search
-        // implementation.
-        for (int i = 1; i < numSecondaryKeys; i++) {
+        // determine cases when prefix search could be applied
+        for (int i = 1; i < lowKeyExprs.length; i++) {
             if (lowKeyLimits[0] == null && lowKeyLimits[i] != null || lowKeyLimits[0] != null
-                    && lowKeyLimits[i] == null) {
-                return null;
-            }
-            if (highKeyLimits[0] == null && highKeyLimits[i] != null || highKeyLimits[0] != null
-                    && highKeyLimits[i] == null) {
-                return null;
+                    && lowKeyLimits[i] == null || highKeyLimits[0] == null && highKeyLimits[i] != null
+                    || highKeyLimits[0] != null && highKeyLimits[i] == null) {
+                numSecondaryKeys--;
+                primaryIndexPostProccessingIsNeeded = true;
             }
         }
         if (lowKeyLimits[0] == null) {
@@ -545,8 +556,8 @@ public class BTreeAccessMethod implements IAccessMethod {
             if (probeSubTree == null) {
                 // We are optimizing a selection query.
                 // Input to this assign is the EmptyTupleSource (which the dataSourceScan also must have had as input).
-                assignConstantSearchKeys.getInputs().add(dataSourceScan.getInputs().get(0));
-                assignConstantSearchKeys.setExecutionMode(dataSourceScan.getExecutionMode());
+                assignConstantSearchKeys.getInputs().add(dataSourceOp.getInputs().get(0));
+                assignConstantSearchKeys.setExecutionMode(dataSourceOp.getExecutionMode());
             } else {
                 // We are optimizing a join, place the assign op top of the probe subtree.
                 assignConstantSearchKeys.getInputs().add(probeSubTree.rootRef);
@@ -563,50 +574,6 @@ public class BTreeAccessMethod implements IAccessMethod {
                 jobGenParams.setLowKeyVarList(assignOpRectangleKeyVarList, 0, 1);
                 jobGenParams.setHighKeyVarList(assignOpRectangleKeyVarList, 1, 0);
             } else {
-                ///////////////////////
-                //add spatial-cell-tokens function
-                //                ArrayList<LogicalVariable> assignSCTKeyVarList = new ArrayList<LogicalVariable>();
-                //                ArrayList<Mutable<ILogicalExpression>> assignSCTKeyExprList = new ArrayList<Mutable<ILogicalExpression>>();
-                //                AbstractFunctionCallExpression scTokens = new ScalarFunctionCallExpression(
-                //                        FunctionUtils.getFunctionInfo(AsterixBuiltinFunctions.SPATIAL_CELL_TOKENS));
-                //                IndexTypeProperty itp = chosenIndex.getIndexTypeProperty();
-                //                scTokens.getArguments().add(
-                //                        new MutableObject<ILogicalExpression>(new VariableReferenceExpression(
-                //                                assignOpRectangleKeyVarList.get(0))));
-                //                scTokens.getArguments().add(
-                //                        new MutableObject<ILogicalExpression>(new ConstantExpression(new AsterixConstantValue(
-                //                                new ADouble(itp.bottomLeftX)))));
-                //                scTokens.getArguments().add(
-                //                        new MutableObject<ILogicalExpression>(new ConstantExpression(new AsterixConstantValue(
-                //                                new ADouble(itp.bottomLeftY)))));
-                //                scTokens.getArguments().add(
-                //                        new MutableObject<ILogicalExpression>(new ConstantExpression(new AsterixConstantValue(
-                //                                new ADouble(itp.topRightX)))));
-                //                scTokens.getArguments().add(
-                //                        new MutableObject<ILogicalExpression>(new ConstantExpression(new AsterixConstantValue(
-                //                                new ADouble(itp.topRightY)))));
-                //                for (int i = 0; i < CellBasedSpatialIndex.MAX_LEVEL.getValue(); i++) {
-                //                    scTokens.getArguments().add(
-                //                            new MutableObject<ILogicalExpression>(new ConstantExpression(new AsterixConstantValue(
-                //                                    new AInt16(itp.levelDensity[i])))));
-                //                }
-                //                scTokens.getArguments().add(
-                //                        new MutableObject<ILogicalExpression>(new ConstantExpression(new AsterixConstantValue(
-                //                                new AInt32(itp.cellsPerObject)))));
-                //                assignSCTKeyVarList.add(context.newVar());
-                //                assignSCTKeyExprList.add(new MutableObject<ILogicalExpression>(scTokens));
-                //                AssignOperator assignOpSCTokens = new AssignOperator(assignSCTKeyVarList, assignSCTKeyExprList);
-                //                assignOpSCTokens.getInputs().add(new MutableObject<ILogicalOperator>(assignOpRectangle));
-                //                assignOpSCTokens.setExecutionMode(dataSourceScan.getExecutionMode());
-                //
-                //                inputOp = assignOpSCTokens;
-                //                jobGenParams.setLowKeyInclusive(lowKeyInclusive[0]);
-                //                jobGenParams.setHighKeyInclusive(highKeyInclusive[0]);
-                //                jobGenParams.setIsEqCondition(isEqCondition);
-                //                jobGenParams.setLowKeyVarList(assignSCTKeyVarList, 0, 1);
-                //                jobGenParams.setHighKeyVarList(assignSCTKeyVarList, 1, 0);
-                ///////////////////////
-
                 ///////////////////////
                 // add tokenizer
 
@@ -655,10 +622,10 @@ public class BTreeAccessMethod implements IAccessMethod {
             // List of variables and expressions for the assign.
             ArrayList<LogicalVariable> assignKeyVarList = new ArrayList<LogicalVariable>();
             ArrayList<Mutable<ILogicalExpression>> assignKeyExprList = new ArrayList<Mutable<ILogicalExpression>>();
-            int numLowKeys = createKeyVarsAndExprs(lowKeyLimits, lowKeyExprs, assignKeyVarList, assignKeyExprList,
-                    keyVarList, context);
-            int numHighKeys = createKeyVarsAndExprs(highKeyLimits, highKeyExprs, assignKeyVarList, assignKeyExprList,
-                    keyVarList, context);
+            int numLowKeys = createKeyVarsAndExprs(numSecondaryKeys, lowKeyLimits, lowKeyExprs, assignKeyVarList,
+                    assignKeyExprList, keyVarList, context);
+            int numHighKeys = createKeyVarsAndExprs(numSecondaryKeys, highKeyLimits, highKeyExprs, assignKeyVarList,
+                    assignKeyExprList, keyVarList, context);
 
             jobGenParams.setLowKeyInclusive(lowKeyInclusive[0]);
             jobGenParams.setHighKeyInclusive(highKeyInclusive[0]);
@@ -670,8 +637,8 @@ public class BTreeAccessMethod implements IAccessMethod {
                 // Assign operator that sets the constant secondary-index search-key fields if necessary.
                 AssignOperator assignConstantSearchKeys = new AssignOperator(assignKeyVarList, assignKeyExprList);
                 // Input to this assign is the EmptyTupleSource (which the dataSourceScan also must have had as input).
-                assignConstantSearchKeys.getInputs().add(dataSourceScan.getInputs().get(0));
-                assignConstantSearchKeys.setExecutionMode(dataSourceScan.getExecutionMode());
+                assignConstantSearchKeys.getInputs().add(dataSourceOp.getInputs().get(0));
+                assignConstantSearchKeys.setExecutionMode(dataSourceOp.getExecutionMode());
                 inputOp = assignConstantSearchKeys;
             } else {
                 // All index search keys are variables.
@@ -683,18 +650,18 @@ public class BTreeAccessMethod implements IAccessMethod {
         UnnestMapOperator secondaryIndexUnnestOp = AccessMethodUtils.createSecondaryIndexUnnestMap(dataset, recordType,
                 chosenIndex, inputOp, jobGenParams, context, false, retainInput);
 
-        // Generate the rest of the upstream plan which feeds the search results into the primary index.        
+        // Generate the rest of the upstream plan which feeds the search results into the primary index.
         UnnestMapOperator primaryIndexUnnestOp = null;
         boolean isPrimaryIndex = chosenIndex.isPrimaryIndex();
         if (dataset.getDatasetType() == DatasetType.EXTERNAL) {
             // External dataset
             ExternalDataLookupOperator externalDataAccessOp = AccessMethodUtils.createExternalDataLookupUnnestMap(
-                    dataSourceScan, dataset, recordType, secondaryIndexUnnestOp, context, chosenIndex, retainInput,
+                    dataSourceOp, dataset, recordType, secondaryIndexUnnestOp, context, chosenIndex, retainInput,
                     retainNull);
             indexSubTree.dataSourceRef.setValue(externalDataAccessOp);
             return externalDataAccessOp;
         } else if (!isPrimaryIndex) {
-            primaryIndexUnnestOp = AccessMethodUtils.createPrimaryIndexUnnestMap(dataSourceScan, dataset, recordType,
+            primaryIndexUnnestOp = AccessMethodUtils.createPrimaryIndexUnnestMap(dataSourceOp, dataset, recordType,
                     secondaryIndexUnnestOp, context, true, retainInput, retainNull, false);
 
             // Replace the datasource scan with the new plan rooted at
@@ -707,8 +674,9 @@ public class BTreeAccessMethod implements IAccessMethod {
             } catch (IOException e) {
                 throw new AlgebricksException(e);
             }
-            primaryIndexUnnestOp = new UnnestMapOperator(dataSourceScan.getVariables(),
-                    secondaryIndexUnnestOp.getExpressionRef(), primaryIndexOutputTypes, retainInput);
+            List<LogicalVariable> scanVariables = dataSourceOp.getVariables();
+            primaryIndexUnnestOp = new UnnestMapOperator(scanVariables, secondaryIndexUnnestOp.getExpressionRef(),
+                    primaryIndexOutputTypes, retainInput);
             primaryIndexUnnestOp.getInputs().add(new MutableObject<ILogicalOperator>(inputOp));
 
             if (!primaryIndexPostProccessingIsNeeded) {
@@ -722,18 +690,22 @@ public class BTreeAccessMethod implements IAccessMethod {
                     conditionRef.setValue(null);
                 }
             }
+
+            // Adds equivalence classes --- one equivalent class between a primary key
+            // variable and a record field-access expression.
+            EquivalenceClassUtils.addEquivalenceClassesForPrimaryIndexAccess(primaryIndexUnnestOp, scanVariables,
+                    recordType, dataset, context);
         }
 
         return primaryIndexUnnestOp;
     }
 
-    private int createKeyVarsAndExprs(LimitType[] keyLimits, ILogicalExpression[] searchKeyExprs,
+    private int createKeyVarsAndExprs(int numKeys, LimitType[] keyLimits, ILogicalExpression[] searchKeyExprs,
             ArrayList<LogicalVariable> assignKeyVarList, ArrayList<Mutable<ILogicalExpression>> assignKeyExprList,
             ArrayList<LogicalVariable> keyVarList, IOptimizationContext context) {
         if (keyLimits[0] == null) {
             return 0;
         }
-        int numKeys = keyLimits.length;
         for (int i = 0; i < numKeys; i++) {
             ILogicalExpression searchKeyExpr = searchKeyExprs[i];
             LogicalVariable keyVar = null;
@@ -836,7 +808,7 @@ public class BTreeAccessMethod implements IAccessMethod {
             // We are optimizing a selection query. Search key is a constant. Return true if constant is on lhs.
             return optFuncExpr.getFuncExpr().getArguments().get(0) == optFuncExpr.getConstantVal(0);
         } else {
-            // We are optimizing a join query. Determine whether the feeding variable is on the lhs. 
+            // We are optimizing a join query. Determine whether the feeding variable is on the lhs.
             return (optFuncExpr.getOperatorSubTree(0) == null || optFuncExpr.getOperatorSubTree(0) == probeSubTree);
         }
     }

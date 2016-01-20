@@ -19,6 +19,7 @@ import org.apache.asterix.common.exceptions.ACIDException;
 import org.apache.asterix.common.transactions.AbstractOperationCallback;
 import org.apache.asterix.common.transactions.ILockManager;
 import org.apache.asterix.common.transactions.ITransactionContext;
+import org.apache.asterix.transaction.management.service.locking.ConcurrentLockManager;
 import org.apache.asterix.transaction.management.service.transaction.TransactionManagementConstants.LockManagerConstants.LockMode;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.dataflow.common.data.accessors.ITupleReference;
@@ -35,6 +36,9 @@ public class SecondaryIndexRecordTryLockOnlySearchOperationCallback extends Abst
     public SecondaryIndexRecordTryLockOnlySearchOperationCallback(int datasetId, int[] entityIdFields,
             ILockManager lockManager, ITransactionContext txnCtx) {
         super(datasetId, entityIdFields, txnCtx, lockManager);
+        if (ConcurrentLockManager.PROFILE_LOCK_OVERHEAD) {
+            ConcurrentLockManager.profilerSW.start();
+        }
     }
 
     @Override

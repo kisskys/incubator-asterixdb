@@ -23,6 +23,7 @@ import java.io.BufferedReader;
 import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.IOException;
+import java.util.ArrayList;
 
 public class SIE4ReportBuilderRunner {
     static boolean IS_PROFILE = false;
@@ -49,6 +50,7 @@ public class SIE4ReportBuilderRunner {
 
     public SIE4ReportBuilderRunner() {
         String expHomePath = "/Users/kisskys/workspace/asterix_master/resultLog/MemBuf3g-DiskBuf3g-Lsev-Jvm7g-Lock0g/exp4/";
+        profileFileHomeDir = "/Users/kisskys/workspace/asterix_master/resultLog/MemBuf3g-DiskBuf3g-Lsev-Jvm7g-Lock0g/profile-exp4/";
         String runLogFileName = "run-exp4.log";
         String queryLogFileNamePrefix = "QueryGenResult-";
         String queryLogFileNameSuffix = "-130.149.249.51.txt";
@@ -712,4 +714,182 @@ public class SIE4ReportBuilderRunner {
                 true);
     }
 
+    public void generateQueryProfiledOperatorTime() throws Exception {
+        String parentPath = "/Users/kisskys/workspace/asterix_master/resultLog/MemBuf3g-DiskBuf3g-Lsev-Jvm7g-Lock0g/profile-exp4/";
+        String executionTimeFileParentPath[] = new String[5];
+
+        executionTimeFileParentPath[0] = parentPath + "SpatialIndexExperiment4Dhbtree/logs/";
+        executionTimeFileParentPath[1] = parentPath + "SpatialIndexExperiment4Dhvbtree/logs/";
+        executionTimeFileParentPath[2] = parentPath + "SpatialIndexExperiment4Rtree/logs/";
+        executionTimeFileParentPath[3] = parentPath + "SpatialIndexExperiment4Shbtree/logs/";
+        executionTimeFileParentPath[4] = parentPath + "SpatialIndexExperiment4Sif/logs/";
+        ArrayList<String> fileList = new ArrayList<String>(8);
+        //        fileList.add("executionTime-192.168.0.11.txt");
+        fileList.add("executionTime-130.149.249.52.txt");
+        fileList.add("executionTime-130.149.249.53.txt");
+        fileList.add("executionTime-130.149.249.54.txt");
+        fileList.add("executionTime-130.149.249.55.txt");
+        fileList.add("executionTime-130.149.249.56.txt");
+        fileList.add("executionTime-130.149.249.57.txt");
+        fileList.add("executionTime-130.149.249.58.txt");
+        fileList.add("executionTime-130.149.249.59.txt");
+        boolean isIndexOnlyPlan = false;
+
+        //            for (int i = 0; i < 5; i++) {
+        //                String fileParentPath = executionTimeFileParentPath[i];
+        //                OperatorProfilerReportBuilder oprb = new OperatorProfilerReportBuilder(fileParentPath, fileList);
+        //                System.out.println("--------  " + i + " ----------\n");
+        //                System.out.println(oprb.getIdxNumber(false, 0, isIndexOnlyPlan, false));
+        //                System.out.println(oprb.getIdxNumber(false, 1, isIndexOnlyPlan, false));
+        //                System.out.println(oprb.getIdxNumber(false, 2, isIndexOnlyPlan, false));
+        //                System.out.println(oprb.getIdxNumber(false, 3, isIndexOnlyPlan, false));
+        //                System.out.println(oprb.getIdxNumber(false, 4, isIndexOnlyPlan, false));
+        //                System.out.println(oprb.getIdxNumber(true, 0, isIndexOnlyPlan, false));
+        //                System.out.println(oprb.getIdxNumber(true, 1, isIndexOnlyPlan, false));
+        //                System.out.println(oprb.getIdxNumber(true, 2, isIndexOnlyPlan, false));
+        //                System.out.println(oprb.getIdxNumber(true, 3, isIndexOnlyPlan, false));
+        //            }
+
+        OperatorProfilerReportBuilder dhbtreeOprb = new OperatorProfilerReportBuilder(executionTimeFileParentPath[0],
+                fileList);
+        OperatorProfilerReportBuilder dhvbtreeOprb = new OperatorProfilerReportBuilder(executionTimeFileParentPath[1],
+                fileList);
+        OperatorProfilerReportBuilder rtreeOprb = new OperatorProfilerReportBuilder(executionTimeFileParentPath[2],
+                fileList);
+        OperatorProfilerReportBuilder shbtreeOprb = new OperatorProfilerReportBuilder(executionTimeFileParentPath[3],
+                fileList);
+        OperatorProfilerReportBuilder sifOprb = new OperatorProfilerReportBuilder(executionTimeFileParentPath[4],
+                fileList);
+
+        StringBuilder sb = new StringBuilder();
+
+        //for select query
+        for (int i = 0; i < 5; i++) {
+            sb.setLength(0);
+            sb.append("# sie4 select query profiled operator time report\n");
+            String[] st = null;
+            sb.append("operator,STREAM_SELECT,SORT_RUN_GEN,PIDX_SEARCH,STREAM_PROJECT,SIDX_SEARCH,ASSIGN,SORT_RUN_MERGER,TXN_JOB_COMMIT,DISTRIBUTE_RESULT,\n");
+            st = dhbtreeOprb.getOperatorTime(false, i, isIndexOnlyPlan, false).split("!");
+            sb.append(st[0]);
+            sb.append("dhbtree,").append(st[1]);
+            st = dhvbtreeOprb.getOperatorTime(false, i, isIndexOnlyPlan, false).split("!");
+            sb.append(st[0]);
+            sb.append("dhvbtree,").append(st[1]);
+            st = rtreeOprb.getOperatorTime(false, i, isIndexOnlyPlan, false).split("!");
+            sb.append(st[0]);
+            sb.append("rtree,").append(st[1]);
+            st = shbtreeOprb.getOperatorTime(false, i, isIndexOnlyPlan, false).split("!");
+            sb.append(st[0]);
+            sb.append("shbtree,").append(st[1]);
+            st = sifOprb.getOperatorTime(false, i, isIndexOnlyPlan, false).split("!");
+            sb.append(st[0]);
+            sb.append("sif,").append(st[1]);
+
+            String outputFilePath = "/Users/kisskys/workspace/asterix_master/resultLog/MemBuf3g-DiskBuf3g-Lsev-Jvm7g-Lock0g/result-report/";
+            FileOutputStream fos = ReportBuilderHelper.openOutputFile(outputFilePath
+                    + "sie4_select_query_operator_profile_time_r" + i + ".txt");
+            fos.write(sb.toString().getBytes());
+            ReportBuilderHelper.closeOutputFile(fos);
+        }
+
+        //for join query
+        for (int i = 0; i < 4; i++) {
+            sb.setLength(0);
+            sb.append("# sie4 join query profiled operator time report\n");
+            String[] st = null;
+            sb.append("operator,STREAM_SELECT,SORT_RUN_GEN,INNER_PIDX_SEARCH,OUTER_PIDX_SEARCH,STREAM_PROJECT,INNER_SIDX_SEARCH,ASSIGN,SORT_RUN_MERGER,TXN_JOB_COMMIT,DISTRIBUTE_RESULT,\n");
+            st = dhbtreeOprb.getOperatorTime(true, i, isIndexOnlyPlan, false).split("!");
+            sb.append(st[0]);
+            sb.append("dhbtree,").append(st[1]);
+            st = dhvbtreeOprb.getOperatorTime(true, i, isIndexOnlyPlan, false).split("!");
+            sb.append(st[0]);
+            sb.append("dhvbtree,").append(st[1]);
+            st = rtreeOprb.getOperatorTime(true, i, isIndexOnlyPlan, false).split("!");
+            sb.append(st[0]);
+            sb.append("rtree,").append(st[1]);
+            st = shbtreeOprb.getOperatorTime(true, i, isIndexOnlyPlan, false).split("!");
+            sb.append(st[0]);
+            sb.append("shbtree,").append(st[1]);
+            st = sifOprb.getOperatorTime(true, i, isIndexOnlyPlan, false).split("!");
+            sb.append(st[0]);
+            sb.append("sif,").append(st[1]);
+
+            String outputFilePath = "/Users/kisskys/workspace/asterix_master/resultLog/MemBuf3g-DiskBuf3g-Lsev-Jvm7g-Lock0g/result-report/";
+            FileOutputStream fos = ReportBuilderHelper.openOutputFile(outputFilePath
+                    + "sie4_join_query_operator_profile_time_r" + i + ".txt");
+            fos.write(sb.toString().getBytes());
+            ReportBuilderHelper.closeOutputFile(fos);
+        }
+    }
+
+    public void generateQueryProfiledCacheMiss() throws Exception {
+        String parentPath = profileFileHomeDir;
+        String executionTimeFileParentPath[] = new String[5];
+
+        executionTimeFileParentPath[0] = parentPath + "SpatialIndexExperiment4Dhbtree/logs/";
+        executionTimeFileParentPath[1] = parentPath + "SpatialIndexExperiment4Dhvbtree/logs/";
+        executionTimeFileParentPath[2] = parentPath + "SpatialIndexExperiment4Rtree/logs/";
+        executionTimeFileParentPath[3] = parentPath + "SpatialIndexExperiment4Shbtree/logs/";
+        executionTimeFileParentPath[4] = parentPath + "SpatialIndexExperiment4Sif/logs/";
+        ArrayList<String> fileList = new ArrayList<String>(8);
+        //        fileList.add("executionTime-192.168.0.11.txt");
+        fileList.add("cacheMissPerQuery-130.149.249.52.txt");
+        fileList.add("cacheMissPerQuery-130.149.249.53.txt");
+        fileList.add("cacheMissPerQuery-130.149.249.54.txt");
+        fileList.add("cacheMissPerQuery-130.149.249.55.txt");
+        fileList.add("cacheMissPerQuery-130.149.249.56.txt");
+        fileList.add("cacheMissPerQuery-130.149.249.57.txt");
+        fileList.add("cacheMissPerQuery-130.149.249.58.txt");
+        fileList.add("cacheMissPerQuery-130.149.249.59.txt");
+        boolean isIndexOnlyPlan = false;
+
+        OperatorProfilerReportBuilder dhbtreeOprb = new OperatorProfilerReportBuilder(executionTimeFileParentPath[0],
+                fileList);
+        OperatorProfilerReportBuilder dhvbtreeOprb = new OperatorProfilerReportBuilder(executionTimeFileParentPath[1],
+                fileList);
+        OperatorProfilerReportBuilder rtreeOprb = new OperatorProfilerReportBuilder(executionTimeFileParentPath[2],
+                fileList);
+        OperatorProfilerReportBuilder shbtreeOprb = new OperatorProfilerReportBuilder(executionTimeFileParentPath[3],
+                fileList);
+        OperatorProfilerReportBuilder sifOprb = new OperatorProfilerReportBuilder(executionTimeFileParentPath[4],
+                fileList);
+
+        StringBuilder sb = new StringBuilder();
+
+        //for select query
+        for (int i = 0; i < 5; i++) {
+            sb.setLength(0);
+            sb.append("# sie4 select query profiled cache miss report\n");
+            sb.append("operator, PIDX_SEARCH, SIDX_SEARCH \n");
+            sb.append("dhbtree,").append(dhbtreeOprb.getCacheMiss(false, i, isIndexOnlyPlan)).append("\n");
+            sb.append("dhvbtree,").append(dhvbtreeOprb.getCacheMiss(false, i, isIndexOnlyPlan)).append("\n");
+            sb.append("rtree,").append(rtreeOprb.getCacheMiss(false, i, isIndexOnlyPlan)).append("\n");
+            sb.append("shbtree,").append(shbtreeOprb.getCacheMiss(false, i, isIndexOnlyPlan)).append("\n");
+            sb.append("sif,").append(sifOprb.getCacheMiss(false, i, isIndexOnlyPlan)).append("\n");
+
+            String outputFilePath = "/Users/kisskys/workspace/asterix_master/resultLog/MemBuf3g-DiskBuf3g-Lsev-Jvm7g-Lock0g/result-report/";
+            FileOutputStream fos = ReportBuilderHelper.openOutputFile(outputFilePath + "sie4_select_query_cache_miss_r"
+                    + i + ".txt");
+            fos.write(sb.toString().getBytes());
+            ReportBuilderHelper.closeOutputFile(fos);
+        }
+
+        //for join query
+        for (int i = 0; i < 4; i++) {
+            sb.setLength(0);
+            sb.append("# sie4 join query profiled cache miss report\n");
+            sb.append("operator, INNER_PIDX_SEARCH, OUTER_PIDX_SEARCH,INNER_SIDX_SEARCH \n");
+            sb.append("dhbtree,").append(dhbtreeOprb.getCacheMiss(true, i, isIndexOnlyPlan)).append("\n");
+            sb.append("dhvbtree,").append(dhvbtreeOprb.getCacheMiss(true, i, isIndexOnlyPlan)).append("\n");
+            sb.append("rtree,").append(rtreeOprb.getCacheMiss(true, i, isIndexOnlyPlan)).append("\n");
+            sb.append("shbtree,").append(shbtreeOprb.getCacheMiss(true, i, isIndexOnlyPlan)).append("\n");
+            sb.append("sif,").append(sifOprb.getCacheMiss(true, i, isIndexOnlyPlan)).append("\n");
+
+            String outputFilePath = "/Users/kisskys/workspace/asterix_master/resultLog/MemBuf3g-DiskBuf3g-Lsev-Jvm7g-Lock0g/result-report/";
+            FileOutputStream fos = ReportBuilderHelper.openOutputFile(outputFilePath + "sie4_join_query_cache_miss_r"
+                    + i + ".txt");
+            fos.write(sb.toString().getBytes());
+            ReportBuilderHelper.closeOutputFile(fos);
+        }
+    }
 }

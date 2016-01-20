@@ -67,12 +67,13 @@ import org.apache.hyracks.api.util.ExperimentProfilerUtils;
 public abstract class AbstractSpatialIndexExperiment3SIdxCreateAndQueryBuilder extends AbstractExperimentBuilder {
 
     private static final boolean PROFILE_JOB_LAUCHING_OVERHEAD = false;
+    private static final boolean LARGE_RADIUS = false;
 
     private static final String ASTERIX_INSTANCE_NAME = "a1";
     private static final int SKIP_LINE_COUNT = 223;
     private static final int CACHE_WARM_UP_QUERY_COUNT = 500;
-    private static final int SELECT_QUERY_COUNT = 5000;
-    private static final int JOIN_QUERY_COUNT = 1000;
+    private static final int SELECT_QUERY_COUNT = LARGE_RADIUS ? 100 : 5000;
+    private static final int JOIN_QUERY_COUNT = LARGE_RADIUS ? 0 : 200; //1000;
 
     private static final int JOIN_CANDIDATE_COUNT = 100;
     private static final int MAX_QUERY_SEED = 10000;
@@ -121,7 +122,8 @@ public abstract class AbstractSpatialIndexExperiment3SIdxCreateAndQueryBuilder e
 
     protected final String querySeedFilePath;
 
-    private final float[] radiusType = new float[] { 0.00001f, 0.0001f, 0.001f, 0.01f, 0.1f };
+    private final float[] radiusType;
+    private final float[] largeRadiusType;
     private int radiusIter = 0;
     private final Random randGen;
     private BufferedReader br;
@@ -133,6 +135,9 @@ public abstract class AbstractSpatialIndexExperiment3SIdxCreateAndQueryBuilder e
             String clusterConfigFileName, String ingestFileName, String dgenFileName, String countFileName,
             String createAQLFileName, boolean isIndexOnlyPlan) {
         super(name);
+        radiusType = new float[] { 0.00001f, 0.0001f, 0.001f, 0.01f, 0.1f };
+        largeRadiusType = new float[] { 0.2f, 0.4f, 0.8f, 1.6f };
+
         this.logDirSuffix = config.getLogDirSuffix();
         this.httpClient = new DefaultHttpClient();
         this.restHost = config.getRESTHost();
@@ -263,13 +268,13 @@ public abstract class AbstractSpatialIndexExperiment3SIdxCreateAndQueryBuilder e
         br = new BufferedReader(new FileReader(querySeedFilePath));
         radiusIter = 0;
         for (int i = 0; i < CACHE_WARM_UP_QUERY_COUNT; i++) {
-            execs.add(getSelectQuery(isIndexOnlyPlan));
+            execs.add(getSelectQuery(isIndexOnlyPlan, false));
         }
 
         radiusIter = 0;
         //run queries for measurement: run SELECT_QUERY_COUNT select queries
         for (int i = 0; i < SELECT_QUERY_COUNT; i++) {
-            execs.add(getSelectQuery(isIndexOnlyPlan));
+            execs.add(getSelectQuery(isIndexOnlyPlan, LARGE_RADIUS));
         }
 
         radiusIter = 0;
@@ -386,7 +391,7 @@ public abstract class AbstractSpatialIndexExperiment3SIdxCreateAndQueryBuilder e
         return dgenPairs;
     }
 
-    private SequentialActionList getSelectQuery(boolean isIndexOnlyPlan) throws IOException {
+    private SequentialActionList getSelectQuery(boolean isIndexOnlyPlan, boolean useLargeRadius) throws IOException {
         //prepare radius and center point
         int skipLineCount = SKIP_LINE_COUNT;
         int lineCount = 0;
@@ -413,8 +418,15 @@ public abstract class AbstractSpatialIndexExperiment3SIdxCreateAndQueryBuilder e
 
         //create action
         SequentialActionList sAction = new SequentialActionList();
-        IAction queryAction = new TimedAction(new RunAQLStringAction(httpClient, restHost, restPort, getSelectQueryAQL(
-                radiusType[radiusIter++ % radiusType.length], point, isIndexOnlyPlan), outputFos), outputFos);
+        IAction queryAction = null;
+        if (useLargeRadius) {
+            queryAction = new TimedAction(new RunAQLStringAction(httpClient, restHost, restPort, getSelectQueryAQL(
+                    largeRadiusType[radiusIter++ % largeRadiusType.length], point, isIndexOnlyPlan), outputFos),
+                    outputFos);
+        } else {
+            queryAction = new TimedAction(new RunAQLStringAction(httpClient, restHost, restPort, getSelectQueryAQL(
+                    radiusType[radiusIter++ % radiusType.length], point, isIndexOnlyPlan), outputFos), outputFos);
+        }
         sAction.add(queryAction);
 
         return sAction;

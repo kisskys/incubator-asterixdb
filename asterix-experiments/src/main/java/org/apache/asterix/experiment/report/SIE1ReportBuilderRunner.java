@@ -114,11 +114,11 @@ public class SIE1ReportBuilderRunner {
         ArrayList<Long> ipsListRtree = new ArrayList<Long>();
         ArrayList<Long> ipsListShbtree = new ArrayList<Long>();
         ArrayList<Long> ipsListSif = new ArrayList<Long>();
-        sie1DDhbtree.getAllNodesAccumulatedInsertPS(targetRound, ipsListDhbtree);
-        sie1DDhvbtree.getAllNodesAccumulatedInsertPS(targetRound, ipsListDhvbtree);
-        sie1DRtree.getAllNodesAccumulatedInsertPS(targetRound, ipsListRtree);
-        sie1DShbtree.getAllNodesAccumulatedInsertPS(targetRound, ipsListShbtree);
-        sie1DSif.getAllNodesAccumulatedInsertPS(targetRound, ipsListSif);
+        sie1ADhbtree.getAllNodesAccumulatedInsertPS(targetRound, ipsListDhbtree);
+        sie1ADhvbtree.getAllNodesAccumulatedInsertPS(targetRound, ipsListDhvbtree);
+        sie1ARtree.getAllNodesAccumulatedInsertPS(targetRound, ipsListRtree);
+        sie1AShbtree.getAllNodesAccumulatedInsertPS(targetRound, ipsListShbtree);
+        sie1ASif.getAllNodesAccumulatedInsertPS(targetRound, ipsListSif);
 
         sb.setLength(0);
         sb.append("# sie1 accumulated inserts per second report\n");

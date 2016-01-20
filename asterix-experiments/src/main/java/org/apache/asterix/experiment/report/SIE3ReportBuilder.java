@@ -26,11 +26,11 @@ import java.io.IOException;
 
 public class SIE3ReportBuilder extends AbstractDynamicDataEvalReportBuilder {
     private static final int WARM_UP_QUERY_COUNT = 500;
-    private static final int SELECT_QUERY_COUNT = 5000; //5000
-    private static final int JOIN_QUERY_COUNT = 1000;
+    private static final int SELECT_QUERY_COUNT = 5000;
+    private static final int JOIN_QUERY_COUNT = 200;
     private static final int SELECT_QUERY_RADIUS_COUNT = 5; //0.00001, 0.0001, 0.001, 0.01, 0.1
     private static final int JOIN_QUERY_RADIUS_COUNT = 4; ////0.00001, 0.0001, 0.001, 0.01
-    private static final String LOADED_RECORD_COUNT = "1600000000"; //1600000000
+    private static final String LOADED_RECORD_COUNT = "1600000000";
     private final String queryLogFilePath;
     private BufferedReader queryLogFileBr;
 
@@ -164,6 +164,9 @@ public class SIE3ReportBuilder extends AbstractDynamicDataEvalReportBuilder {
                         if (line.contains("int64")) {
                             if (selectQueryCount % SELECT_QUERY_RADIUS_COUNT == radiusIdx) {
                                 line = queryLogFileBr.readLine();
+                                if (Long.parseLong(line) == 0) {
+                                    System.out.println("Result 0 query: " + selectQueryCount);
+                                }
                                 queryResultCount += Long.parseLong(line);
                                 ++targetRadiusSelectQueryCount;
                             }
@@ -212,11 +215,6 @@ public class SIE3ReportBuilder extends AbstractDynamicDataEvalReportBuilder {
                         line = queryLogFileBr.readLine();
                         if (line.contains("Elapsed time =")) {
                             if (selectQueryCount % JOIN_QUERY_RADIUS_COUNT == radiusIdx) {
-                                if (ReportBuilderHelper.getLong(line, "=", "for") > 5000) {
-                                    System.out.println("Time: " + expName + "[" + radiusIdx + ", "
-                                            + targetRadiusJoinQueryCount + ", " + selectQueryCount + "]:"
-                                            + ReportBuilderHelper.getLong(line, "=", "for"));
-                                }
                                 queryResponseTime += ReportBuilderHelper.getLong(line, "=", "for");
                                 ++targetRadiusJoinQueryCount;
                             }
@@ -266,13 +264,6 @@ public class SIE3ReportBuilder extends AbstractDynamicDataEvalReportBuilder {
                         if (line.contains("int64")) {
                             if (selectQueryCount % JOIN_QUERY_RADIUS_COUNT == radiusIdx) {
                                 line = queryLogFileBr.readLine();
-
-                                if (selectQueryCount == 600 || selectQueryCount == 824 || Long.parseLong(line) > 100000) {
-                                    System.out.println("Count: " + expName + "[" + radiusIdx + ", "
-                                            + targetRadiusJoinQueryCount + ", " + selectQueryCount + "]:"
-                                            + Long.parseLong(line));
-                                }
-
                                 queryResultCount += Long.parseLong(line);
                                 ++targetRadiusJoinQueryCount;
                             }

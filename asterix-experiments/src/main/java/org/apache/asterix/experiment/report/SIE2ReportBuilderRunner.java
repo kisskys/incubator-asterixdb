@@ -23,7 +23,7 @@ import java.io.FileOutputStream;
 import java.util.ArrayList;
 
 public class SIE2ReportBuilderRunner {
-    String expHomePath = "/Users/kisskys/workspace/asterix_master/resultLog/MemBuf3g-DiskBuf3g-Lsev-Jvm7g-Lock0g/exp2-4/";
+    String expHomePath = "/Users/kisskys/workspace/asterix_master/resultLog/MemBuf3g-DiskBuf3g-Lsev-Jvm7g-Lock0g/exp2-4-rg128k/";
     String runLogFileName = "run-exp2-4.log";
     String outputFilePath = "/Users/kisskys/workspace/asterix_master/resultLog/MemBuf3g-DiskBuf3g-Lsev-Jvm7g-Lock0g/result-report/";
 

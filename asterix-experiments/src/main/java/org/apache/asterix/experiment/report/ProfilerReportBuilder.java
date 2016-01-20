@@ -66,11 +66,7 @@ public class ProfilerReportBuilder {
     }
 
     public String getIdxNumber(boolean getSearchTime, boolean isJoin, int radiusIdx, int indexIdx) throws Exception {
-        if (getSearchTime) {
-            openIndexSearchTimeFile();
-        } else {
-            openCacheMissFile();
-        }
+        openCacheMissFile();
 
         StringBuilder sb = new StringBuilder();
         int involvedIndexCount = isJoin ? JOIN_QUERY_INVOLVED_INDEX_COUNT : SELECT_QUERY_INVOLVED_INDEX_COUNT;
@@ -109,11 +105,7 @@ public class ProfilerReportBuilder {
             sb.append((double) measuredValue / (PARTITION_COUNT * queryCount));
             return sb.toString();
         } finally {
-            if (getSearchTime) {
-                closeIndexSearchTimeFile();
-            } else {
-                closeCacheMissFile();
-            }
+            closeCacheMissFile();
         }
     }
 
@@ -156,16 +148,6 @@ public class ProfilerReportBuilder {
             return sb.toString();
         } finally {
             closeFalsePositiveFile();
-        }
-    }
-
-    protected void openIndexSearchTimeFile() throws IOException {
-        brIndexSearchTime = new BufferedReader(new FileReader(indexSearchTimeFilePath));
-    }
-
-    protected void closeIndexSearchTimeFile() throws IOException {
-        if (brIndexSearchTime != null) {
-            brIndexSearchTime.close();
         }
     }
 

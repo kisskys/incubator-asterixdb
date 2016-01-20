@@ -23,8 +23,8 @@ import java.io.FileOutputStream;
 import java.util.ArrayList;
 
 public class SIE5ReportBuilderRunner {
-    String expHomePath = "/Users/kisskys/workspace/asterix_master/resultLog/MemBuf3g-DiskBuf3g-Lsev-Jvm7g-Lock0g/exp5-4/";
-    String runLogFileName = "run-exp5-4.log";
+    String expHomePath = "/Users/kisskys/workspace/asterix_master/resultLog/MemBuf3g-DiskBuf3g-Lsev-Jvm7g-Lock0g/exp5-3/";
+    String runLogFileName = "run-exp5-3.log";
     String outputFilePath = "/Users/kisskys/workspace/asterix_master/resultLog/MemBuf3g-DiskBuf3g-Lsev-Jvm7g-Lock0g/result-report/";
 
     SIE2ReportBuilder sie5Dhbtree = new SIE2ReportBuilder(expHomePath, "SpatialIndexExperiment5Dhbtree", runLogFileName);

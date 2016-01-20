@@ -35,6 +35,7 @@ import org.apache.asterix.common.transactions.ITransactionManager;
 import org.apache.asterix.common.transactions.JobId;
 import org.apache.asterix.common.transactions.JobThreadId;
 import org.apache.asterix.common.transactions.LogRecord;
+import org.apache.asterix.transaction.management.service.locking.ConcurrentLockManager;
 import org.apache.hyracks.api.lifecycle.ILifeCycleComponent;
 
 /**
@@ -77,7 +78,7 @@ public class TransactionManager implements ITransactionManager, ILifeCycleCompon
             ConcurrentLinkedQueue<JobThreadId> jobThreadIdList = txnCtx.getJobThreadIdList();
             ILockManager lockMgr = txnSubsystem.getLockManager();
             while (!jobThreadIdList.isEmpty()) {
-                lockMgr.releaseLocks(jobThreadIdList.remove(),txnCtx);
+                lockMgr.releaseLocks(jobThreadIdList.remove(), txnCtx);
             }
             transactionContextRepository.remove(txnCtx.getJobId());
         }
@@ -125,8 +126,17 @@ public class TransactionManager implements ITransactionManager, ILifeCycleCompon
         } finally {
             ConcurrentLinkedQueue<JobThreadId> jobThreadIdList = txnCtx.getJobThreadIdList();
             ILockManager lockMgr = txnSubsystem.getLockManager();
+            if (ConcurrentLockManager.PROFILE_LOCK_OVERHEAD) {
+                LOGGER.severe("[" + Thread.currentThread().getId() + "] TryLock - FindInResourceGroupTime: "
+                        + ((ConcurrentLockManager) lockMgr).profilerSW.getElapsedTime());
+                ((ConcurrentLockManager) lockMgr).profilerSW.start();
+            }
             while (!jobThreadIdList.isEmpty()) {
-                lockMgr.releaseLocks(jobThreadIdList.remove(),txnCtx);
+                lockMgr.releaseLocks(jobThreadIdList.remove(), txnCtx);
+            }
+            if (ConcurrentLockManager.PROFILE_LOCK_OVERHEAD) {
+                LOGGER.severe("[" + Thread.currentThread().getId() + "] ReleaseLocks - FindInResourceGroupTime: "
+                        + ((ConcurrentLockManager) lockMgr).profilerSW.getElapsedTime());
             }
             transactionContextRepository.remove(txnCtx.getJobId());
             txnCtx.setTxnState(ITransactionManager.COMMITTED);

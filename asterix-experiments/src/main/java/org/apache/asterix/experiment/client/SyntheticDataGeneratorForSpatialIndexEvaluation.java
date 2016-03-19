@@ -23,13 +23,13 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 
-import org.kohsuke.args4j.CmdLineException;
-import org.kohsuke.args4j.CmdLineParser;
-
+import org.apache.asterix.om.types.ATypeTag;
 import org.apache.asterix.tools.external.data.DataGeneratorForSpatialIndexEvaluation;
 import org.apache.asterix.tools.external.data.DataGeneratorForSpatialIndexEvaluation.InitializationInfo;
 import org.apache.asterix.tools.external.data.DataGeneratorForSpatialIndexEvaluation.TweetMessageIterator;
 import org.apache.asterix.tools.external.data.GULongIDGenerator;
+import org.kohsuke.args4j.CmdLineException;
+import org.kohsuke.args4j.CmdLineParser;
 
 public class SyntheticDataGeneratorForSpatialIndexEvaluation {
     public static void main(String[] args) throws Exception {
@@ -47,8 +47,9 @@ public class SyntheticDataGeneratorForSpatialIndexEvaluation {
         GULongIDGenerator uidGenerator = new GULongIDGenerator(config.getPartitionId(), (byte) (0));
         String pointSourceFilePath = config.getPointSourceFile();
         int pointSampleInterval = config.getpointSamplingInterval();
-        DataGeneratorForSpatialIndexEvaluation dataGenerator = new DataGeneratorForSpatialIndexEvaluation(new InitializationInfo(), pointSourceFilePath,
-                pointSampleInterval);
+        int sendLocationSizeDistributionType = config.getDistributionType();
+        DataGeneratorForSpatialIndexEvaluation dataGenerator = new DataGeneratorForSpatialIndexEvaluation(
+                new InitializationInfo(), pointSourceFilePath, pointSampleInterval, sendLocationSizeDistributionType);
 
         //get record count to be generated
         long maxRecordCount = config.getRecordCount();
@@ -58,7 +59,7 @@ public class SyntheticDataGeneratorForSpatialIndexEvaluation {
         long startTS = System.currentTimeMillis();
 
         //prepare tweetIterator which acutally generates tweet 
-        TweetMessageIterator tweetIterator = dataGenerator.new TweetMessageIterator(0, uidGenerator);
+        TweetMessageIterator tweetIterator = dataGenerator.new TweetMessageIterator(0, uidGenerator, ATypeTag.RECTANGLE);
 
         FileOutputStream fos = null;
         try {
@@ -70,7 +71,7 @@ public class SyntheticDataGeneratorForSpatialIndexEvaluation {
                 String tweet = tweetIterator.next().toString() + "\n";
                 //write to file
                 fos.write(tweet.getBytes());
-                
+
                 recordCount++;
                 if (recordCount % 1000000 == 0) {
                     System.out.println("... generated " + recordCount + " records");

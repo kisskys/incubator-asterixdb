@@ -75,6 +75,7 @@ import org.apache.hyracks.algebricks.core.algebra.operators.logical.AbstractLogi
 import org.apache.hyracks.algebricks.core.algebra.operators.logical.AbstractLogicalOperator.ExecutionMode;
 import org.apache.hyracks.algebricks.core.algebra.operators.logical.AggregateOperator;
 import org.apache.hyracks.algebricks.core.algebra.operators.logical.AssignOperator;
+import org.apache.hyracks.algebricks.core.algebra.operators.logical.DataSourceScanOperator;
 import org.apache.hyracks.algebricks.core.algebra.operators.logical.ExternalDataLookupOperator;
 import org.apache.hyracks.algebricks.core.algebra.operators.logical.GroupByOperator;
 import org.apache.hyracks.algebricks.core.algebra.operators.logical.OrderOperator;
@@ -256,9 +257,14 @@ public class AccessMethodUtils {
                 }
 
                 case STATIC_HILBERT_BTREE:
-                    /* Secondary key consists of [ Cell number (ABINARY) | point (APOINT) ] */
+                    /* Secondary key consists of [ Cell number (ABINARY) | spatial object ] */
                     dest.add(BuiltinType.ABINARY);
-                    dest.add(BuiltinType.APOINT);
+                    //dest.add(BuiltinType.APOINT);
+                    for (int i = 0; i < index.getKeyFieldNames().size(); i++) {
+                        Pair<IAType, Boolean> keyPairType = Index.getNonNullableOpenFieldType(index.getKeyFieldTypes()
+                                .get(i), index.getKeyFieldNames().get(i), recordType);
+                        dest.add(keyPairType.first);
+                    }
                     break;
 
                 case DYNAMIC_HILBERTVALUE_BTREE:
@@ -1056,11 +1062,15 @@ public class AccessMethodUtils {
                                 verificationAfterSIdxSearchRequired = true;
                             }
                         } else {
-                            // If the type of an R-Tree index is not a point or rectangle, an index-only plan is not possible
-                            // since we can't reconstruct the original field value from an R-Tree index search.
-                            isIndexOnlyPlan = false;
-                            verificationAfterSIdxSearchRequired = true;
-                            noFalsePositiveResultsFromSIdxSearch = false;
+                            if (indexType == IndexType.STATIC_HILBERT_BTREE) {
+                                verificationAfterSIdxSearchRequired = true;
+                            } else {
+                                // If the type of an R-Tree index is not a point or rectangle, an index-only plan is not possible
+                                // since we can't reconstruct the original field value from an R-Tree index search.
+                                isIndexOnlyPlan = false;
+                                verificationAfterSIdxSearchRequired = true;
+                                noFalsePositiveResultsFromSIdxSearch = false;
+                            }
                         }
                     }
                 }
@@ -1226,59 +1236,69 @@ public class AccessMethodUtils {
             restoredSecondaryKeyFieldExprs = new ArrayList<Mutable<ILogicalExpression>>();
             restoredSecondaryKeyFieldVars = new ArrayList<LogicalVariable>();
 
-            if (spatialType.getTypeTag() == ATypeTag.POINT) {
-                // Reconstruct a POINT value
-                ILogicalExpression createPointExpr = null;
-                if (idxType == IndexType.RTREE) {
-                    createPointExpr = new ScalarFunctionCallExpression(
+            // Reconstruct an original spatial object
+            ILogicalExpression createOriginalSpatialObjectExpr = null;
+            if (idxType == IndexType.RTREE) {
+                if (spatialType.getTypeTag() == ATypeTag.POINT) {
+                    createOriginalSpatialObjectExpr = new ScalarFunctionCallExpression(
                             FunctionUtils.getFunctionInfo(AsterixBuiltinFunctions.CREATE_POINT));
                     List<Mutable<ILogicalExpression>> expressions = new ArrayList<Mutable<ILogicalExpression>>();
                     expressions.add(new MutableObject<ILogicalExpression>(new VariableReferenceExpression(
                             secondaryKeyVarsFromSIdxSearch.get(0))));
                     expressions.add(new MutableObject<ILogicalExpression>(new VariableReferenceExpression(
                             secondaryKeyVarsFromSIdxSearch.get(1))));
-                    ((AbstractFunctionCallExpression) createPointExpr).getArguments().addAll(expressions);
-                } else if (idxType == IndexType.DYNAMIC_HILBERT_BTREE) {
-                    //dhbtree entry's fields: [point, PK]
-                    createPointExpr = new VariableReferenceExpression(secondaryKeyVarsFromSIdxSearch.get(0));
-                } else if (idxType == IndexType.DYNAMIC_HILBERTVALUE_BTREE) {
-                    //dhvbtree entry's fields: [Hilbert value, point, PK]
-                    createPointExpr = new VariableReferenceExpression(secondaryKeyVarsFromSIdxSearch.get(1));
-                } else if (idxType == IndexType.STATIC_HILBERT_BTREE) {
-                    //dhvbtree entry's fields: [Cell number, point, PK]
-                    createPointExpr = new VariableReferenceExpression(secondaryKeyVarsFromSIdxSearch.get(1));
-                } else if (idxType == IndexType.SIF) {
-                    //sif entry's fields: [Cell number, PK, point]
-                    // Fetch PK variable(s) from the secondary-index search operator
-                    List<LogicalVariable> pointVarFromSIdxSearch = AccessMethodUtils.getKeyVarsFromSecondaryUnnestMap(
-                            dataset, recordType, inputOp, secondaryIndex, 3, outputPrimaryKeysOnlyFromSIdxSearch);
-                    createPointExpr = new VariableReferenceExpression(pointVarFromSIdxSearch.get(0));
-                }
+                    ((AbstractFunctionCallExpression) createOriginalSpatialObjectExpr).getArguments().addAll(
+                            expressions);
+                } else if (spatialType.getTypeTag() == ATypeTag.RECTANGLE) {
 
-                restoredSecondaryKeyFieldVars.add(context.newVar());
-                restoredSecondaryKeyFieldExprs.add(new MutableObject<ILogicalExpression>(createPointExpr));
-                assignRestoredSecondaryKeyFieldOp = new AssignOperator(restoredSecondaryKeyFieldVars,
-                        restoredSecondaryKeyFieldExprs);
-            } else if (spatialType.getTypeTag() == ATypeTag.RECTANGLE) {
-                // Reconstruct a RECTANGLE value
-                // TODO deal with non-RTree spatial index type
-                AbstractFunctionCallExpression createRectangleExpr = new ScalarFunctionCallExpression(
-                        FunctionUtils.getFunctionInfo(AsterixBuiltinFunctions.CREATE_RECTANGLE));
-                List<Mutable<ILogicalExpression>> expressions = new ArrayList<Mutable<ILogicalExpression>>();
-                expressions.add(new MutableObject<ILogicalExpression>(new VariableReferenceExpression(
-                        secondaryKeyVarsFromSIdxSearch.get(0))));
-                expressions.add(new MutableObject<ILogicalExpression>(new VariableReferenceExpression(
-                        secondaryKeyVarsFromSIdxSearch.get(1))));
-                expressions.add(new MutableObject<ILogicalExpression>(new VariableReferenceExpression(
-                        secondaryKeyVarsFromSIdxSearch.get(2))));
-                expressions.add(new MutableObject<ILogicalExpression>(new VariableReferenceExpression(
-                        secondaryKeyVarsFromSIdxSearch.get(3))));
-                createRectangleExpr.getArguments().addAll(expressions);
-                restoredSecondaryKeyFieldVars.add(context.newVar());
-                restoredSecondaryKeyFieldExprs.add(new MutableObject<ILogicalExpression>(createRectangleExpr));
-                assignRestoredSecondaryKeyFieldOp = new AssignOperator(restoredSecondaryKeyFieldVars,
-                        restoredSecondaryKeyFieldExprs);
+                    ILogicalExpression createPointExpr1 = new ScalarFunctionCallExpression(
+                            FunctionUtils.getFunctionInfo(AsterixBuiltinFunctions.CREATE_POINT));
+                    List<Mutable<ILogicalExpression>> expressions = new ArrayList<Mutable<ILogicalExpression>>();
+                    expressions.add(new MutableObject<ILogicalExpression>(new VariableReferenceExpression(
+                            secondaryKeyVarsFromSIdxSearch.get(0))));
+                    expressions.add(new MutableObject<ILogicalExpression>(new VariableReferenceExpression(
+                            secondaryKeyVarsFromSIdxSearch.get(1))));
+                    ((AbstractFunctionCallExpression) createPointExpr1).getArguments().addAll(expressions);
+
+                    ILogicalExpression createPointExpr2 = new ScalarFunctionCallExpression(
+                            FunctionUtils.getFunctionInfo(AsterixBuiltinFunctions.CREATE_POINT));
+                    expressions.clear();
+                    expressions.add(new MutableObject<ILogicalExpression>(new VariableReferenceExpression(
+                            secondaryKeyVarsFromSIdxSearch.get(2))));
+                    expressions.add(new MutableObject<ILogicalExpression>(new VariableReferenceExpression(
+                            secondaryKeyVarsFromSIdxSearch.get(3))));
+                    ((AbstractFunctionCallExpression) createPointExpr2).getArguments().addAll(expressions);
+
+                    createOriginalSpatialObjectExpr = new ScalarFunctionCallExpression(
+                            FunctionUtils.getFunctionInfo(AsterixBuiltinFunctions.CREATE_RECTANGLE));
+                    expressions.clear();
+                    expressions.add(new MutableObject<ILogicalExpression>(createPointExpr1));
+                    expressions.add(new MutableObject<ILogicalExpression>(createPointExpr2));
+                    ((AbstractFunctionCallExpression) createOriginalSpatialObjectExpr).getArguments().addAll(
+                            expressions);
+                }
+            } else if (idxType == IndexType.DYNAMIC_HILBERT_BTREE) {
+                //dhbtree entry's fields: [spatialObj, PK]
+                createOriginalSpatialObjectExpr = new VariableReferenceExpression(secondaryKeyVarsFromSIdxSearch.get(0));
+            } else if (idxType == IndexType.DYNAMIC_HILBERTVALUE_BTREE) {
+                //dhvbtree entry's fields: [Hilbert value, spatialObj, PK]
+                createOriginalSpatialObjectExpr = new VariableReferenceExpression(secondaryKeyVarsFromSIdxSearch.get(1));
+            } else if (idxType == IndexType.STATIC_HILBERT_BTREE) {
+                //dhvbtree entry's fields: [Cell number, spatialObj, PK]
+                createOriginalSpatialObjectExpr = new VariableReferenceExpression(secondaryKeyVarsFromSIdxSearch.get(1));
+            } else if (idxType == IndexType.SIF) {
+                //sif entry's fields: [Cell number, PK, spatialObj]
+                // Fetch PK variable(s) from the secondary-index search operator
+                List<LogicalVariable> pointVarFromSIdxSearch = AccessMethodUtils.getKeyVarsFromSecondaryUnnestMap(
+                        dataset, recordType, inputOp, secondaryIndex, 3, outputPrimaryKeysOnlyFromSIdxSearch);
+                createOriginalSpatialObjectExpr = new VariableReferenceExpression(pointVarFromSIdxSearch.get(0));
             }
+
+            restoredSecondaryKeyFieldVars.add(context.newVar());
+            restoredSecondaryKeyFieldExprs.add(new MutableObject<ILogicalExpression>(createOriginalSpatialObjectExpr));
+            assignRestoredSecondaryKeyFieldOp = new AssignOperator(restoredSecondaryKeyFieldVars,
+                    restoredSecondaryKeyFieldExprs);
+
         }
 
         // Variables and types coming out of the primary-index search.
@@ -1380,6 +1400,36 @@ public class AccessMethodUtils {
                 for (LogicalVariable tmpVar : tmpVars) {
                     if (!varsUsedAfterTopOp.contains(tmpVar)) {
                         varsUsedAfterTopOp.add(tmpVar);
+                    }
+                }
+            }
+        }
+
+        if (idxType == IndexType.STATIC_HILBERT_BTREE) {
+            //Find the primary key variable from the data source operator of the index branch.
+            ILogicalOperator tempOp = topOpRef.getValue();
+            List<LogicalVariable> outputVars = null;
+
+            if (tempOp.getOperatorTag() == LogicalOperatorTag.SELECT) {
+                outputVars = getOutputVars(tempOp);
+                //Add the primary key variables into varsUsedAfterTopOp 
+                //only if the variables are not in varsUsedAfterTopOp.
+                //The added variables will be used for distinct operator. 
+                for (int i = 0; i < outputVars.size() - 1; i++) {
+                    if (!varsUsedAfterTopOp.contains(outputVars.get(i))) {
+                        varsUsedAfterTopOp.add(outputVars.get(i));
+                    }
+                }
+            } else { //must be join operator
+                for (int j = 0; j < 2; j++) {
+                    outputVars = getOutputVars(tempOp.getInputs().get(j).getValue());
+                    //Add the primary key variables into varsUsedAfterTopOp 
+                    //only if the variables are not in varsUsedAfterTopOp.
+                    //The added variables will be used for distinct operator. 
+                    for (int i = 0; i < outputVars.size() - 1; i++) {
+                        if (!varsUsedAfterTopOp.contains(outputVars.get(i))) {
+                            varsUsedAfterTopOp.add(outputVars.get(i));
+                        }
                     }
                 }
             }
@@ -1828,7 +1878,55 @@ public class AccessMethodUtils {
             return unionAllOp;
         } else {
             // No index-only plan, no reducing number of SELECT operations optimization possible.
-            return primaryIndexUnnestOp;
+            // If we are transforming a join, then select operator should be constructed from the join condition.
+            // If not, we just need to use the original select operator in the left path (tryLock on PK fail path) to do final verification.
+            if (!transformJoinPlan) {
+                // Copy the original SELECT operator and put it after the primary index lookup
+                selectOp = (SelectOperator) topOpRef.getValue();
+
+                newSelectOp = new SelectOperator(selectOp.getCondition(), selectOp.getRetainNull(),
+                        selectOp.getNullPlaceholderVariable());
+
+            } else {
+
+                LogicalVariable newNullPlaceHolderVar = null;
+
+                // The retainNull variable contains the information whether we are optimizing a left-outer join or not.
+                if (retainNull) {
+                    //get a new null place holder variable that is the first field variable of the primary key
+                    //from the indexSubTree's datasourceScanOp
+                    newNullPlaceHolderVar = subTree.getDataSourceVariables().get(0);
+                }
+                newSelectOp = new SelectOperator(conditionRef, retainNull, newNullPlaceHolderVar);
+            }
+
+            // If there are ASSIGN operators before SELECT operator, we need to put this before the SELECT operator,
+            // and after the primary index lookup.
+            if (assignBeforeTopOpRefs != null) {
+                // Make the primary unnest-map as the child of the last ASSIGN in the path.
+                lastAssignBeforeTopOp = assignBeforeTopOpRefs.get(assignBeforeTopOpRefs.size() - 1).getValue();
+                lastAssignBeforeTopOp.getInputs().clear();
+                lastAssignBeforeTopOp.getInputs().add(new MutableObject<ILogicalOperator>(primaryIndexUnnestOp));
+
+                // Make the first ASSIGN as the child of the SELECT operator.
+                //                context.computeAndSetTypeEnvironmentForOperator(lastAssignBeforeTopOp);
+
+                for (int i = assignBeforeTopOpRefs.size() - 1; i >= 0; i--) {
+                    if (assignBeforeTopOpRefs.get(i) != null) {
+                        context.computeAndSetTypeEnvironmentForOperator(assignBeforeTopOpRefs.get(i).getValue());
+                    }
+                }
+
+                newSelectOp.getInputs().clear();
+                newSelectOp.getInputs().add(
+                        new MutableObject<ILogicalOperator>(assignBeforeTopOpRefs.get(0).getValue()));
+            } else {
+                newSelectOp.getInputs().add(new MutableObject<ILogicalOperator>(primaryIndexUnnestOp));
+            }
+
+            newSelectOp.setExecutionMode(ExecutionMode.PARTITIONED);
+            context.computeAndSetTypeEnvironmentForOperator(newSelectOp);
+            return newSelectOp;
         }
     }
 
@@ -1839,6 +1937,29 @@ public class AccessMethodUtils {
             return true;
         }
         return false;
+    }
+
+    private static List<LogicalVariable> getOutputVars(ILogicalOperator op) throws AlgebricksException {
+
+        while (op.getOperatorTag() != LogicalOperatorTag.DATASOURCESCAN
+                && op.getOperatorTag() != LogicalOperatorTag.UNNEST_MAP) {
+            if (op.getInputs().size() == 0) {
+                throw new AlgebricksException("Neither datascan nor unnest-map operator are found");
+            }
+            op = op.getInputs().get(0).getValue();
+        }
+
+        List<LogicalVariable> outputVars = null;
+        if (op.getOperatorTag() == LogicalOperatorTag.DATASOURCESCAN) {
+            DataSourceScanOperator dssOp = (DataSourceScanOperator) op;
+            outputVars = dssOp.getVariables();
+        } else if (op.getOperatorTag() == LogicalOperatorTag.UNNEST_MAP) {
+            UnnestMapOperator umOp = (UnnestMapOperator) op;
+            outputVars = umOp.getVariables();
+        } else {
+            throw new AlgebricksException("Neither datascan nor unnest-map operator are found");
+        }
+        return outputVars;
     }
 
     public static ScalarFunctionCallExpression findLOJIsNullFuncInGroupBy(GroupByOperator lojGroupbyOp)

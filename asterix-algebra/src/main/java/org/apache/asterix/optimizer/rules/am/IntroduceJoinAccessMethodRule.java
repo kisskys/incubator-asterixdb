@@ -23,9 +23,11 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.asterix.common.config.DatasetConfig.IndexType;
 import org.apache.asterix.metadata.declared.AqlMetadataProvider;
 import org.apache.asterix.metadata.entities.Index;
 import org.apache.commons.lang3.mutable.Mutable;
+import org.apache.commons.lang3.mutable.MutableObject;
 import org.apache.hyracks.algebricks.common.exceptions.AlgebricksException;
 import org.apache.hyracks.algebricks.common.utils.Pair;
 import org.apache.hyracks.algebricks.core.algebra.base.ILogicalExpression;
@@ -33,16 +35,19 @@ import org.apache.hyracks.algebricks.core.algebra.base.ILogicalOperator;
 import org.apache.hyracks.algebricks.core.algebra.base.IOptimizationContext;
 import org.apache.hyracks.algebricks.core.algebra.base.LogicalExpressionTag;
 import org.apache.hyracks.algebricks.core.algebra.base.LogicalOperatorTag;
+import org.apache.hyracks.algebricks.core.algebra.base.LogicalVariable;
 import org.apache.hyracks.algebricks.core.algebra.expressions.AbstractFunctionCallExpression;
 import org.apache.hyracks.algebricks.core.algebra.expressions.ScalarFunctionCallExpression;
+import org.apache.hyracks.algebricks.core.algebra.expressions.VariableReferenceExpression;
 import org.apache.hyracks.algebricks.core.algebra.functions.FunctionIdentifier;
 import org.apache.hyracks.algebricks.core.algebra.operators.logical.AbstractBinaryJoinOperator;
 import org.apache.hyracks.algebricks.core.algebra.operators.logical.AbstractLogicalOperator;
+import org.apache.hyracks.algebricks.core.algebra.operators.logical.DataSourceScanOperator;
+import org.apache.hyracks.algebricks.core.algebra.operators.logical.DistinctOperator;
 import org.apache.hyracks.algebricks.core.algebra.operators.logical.GroupByOperator;
 import org.apache.hyracks.algebricks.core.algebra.operators.logical.InnerJoinOperator;
 import org.apache.hyracks.algebricks.core.algebra.operators.logical.LeftOuterJoinOperator;
-import org.apache.hyracks.algebricks.core.algebra.prettyprint.LogicalOperatorPrettyPrintVisitor;
-import org.apache.hyracks.algebricks.core.algebra.prettyprint.PlanPrettyPrinter;
+import org.apache.hyracks.algebricks.core.algebra.operators.logical.UnnestMapOperator;
 import org.apache.hyracks.algebricks.core.algebra.util.OperatorPropertiesUtil;
 
 /**
@@ -85,6 +90,7 @@ public class IntroduceJoinAccessMethodRule extends AbstractIntroduceAccessMethod
     protected boolean hasGroupBy = true;
     protected IOptimizationContext context = null;
     protected List<Mutable<ILogicalOperator>> afterJoinRefs = null;
+    protected boolean isSHBtree = false;
 
     // Register access methods.
     protected static Map<FunctionIdentifier, List<IAccessMethod>> accessMethods = new HashMap<FunctionIdentifier, List<IAccessMethod>>();
@@ -128,9 +134,9 @@ public class IntroduceJoinAccessMethodRule extends AbstractIntroduceAccessMethod
         if (!planTransformed) {
             return false;
         } else {
-//            StringBuilder sb = new StringBuilder();
-//            LogicalOperatorPrettyPrintVisitor pvisitor = context.getPrettyPrintVisitor();
-//            PlanPrettyPrinter.printOperator((AbstractLogicalOperator) opRef.getValue(), sb, pvisitor, 0);
+            //            StringBuilder sb = new StringBuilder();
+            //            LogicalOperatorPrettyPrintVisitor pvisitor = context.getPrettyPrintVisitor();
+            //            PlanPrettyPrinter.printOperator((AbstractLogicalOperator) opRef.getValue(), sb, pvisitor, 0);
             OperatorPropertiesUtil.typeOpRec(opRef, context);
         }
 
@@ -202,6 +208,7 @@ public class IntroduceJoinAccessMethodRule extends AbstractIntroduceAccessMethod
         for (int i = 0; i < op.getInputs().size(); i++) {
             joinFoundAndOptimizationApplied = checkAndApplyTheRule(op.getInputs().get(i));
             if (joinFoundAndOptimizationApplied) {
+                removeDuplicationForSHBtree(op, op.getInputs().get(i));
                 return true;
             }
         }
@@ -288,6 +295,9 @@ public class IntroduceJoinAccessMethodRule extends AbstractIntroduceAccessMethod
                                 // Apply plan transformation using chosen index.
                                 AccessMethodAnalysisContext analysisCtx = analyzedAMs.get(chosenIndex.first);
 
+                                // Set whether the chosen index is SHBtree or not.
+                                isSHBtree = chosenIndex.second.getIndexType() == IndexType.STATIC_HILBERT_BTREE;
+
                                 //For LOJ with GroupBy, prepare objects to reset LOJ nullPlaceHolderVariable in GroupByOp
                                 if (isLeftOuterJoin && hasGroupBy) {
                                     analysisCtx.setLOJGroupbyOpRef(opRef);
@@ -344,6 +354,79 @@ public class IntroduceJoinAccessMethodRule extends AbstractIntroduceAccessMethod
             return true;
         }
         return false;
+    }
+
+    private void removeDuplicationForSHBtree(AbstractLogicalOperator topOp, Mutable<ILogicalOperator> op)
+            throws AlgebricksException {
+        try {
+            if (isSHBtree) {
+                //find the primary index unnest-map operator which is always the first unnest-map operator from the topOp.
+                ILogicalOperator childOp = op.getValue();
+                while (childOp.getOperatorTag() != LogicalOperatorTag.UNNEST_MAP) {
+                    if (childOp.getInputs().size() == 0) {
+                        throw new AlgebricksException("UNNEST_MAP operator wasn't found");
+                    }
+                    childOp = childOp.getInputs().get(0).getValue();
+                }
+                UnnestMapOperator unnestMapOp = (UnnestMapOperator) childOp;
+
+                //use the PK variables produced by the unnest-map operator as a key of the distinctOperator
+                List<LogicalVariable> pkVars = unnestMapOp.getVariables();
+                ArrayList<Mutable<ILogicalExpression>> distinctExprList = new ArrayList<Mutable<ILogicalExpression>>();
+                for (int j = 0; j < pkVars.size() - 1 /* ignore the record variable */; j++) {
+                    distinctExprList.add(new MutableObject<ILogicalExpression>(new VariableReferenceExpression(pkVars
+                            .get(j))));
+                }
+
+                //find the PK variables from the outer branch.
+                ILogicalOperator dataSourceScanOrUnnestMapOp = childOp;
+                LogicalOperatorTag opTag;
+                int dataSourceScanOrUnnestMapOpCount = 0;
+                while (childOp.getInputs().size() != 0) {
+                    childOp = childOp.getInputs().get(0).getValue();
+                    opTag = childOp.getOperatorTag();
+                    if (opTag == LogicalOperatorTag.DATASOURCESCAN || opTag == LogicalOperatorTag.UNNEST_MAP) {
+                        dataSourceScanOrUnnestMapOp = childOp;
+                        ++dataSourceScanOrUnnestMapOpCount;
+                        if (dataSourceScanOrUnnestMapOpCount == 2) {
+                            // The count == 1 means that the childOp is the secondary index for the innner branch.
+                            // In order to find outer branch's source operator, the count must be two. 
+                            break;
+                        }
+                    }
+                }
+
+                if (dataSourceScanOrUnnestMapOpCount != 2) {
+                    throw new AlgebricksException(
+                            "Couldn't find outer branch's data-source operator which must be either DATASOURCESCAN or UNNEST_MAP operator");
+                }
+
+                opTag = dataSourceScanOrUnnestMapOp.getOperatorTag();
+                if (opTag == LogicalOperatorTag.DATASOURCESCAN) {
+                    DataSourceScanOperator dssOp = (DataSourceScanOperator) dataSourceScanOrUnnestMapOp;
+                    pkVars = dssOp.getVariables();
+                } else if (opTag == LogicalOperatorTag.UNNEST_MAP) {
+                    unnestMapOp = (UnnestMapOperator) dataSourceScanOrUnnestMapOp;
+                    pkVars = unnestMapOp.getVariables();
+                } else {
+                    throw new AlgebricksException("Unknown data-source operator tag [" + opTag + "] in join plan");
+                }
+
+                for (int j = 0; j < pkVars.size() - 1 /* ignore the record variable */; j++) {
+                    distinctExprList.add(new MutableObject<ILogicalExpression>(new VariableReferenceExpression(pkVars
+                            .get(j))));
+                }
+
+                DistinctOperator distinctOp = new DistinctOperator(distinctExprList);
+                distinctOp.getInputs().add(op);
+                context.computeAndSetTypeEnvironmentForOperator(distinctOp);
+                topOp.getInputs().clear();
+                topOp.getInputs().add(new MutableObject<ILogicalOperator>(distinctOp));
+                context.computeAndSetTypeEnvironmentForOperator(topOp);
+            }
+        } finally {
+            isSHBtree = false;
+        }
     }
 
 }

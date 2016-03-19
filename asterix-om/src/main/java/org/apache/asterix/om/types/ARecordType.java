@@ -26,10 +26,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-import org.json.JSONArray;
-import org.json.JSONException;
-import org.json.JSONObject;
-
 import org.apache.asterix.common.annotations.IRecordTypeAnnotation;
 import org.apache.asterix.common.config.DatasetConfig.IndexType;
 import org.apache.asterix.common.exceptions.AsterixException;
@@ -46,6 +42,9 @@ import org.apache.hyracks.data.std.accessors.PointableBinaryHashFunctionFactory;
 import org.apache.hyracks.data.std.primitive.UTF8StringPointable;
 import org.apache.hyracks.data.std.util.ByteArrayAccessibleOutputStream;
 import org.apache.hyracks.dataflow.common.data.marshalling.UTF8StringSerializerDeserializer;
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
 
 public class ARecordType extends AbstractComplexType {
 
@@ -134,7 +133,7 @@ public class ARecordType extends AbstractComplexType {
 
     /**
      * Returns the position of the field in the closed schema or -1 if the field does not exist.
-     *
+     * 
      * @param bytes
      *            the serialized bytes of the field name
      * @param start
@@ -213,7 +212,7 @@ public class ARecordType extends AbstractComplexType {
 
     /**
      * Returns the position of the field in the closed schema or -1 if the field does not exist.
-     *
+     * 
      * @param fieldName
      *            the name of the field whose position is sought
      * @return the position of the field in the closed schema or -1 if the field does not exist.
@@ -270,7 +269,7 @@ public class ARecordType extends AbstractComplexType {
 
     /**
      * Returns the field type of the field name if it exists, otherwise null.
-     *
+     * 
      * @param fieldName
      *            the fieldName whose type is sought
      * @return the field type of the field name if it exists, otherwise null
@@ -287,7 +286,7 @@ public class ARecordType extends AbstractComplexType {
 
     /**
      * Returns true or false indicating whether or not a field is closed.
-     *
+     * 
      * @param fieldName
      *            the name of the field to check
      * @return true if fieldName is a closed field, otherwise false
@@ -299,7 +298,7 @@ public class ARecordType extends AbstractComplexType {
 
     /**
      * Validates the partitioning expression that will be used to partition a dataset and returns expression type.
-     *
+     * 
      * @param partitioningExprs
      *            a list of partitioning expressions that will be validated
      * @return a list of partitioning expressions types
@@ -371,7 +370,7 @@ public class ARecordType extends AbstractComplexType {
 
     /**
      * Validates the key fields that will be used as keys of an index.
-     *
+     * 
      * @param keyFieldNames
      *            a map of key fields that will be validated
      * @param keyFieldTypes
@@ -460,18 +459,17 @@ public class ARecordType extends AbstractComplexType {
                                     + " cannot be indexed using the Length Partitioned Keyword index.");
                     }
                     break;
-                
-                case SIF: 
+
+                case SIF:
                     switch (fieldType.getTypeTag()) {
                         case POINT:
                             break;
                         default:
                             throw new AlgebricksException("The field \"" + fieldName + "\" which is of type "
-                                    + fieldType.getTypeTag()
-                                    + " cannot be indexed using the SIF index.");
+                                    + fieldType.getTypeTag() + " cannot be indexed using the SIF index.");
                     }
                     break;
-                    
+
                 case SINGLE_PARTITION_NGRAM_INVIX:
                     switch (fieldType.getTypeTag()) {
                         case STRING:
@@ -497,10 +495,16 @@ public class ARecordType extends AbstractComplexType {
                 case STATIC_HILBERT_BTREE:
                     switch (fieldType.getTypeTag()) {
                         case POINT:
+                        case LINE:
+                        case RECTANGLE:
+                        case CIRCLE:
+                        case POLYGON:
+                        case UNION:
                             break;
                         default:
                             throw new AlgebricksException("The field \"" + fieldName + "\" which is of type "
-                                    + fieldType.getTypeTag() + " cannot be indexed using the Static Hilbert BTree index.");
+                                    + fieldType.getTypeTag()
+                                    + " cannot be indexed using the Static Hilbert BTree index.");
                     }
                     break;
                 case DYNAMIC_HILBERTVALUE_BTREE:
@@ -510,7 +514,8 @@ public class ARecordType extends AbstractComplexType {
                             break;
                         default:
                             throw new AlgebricksException("The field \"" + fieldName + "\" which is of type "
-                                    + fieldType.getTypeTag() + " cannot be indexed using the Dynamic Hilbert BTree index.");
+                                    + fieldType.getTypeTag()
+                                    + " cannot be indexed using the Dynamic Hilbert BTree index.");
                     }
                     break;
                 default:
@@ -522,7 +527,7 @@ public class ARecordType extends AbstractComplexType {
 
     /**
      * Validates the field that will be used as filter for the components of an LSM index.
-     *
+     * 
      * @param keyFieldNames
      *            a list of key fields that will be validated
      * @param indexType

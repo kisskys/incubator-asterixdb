@@ -176,7 +176,7 @@ public class DatasetOperations {
         //prepare a LocalResourceMetadata which will be stored in NC's local resource repository
         ILocalResourceMetadata localResourceMetadata = new LSMBTreeLocalResourceMetadata(typeTraits,
                 comparatorFactories, bloomFilterKeyFields, true, dataset.getDatasetId(), compactionInfo.first,
-                compactionInfo.second, filterTypeTraits, filterCmpFactories, btreeFields, filterFields);
+                compactionInfo.second, filterTypeTraits, filterCmpFactories, btreeFields, filterFields, null);
         ILocalResourceFactoryProvider localResourceFactoryProvider = new PersistentLocalResourceFactoryProvider(
                 localResourceMetadata, LocalResource.LSMBTreeResource);
 

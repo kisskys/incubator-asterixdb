@@ -99,9 +99,10 @@ public class ReplaceSinkOpWithCommitOpRule implements IAlgebraicRewriteRule {
         }
 
         if (descendantOp.getOperatorTag() == LogicalOperatorTag.INDEX_INSERT_DELETE) {
-            //SIF index should remove the original point field from primaryKeyFields.
+            //STATIC_HILBERT_BTREE and SIF index should remove the original point field from primaryKeyFields.
             IndexInsertDeleteOperator indexInsertDeleteOperator = (IndexInsertDeleteOperator) descendantOp;
-            if (((AqlIndex) indexInsertDeleteOperator.getDataSourceIndex()).getIndex().getIndexType() == IndexType.SIF) {
+            IndexType indexType = ((AqlIndex) indexInsertDeleteOperator.getDataSourceIndex()).getIndex().getIndexType();
+            if (indexType == IndexType.SIF) {
                 primaryKeyLogicalVars.remove(primaryKeyLogicalVars.size() - 1);
             }
         }

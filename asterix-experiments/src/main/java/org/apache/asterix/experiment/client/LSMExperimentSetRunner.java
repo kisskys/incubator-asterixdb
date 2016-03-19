@@ -262,6 +262,20 @@ public class LSMExperimentSetRunner {
         public long getDataGenSleepTimeDuringQuery() {
             return dataGenSleepTimeDuringQuery;
         }
+
+        @Option(name = "-lsdist", aliases = "--location-size-distribution", usage = "The distribution to generate sendLocationObjectSize", required = true)
+        private String locationSizeDistribution;
+
+        public String getLocationSizeDistribution() {
+            return locationSizeDistribution;
+        }
+
+        @Option(name = "-lt", aliases = "--location-type", usage = "The location type to generate, e.g. point or rectangle", required = true)
+        private String locationType;
+
+        public String getLocationType() {
+            return locationType;
+        }
     }
 
     public static void main(String[] args) throws Exception {

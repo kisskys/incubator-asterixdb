@@ -30,6 +30,11 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Random;
 
+import javax.xml.bind.TypeConstraintException;
+
+import org.apache.asterix.om.types.ATypeTag;
+import org.apache.commons.math3.distribution.ZipfDistribution;
+
 public class DataGeneratorForSpatialIndexEvaluation {
 
     private static final String DUMMY_SIZE_ADJUSTER = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
@@ -50,13 +55,44 @@ public class DataGeneratorForSpatialIndexEvaluation {
 
     private TweetMessage twMessage = new TweetMessage();
 
+    private double senderLocationSizeParam = 0.0002f; //roughly 20 meters
+    private double minSenderLocationSizeParam = 0.00001f; //roughly 1 meter
+
+    private Random randomForSenderLocationSize = new Random(1);
+
+    private int sendLocationObjectSizeDistributionType;
+    public static final int UNIFORM_DISTRIBUTION = 0;
+    public static final int GAUSSIAN_DISTRIBUTION = 1;
+    public static final int ZIPFIAN_DISTRIBUTION = 2;
+
+    //for sendLocation size with Gaussian distribution
+    private static double gaussianMean = 2000; //2000 square feet  
+    private static double gaussianStdev = 1000; //1000 square feet  
+    private static double gaussianMinSize = 500; //500 square feet
+    private static double gaussianMaxSize = 4000; //4000 square feet
+    private static double feetToMeter = 0.3048;
+    private static double meterToDegree = 0.00001;
+    private static int gaussianCountLessThan1000sq = 0;
+
+    //for sendLocation size with Zipfian distribution
+    //minLake: 0.001 square km, maxLake: 80000 square km
+    private static double zipfMin = 0.001; //square km
+    private static double kmToMeter = 1000;
+    private static int zipNumElement = 80000000;
+    private static ZipfDistribution zipfForSenderLocationSize = new ZipfDistribution(zipNumElement, 4);
+
     public DataGeneratorForSpatialIndexEvaluation(InitializationInfo info) {
-        initialize(info, null, 0);
+        initialize(info, null, 0, UNIFORM_DISTRIBUTION);
     }
 
     public DataGeneratorForSpatialIndexEvaluation(InitializationInfo info, String openStreetMapFilePath,
             int locationSampleInterval) {
-        initialize(info, openStreetMapFilePath, locationSampleInterval);
+        initialize(info, openStreetMapFilePath, locationSampleInterval, UNIFORM_DISTRIBUTION);
+    }
+
+    public DataGeneratorForSpatialIndexEvaluation(InitializationInfo info, String openStreetMapFilePath,
+            int locationSampleInterval, int sendLocationObjectSizeDistributionType) {
+        initialize(info, openStreetMapFilePath, locationSampleInterval, sendLocationObjectSizeDistributionType);
     }
 
     public class TweetMessageIterator implements Iterator<TweetMessage> {
@@ -64,11 +100,20 @@ public class DataGeneratorForSpatialIndexEvaluation {
         private int duration;
         private final GULongIDGenerator idGen;
         private long startTime = 0;
+        private final ATypeTag senderLocationTypeTag;
 
         public TweetMessageIterator(int duration, GULongIDGenerator idGen) {
             this.duration = duration;
             this.idGen = idGen;
             this.startTime = System.currentTimeMillis();
+            this.senderLocationTypeTag = ATypeTag.POINT;
+        }
+
+        public TweetMessageIterator(int duration, GULongIDGenerator idGen, ATypeTag senderLocationTypeTag) {
+            this.duration = duration;
+            this.idGen = idGen;
+            this.startTime = System.currentTimeMillis();
+            this.senderLocationTypeTag = senderLocationTypeTag;
         }
 
         @Override
@@ -84,17 +129,89 @@ public class DataGeneratorForSpatialIndexEvaluation {
             TweetMessage msg = null;
             getTwitterUser(null);
             Message message = randMessageGen.getNextRandomMessage();
-            Point location = randLocationGen != null ? randLocationGen.getRandomPoint()
+            Point pointLocation = randLocationGen != null ? randLocationGen.getRandomPoint()
                     : locationGenFromOpenStreetMapData.getNextPoint();
+            Object senderLocation = pointLocation;
+            if (senderLocationTypeTag != ATypeTag.POINT) {
+                senderLocation = generateProperLocationObject(pointLocation, senderLocationTypeTag);
+            }
+
             DateTime sendTime = randDateGen.getNextRandomDatetime();
             int btreeExtraFieldKey = random.nextInt();
             if (btreeExtraFieldKey == Integer.MIN_VALUE) {
                 btreeExtraFieldKey = Integer.MIN_VALUE + 1;
             }
-            twMessage.reset(idGen.getNextULong(), twUser, location, sendTime, message.getReferredTopics(), message,
-                    btreeExtraFieldKey, DUMMY_SIZE_ADJUSTER);
+            twMessage.reset(idGen.getNextULong(), twUser, senderLocation, sendTime, message.getReferredTopics(),
+                    message, btreeExtraFieldKey, DUMMY_SIZE_ADJUSTER);
             msg = twMessage;
             return msg;
+        }
+
+        private Object generateProperLocationObject(Point pointLocation, ATypeTag senderLocationTypeTag) {
+            if (senderLocationTypeTag == ATypeTag.RECTANGLE) {
+                float objectSizeParam = (float) getObjectSizeParam();
+                float x = pointLocation.getLatitude();
+                float y = pointLocation.getLongitude();
+                float x1 = x - objectSizeParam;
+                float y1 = y - objectSizeParam;
+                float x2 = x + objectSizeParam;
+                float y2 = y + objectSizeParam;
+                return new Rectangle(x1, y1, x2, y2);
+            } else {
+                throw new TypeConstraintException("Only RECTANGLE and POINT type senderLocation are supported.");
+            }
+        }
+
+        private double getObjectSizeParam() {
+            switch (sendLocationObjectSizeDistributionType) {
+                case UNIFORM_DISTRIBUTION:
+                    return genUniformDistributionSize();
+
+                case GAUSSIAN_DISTRIBUTION:
+                    return genGaussianDistributionSize();
+
+                case ZIPFIAN_DISTRIBUTION:
+                    return genZipfianDistributionSize();
+
+                default:
+                    throw new IllegalStateException("Unsupported distribution type: "
+                            + sendLocationObjectSizeDistributionType);
+            }
+
+        }
+
+        private double genUniformDistributionSize() {
+            return (randomForSenderLocationSize.nextFloat() * senderLocationSizeParam) + minSenderLocationSizeParam;
+        }
+
+        private double genGaussianDistributionSize() {
+            //for sendLocation size with Gaussian distribution
+            //mean = 2000 square feet, stdev = 1000 sqaure feet
+            //if size is less then 500 square feet, than set the size to be 500 square feet
+            //if size is greater than 4000 square feet, than set the size to be 4000 square feet
+            //if size is less than 1000 square feet, for every three such a size generated, set the third size to be "4000 - such a size" square feet
+            double g = 0;
+            while (true) {
+                g = (randomForSenderLocationSize.nextGaussian() * gaussianStdev) + gaussianMean;
+                if (g < gaussianMinSize || g > gaussianMaxSize) {
+                    continue;
+                }
+                if (g < gaussianStdev) {
+                    ++gaussianCountLessThan1000sq;
+                    if (gaussianCountLessThan1000sq % 3 == 0) {
+                        g = gaussianMaxSize - g;
+                        gaussianCountLessThan1000sq = 0;
+                    }
+                }
+                g = Math.sqrt(g) * feetToMeter * meterToDegree;
+                break;
+            }
+
+            return g / 2;
+        }
+
+        private double genZipfianDistributionSize() {
+            return (Math.sqrt(zipfForSenderLocationSize.sample() * zipfMin) * kmToMeter * meterToDegree) / 2;
         }
 
         @Override
@@ -119,7 +236,8 @@ public class DataGeneratorForSpatialIndexEvaluation {
         public String[] org_list = DataGenerator.org_list;
     }
 
-    public void initialize(InitializationInfo info, String openStreetMapFilePath, int locationSampleInterval) {
+    public void initialize(InitializationInfo info, String openStreetMapFilePath, int locationSampleInterval,
+            int sendLocationObjectSizeDistributionType) {
         randDateGen = new RandomDateGenerator(info.startDate, info.endDate);
         randNameGen = new RandomNameGenerator(info.firstNames, info.lastNames);
         if (openStreetMapFilePath == null) {
@@ -131,6 +249,7 @@ public class DataGeneratorForSpatialIndexEvaluation {
             randLocationGen = null;
         }
         randMessageGen = new RandomMessageGenerator(info.vendors, info.jargon);
+        this.sendLocationObjectSizeDistributionType = sendLocationObjectSizeDistributionType;
     }
 
     public void getTwitterUser(String usernameSuffix) {
@@ -337,6 +456,31 @@ public class DataGeneratorForSpatialIndexEvaluation {
         public String toString() {
             StringBuilder builder = new StringBuilder();
             builder.append("point(\"" + latitude + "," + longitude + "\")");
+            return builder.toString();
+        }
+    }
+
+    public static class Rectangle {
+
+        private float x1, y1, x2, y2;
+
+        public Rectangle(float x1, float y1, float x2, float y2) {
+            this.x1 = x1;
+            this.y1 = y1;
+            this.x2 = x2;
+            this.y2 = y2;
+        }
+
+        public void reset(float x1, float y1, float x2, float y2) {
+            this.x1 = x1;
+            this.y1 = y1;
+            this.x2 = x2;
+            this.y2 = y2;
+        }
+
+        public String toString() {
+            StringBuilder builder = new StringBuilder();
+            builder.append("rectangle(\"" + x1 + "," + y1 + " " + x2 + "," + y2 + "\")");
             return builder.toString();
         }
     }
@@ -605,7 +749,7 @@ public class DataGeneratorForSpatialIndexEvaluation {
 
         private long tweetid;
         private TwitterUser user;
-        private Point senderLocation;
+        private Object senderLocation;
         private DateTime sendTime;
         private List<String> referredTopics;
         private Message messageText;
@@ -635,7 +779,7 @@ public class DataGeneratorForSpatialIndexEvaluation {
             }
         }
 
-        public void reset(long tweetid, TwitterUser user, Point senderLocation, DateTime sendTime,
+        public void reset(long tweetid, TwitterUser user, Object senderLocation, DateTime sendTime,
                 List<String> referredTopics, Message messageText, int btreeExtraField, String dummySizeAdjuster) {
             this.tweetid = tweetid;
             this.user = user;
@@ -712,11 +856,11 @@ public class DataGeneratorForSpatialIndexEvaluation {
             this.user = user;
         }
 
-        public Point getSenderLocation() {
+        public Object getSenderLocation() {
             return senderLocation;
         }
 
-        public void setSenderLocation(Point senderLocation) {
+        public void setSenderLocation(Object senderLocation) {
             this.senderLocation = senderLocation;
         }
 

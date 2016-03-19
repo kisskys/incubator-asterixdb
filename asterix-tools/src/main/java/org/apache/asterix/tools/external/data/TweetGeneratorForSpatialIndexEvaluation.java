@@ -26,6 +26,7 @@ import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import org.apache.asterix.om.types.ATypeTag;
 import org.apache.asterix.tools.external.data.DataGeneratorForSpatialIndexEvaluation.InitializationInfo;
 import org.apache.asterix.tools.external.data.DataGeneratorForSpatialIndexEvaluation.TweetMessage;
 import org.apache.asterix.tools.external.data.DataGeneratorForSpatialIndexEvaluation.TweetMessageIterator;
@@ -39,6 +40,8 @@ public class TweetGeneratorForSpatialIndexEvaluation {
     public static final String KEY_GUID_SEED = "guid-seed";
     public static final String KEY_OPENSTREETMAP_FILEPATH = "open-street-map-filepath";
     public static final String KEY_LOCATION_SAMPLE_INTERVAL = "location-sample-interval";
+    public static final String KEY_LOCATION_SIZE_DISTRIBUTION = "location-size-distribution";
+    public static final String KEY_LOCATION_TYPE = "location-type";//e.g. point, rectangle
 
     public static final String OUTPUT_FORMAT = "output-format";
     public static final String OUTPUT_FORMAT_ARECORD = "arecord";
@@ -60,6 +63,8 @@ public class TweetGeneratorForSpatialIndexEvaluation {
     private GULongIDGenerator uidGenerator;
     private String openStreetMapFilePath;
     private int locationSampleInterval;
+    private int locationSizeDistributionType;
+    private ATypeTag locationTypeTag;
 
     public int getTweetCount() {
         return tweetCount;
@@ -76,9 +81,23 @@ public class TweetGeneratorForSpatialIndexEvaluation {
         int guidSeed = configuration.get(KEY_GUID_SEED) != null ? Integer.parseInt(configuration.get(KEY_GUID_SEED))
                 : DEFAULT_GUID_SEED;
         uidGenerator = new GULongIDGenerator(partition, (byte) (guidSeed));
+        String lsdt = configuration.get(KEY_LOCATION_SIZE_DISTRIBUTION);
+        if (lsdt.equals("gaussian")) {
+            this.locationSizeDistributionType = DataGeneratorForSpatialIndexEvaluation.GAUSSIAN_DISTRIBUTION;
+        } else if (lsdt.equals("zipfian")) {
+            this.locationSizeDistributionType = DataGeneratorForSpatialIndexEvaluation.ZIPFIAN_DISTRIBUTION;
+        } else {
+            this.locationSizeDistributionType = DataGeneratorForSpatialIndexEvaluation.UNIFORM_DISTRIBUTION;
+        }
+        String lt = configuration.get(KEY_LOCATION_TYPE);
+        if (lt.equals("rectangle")) {
+            locationTypeTag = ATypeTag.RECTANGLE;
+        } else {
+            locationTypeTag = ATypeTag.POINT;
+        }
         dataGenerator = new DataGeneratorForSpatialIndexEvaluation(new InitializationInfo(), openStreetMapFilePath,
-                locationSampleInterval);
-        tweetIterator = dataGenerator.new TweetMessageIterator(duration, uidGenerator);
+                locationSampleInterval, locationSizeDistributionType);
+        tweetIterator = dataGenerator.new TweetMessageIterator(duration, uidGenerator, locationTypeTag);
         this.os = os;
     }
 

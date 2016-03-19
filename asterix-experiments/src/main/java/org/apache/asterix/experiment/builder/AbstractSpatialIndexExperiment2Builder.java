@@ -110,17 +110,18 @@ public abstract class AbstractSpatialIndexExperiment2Builder extends AbstractLSM
                         return StringUtils.join(new String[] { binary, "-rcbi",
                                 "" + recordCountPerBatchDuringIngestionOnly, "-rcbq",
                                 "" + recordCountPerBatchDuringQuery, "-dsti", "" + dataGenSleepTimeDuringIngestionOnly,
-                                "-dstq", "" + dataGenSleepTimeDuringQuery, "-si", "" + locationSampleInterval, "-p",
-                                "" + p, "-di", "" + dataInterval, "-ni", "" + nIntervals, "-qd", "" + queryGenDuration,
-                                "-oh", dataGenOrchHost, "-op", "" + dataGenOrchPort, ipPortPairs }, " ");
+                                "-dstq", "" + dataGenSleepTimeDuringQuery, "-si", "" + locationSampleInterval, "-lt",
+                                locationType, "-lsdist", locationSizeDistribution, "-p", "" + p, "-di",
+                                "" + dataInterval, "-ni", "" + nIntervals, "-qd", "" + queryGenDuration, "-oh",
+                                dataGenOrchHost, "-op", "" + dataGenOrchPort, ipPortPairs }, " ");
                     } else {
                         return StringUtils.join(new String[] { binary, "-rcbi",
                                 "" + recordCountPerBatchDuringIngestionOnly, "-rcbq",
                                 "" + recordCountPerBatchDuringQuery, "-dsti", "" + dataGenSleepTimeDuringIngestionOnly,
-                                "-dstq", "" + dataGenSleepTimeDuringQuery, "-si", "" + locationSampleInterval, "-of",
-                                openStreetMapFilePath, "-p", "" + p, "-di", "" + dataInterval, "-ni", "" + nIntervals,
-                                "-qd", "" + queryGenDuration, "-oh", dataGenOrchHost, "-op", "" + dataGenOrchPort,
-                                ipPortPairs }, " ");
+                                "-dstq", "" + dataGenSleepTimeDuringQuery, "-si", "" + locationSampleInterval, "-lt",
+                                locationType, "-lsdist", locationSizeDistribution, "-of", openStreetMapFilePath, "-p",
+                                "" + p, "-di", "" + dataInterval, "-ni", "" + nIntervals, "-qd", "" + queryGenDuration,
+                                "-oh", dataGenOrchHost, "-op", "" + dataGenOrchPort, ipPortPairs }, " ");
                     }
                 }
             });

@@ -28,6 +28,13 @@ public class StaticHilbertBTreeBinaryTokenizer extends SpatialCellBinaryTokenize
     private final byte[] tHilbertValue;
     private final long[] cellCountsInBottomLevel;
 
+    //variables to support non-point object 
+    private boolean isInputRectangleType;
+    private int curLevel;
+    private int rangeOffset;
+    private int rangeSize;
+    private int rangeLevelNum;
+
     public StaticHilbertBTreeBinaryTokenizer(double bottomLeftX, double bottomLeftY, double topRightX,
             double topRightY, short[] levelDensity, int cellsPerObject, ITokenFactory tokenFactory, int frameSize,
             boolean isQuery) {
@@ -71,7 +78,44 @@ public class StaticHilbertBTreeBinaryTokenizer extends SpatialCellBinaryTokenize
                 nextCount = 0;
             }
         } else {
-            token.reset(hilbertValue[hOffset++], 0, tokenSize, tokenSize, 1);
+            if (isInputRectangleType) {
+                if (highkeyFlag.get(hOffset)) {
+                    if (rangeOffset == 0 && curLevel == 0) {
+                        rangeLevelNum = hilbertValue[hOffset][MAX_LEVEL] - 1;
+                        rangeSize = ((hilbertValue[hOffset + 1][rangeLevelNum]) & 0xff)
+                                - ((hilbertValue[hOffset][rangeLevelNum]) & 0xff) + 1;
+                    }
+                } else {
+                    if (hilbertValue[hOffset][MAX_LEVEL] == 0 && rangeOffset == 0) {
+                        //special case: the query region covers a whole space 
+                        //instead of inserting all points into the level 0 for this special case, 
+                        //a level-0 single cell is divided into all cells in level 1.
+                        rangeLevelNum = 0;
+                        rangeSize = axisCellNum[0] * axisCellNum[0];
+                        hilbertValue[hOffset][MAX_LEVEL] = 1;
+                    } else if (rangeOffset == 0 && curLevel == 0) {
+                        rangeSize = 1;
+                    }
+                }
+
+                if (rangeOffset < rangeSize) {
+                    System.arraycopy(hilbertValue[hOffset], 0, tHilbertValue, 0, tokenSize);
+                    tHilbertValue[rangeLevelNum] = (byte) (((hilbertValue[hOffset][rangeLevelNum]) & 0xff) + rangeOffset);
+                    ++rangeOffset;
+                }
+
+                if (rangeOffset == rangeSize) {
+                    rangeOffset = 0;
+                    if (rangeSize == 1) {
+                        ++hOffset;
+                    } else {
+                        hOffset += 2;
+                    }
+                }
+                token.reset(tHilbertValue, 0, tokenSize, tokenSize, 1);
+            } else {
+                token.reset(hilbertValue[hOffset++], 0, tokenSize, tokenSize, 1);
+            }
         }
     }
 
@@ -95,12 +139,36 @@ public class StaticHilbertBTreeBinaryTokenizer extends SpatialCellBinaryTokenize
         highkeyFlag.clear();
         generateSortedCellIds(data, start, length);
 
-        if (inputData[start] == ATypeTag.RECTANGLE.serialize()) {
-            mergeCellIds();
+        isInputRectangleType = inputData[start] == ATypeTag.RECTANGLE.serialize();
+        if (isInputRectangleType) {
+            if (isQuery) {
+                mergeCellIds();
+            } else {
+                //merge cellIds into a range
+                boolean merged = mergeCellIds();
+                //promote cellIds into a cellId in an upper level
+                boolean promoted = promoteCellIds();
+                //repeat until there is no further optimization
+                while (merged || promoted) {
+                    if (promoted) {
+                        merged = mergeCellIds();
+                    } else {
+                        merged = false;
+                    }
+                    if (merged) {
+                        promoted = promoteCellIds();
+                    } else {
+                        promoted = false;
+                    }
+                }
+
+                curLevel = 0;
+                rangeOffset = 0;
+            }
         }
     }
 
-    protected boolean isMergable(byte[] head, byte[] highkey) {
+    protected boolean isMergableForQuery(byte[] head, byte[] highkey) {
         int maxValidLevel = head[MAX_LEVEL] - 1;
         if (maxValidLevel < 0 /* entire space case */|| maxValidLevel == MAX_LEVEL /* OOPS case */)
             return false;

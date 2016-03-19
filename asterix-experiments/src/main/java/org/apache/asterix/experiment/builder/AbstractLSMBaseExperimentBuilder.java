@@ -95,6 +95,8 @@ public abstract class AbstractLSMBaseExperimentBuilder extends AbstractExperimen
     protected final int recordCountPerBatchDuringQuery;
     protected final long dataGenSleepTimeDuringIngestionOnly;
     protected final long dataGenSleepTimeDuringQuery;
+    protected final String locationSizeDistribution;
+    protected final String locationType;
 
     public AbstractLSMBaseExperimentBuilder(String name, LSMExperimentSetRunnerConfig config,
             String clusterConfigFileName, String ingestFileName, String dgenFileName, String countFileName) {
@@ -121,6 +123,8 @@ public abstract class AbstractLSMBaseExperimentBuilder extends AbstractExperimen
         recordCountPerBatchDuringQuery = config.getRecordCountPerBatchDuringQuery();
         dataGenSleepTimeDuringIngestionOnly = config.getDataGenSleepTimeDuringIngestionOnly();
         dataGenSleepTimeDuringQuery = config.getDataGenSleepTimeDuringQuery();
+        locationSizeDistribution = config.getLocationSizeDistribution();
+        locationType = config.getLocationType();
     }
 
     protected abstract void doBuildDDL(SequentialActionList seq);
@@ -147,14 +151,16 @@ public abstract class AbstractLSMBaseExperimentBuilder extends AbstractExperimen
                         return StringUtils.join(new String[] { binary, "-rcbi",
                                 "" + recordCountPerBatchDuringIngestionOnly, "-rcbq",
                                 "" + recordCountPerBatchDuringQuery, "-dsti", "" + dataGenSleepTimeDuringIngestionOnly,
-                                "-dstq", "" + dataGenSleepTimeDuringQuery, "-si", "" + locationSampleInterval, "-p",
-                                "" + p, "-d", "" + duration, ipPortPairs }, " ");
+                                "-dstq", "" + dataGenSleepTimeDuringQuery, "-si", "" + locationSampleInterval, "-lt",
+                                locationType, "-lsdist", locationSizeDistribution, "-p", "" + p, "-d", "" + duration,
+                                ipPortPairs }, " ");
                     } else {
                         return StringUtils.join(new String[] { binary, "-rcbi",
                                 "" + recordCountPerBatchDuringIngestionOnly, "-rcbq",
                                 "" + recordCountPerBatchDuringQuery, "-dsti", "" + dataGenSleepTimeDuringIngestionOnly,
-                                "-dstq", "" + dataGenSleepTimeDuringQuery, "-si", "" + locationSampleInterval, "-of",
-                                openStreetMapFilePath, "-p", "" + p, "-d", "" + duration, ipPortPairs }, " ");
+                                "-dstq", "" + dataGenSleepTimeDuringQuery, "-si", "" + locationSampleInterval, "-lt",
+                                locationType, "-lsdist", locationSizeDistribution, "-of", openStreetMapFilePath, "-p",
+                                "" + p, "-d", "" + duration, ipPortPairs }, " ");
                     }
                 }
             });

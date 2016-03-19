@@ -65,6 +65,8 @@ public class SocketTweetGenerator {
     private final int recordCountPerBatchDuringQuery;
     private final long dataGenSleepTimeDuringIngestionOnly;
     private final long dataGenSleepTimeDuringQuery;
+    private final String locationSizeDistribution;
+    private final String locationType;
 
     private final Mode mode;
 
@@ -102,6 +104,8 @@ public class SocketTweetGenerator {
         recordCountPerBatchDuringQuery = config.getRecordCountPerBatchDuringQuery();
         dataGenSleepTimeDuringIngestionOnly = config.getDataGenSleepTimeDuringIngestionOnly();
         dataGenSleepTimeDuringQuery = config.getDataGenSleepTimeDuringQuery();
+        locationSizeDistribution = config.getLocationSizeDistribution();
+        locationType = config.getLocationType();
     }
 
     public void start() throws Exception {
@@ -112,7 +116,8 @@ public class SocketTweetGenerator {
                     + partitionRangeStart, dataGenDuration, queryGenDuration, nDataIntervals, startDataInterval,
                     orchHost, orchPort, openStreetMapFilePath, locationSampleInterval,
                     recordCountPerBatchDuringIngestionOnly, recordCountPerBatchDuringQuery,
-                    dataGenSleepTimeDuringIngestionOnly, dataGenSleepTimeDuringQuery));
+                    dataGenSleepTimeDuringIngestionOnly, dataGenSleepTimeDuringQuery, locationSizeDistribution,
+                    locationType));
             ++i;
         }
         sem.acquire();
@@ -143,12 +148,14 @@ public class SocketTweetGenerator {
         private final int recordCountPerBatchDuringQuery;
         private final long dataGenSleepTimeDuringIngestionOnly;
         private final long dataGenSleepTimeDuringQuery;
+        private final String locationSizeDistribution;
+        private final String locationType;
 
         public DataGenerator(Mode m, Semaphore sem, String host, int port, int partition, int dataGenDuration,
                 int queryGenDuration, int nDataIntervals, long dataSizeInterval, String orchHost, int orchPort,
                 String openStreetMapFilePath, int locationSampleInterval, int recordCountPerBatchDuringIngestionOnly,
                 int recordCountPerBatchDuringQuery, long dataGenSleepTimeDuringIngestionOnly,
-                long dataGenSleepTimeDuringQuery) {
+                long dataGenSleepTimeDuringQuery, String locationSizeDistribution, String locationType) {
             this.m = m;
             this.sem = sem;
             this.host = host;
@@ -171,6 +178,8 @@ public class SocketTweetGenerator {
             this.recordCountPerBatchDuringQuery = recordCountPerBatchDuringQuery;
             this.dataGenSleepTimeDuringIngestionOnly = dataGenSleepTimeDuringIngestionOnly;
             this.dataGenSleepTimeDuringQuery = dataGenSleepTimeDuringQuery;
+            this.locationSizeDistribution = locationSizeDistribution;
+            this.locationType = locationType;
         }
 
         @Override
@@ -182,7 +191,8 @@ public class SocketTweetGenerator {
                     + "recordCountPerBatchDuringQuery : " + recordCountPerBatchDuringQuery + "\n"
                     + "dataGenSleepTimeDuringIngestionOnly : " + dataGenSleepTimeDuringIngestionOnly + "\n"
                     + "dataGenSleepTimeDuringQuery : " + dataGenSleepTimeDuringQuery + "\n"
-                    + "locationSampleInterval : " + locationSampleInterval);
+                    + "locationSampleInterval : " + locationSampleInterval + "\n" + "locationSizeDistribution : "
+                    + locationSizeDistribution + "\n" + "locationType : " + locationType + "\n");
 
             try {
                 Socket s = new Socket(host, port);
@@ -201,6 +211,9 @@ public class SocketTweetGenerator {
                                     openStreetMapFilePath);
                             config.put(TweetGeneratorForSpatialIndexEvaluation.KEY_LOCATION_SAMPLE_INTERVAL,
                                     String.valueOf(locationSampleInterval));
+                            config.put(TweetGeneratorForSpatialIndexEvaluation.KEY_LOCATION_SIZE_DISTRIBUTION,
+                                    locationSizeDistribution);
+                            config.put(TweetGeneratorForSpatialIndexEvaluation.KEY_LOCATION_TYPE, locationType);
                         }
                         tg = new TweetGeneratorForSpatialIndexEvaluation(config, partition,
                                 TweetGeneratorForSpatialIndexEvaluation.OUTPUT_FORMAT_ADM_STRING, s.getOutputStream());

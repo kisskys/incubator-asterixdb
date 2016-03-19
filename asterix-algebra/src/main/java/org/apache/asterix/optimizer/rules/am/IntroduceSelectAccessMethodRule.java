@@ -23,9 +23,11 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.asterix.common.config.DatasetConfig.IndexType;
 import org.apache.asterix.metadata.declared.AqlMetadataProvider;
 import org.apache.asterix.metadata.entities.Index;
 import org.apache.commons.lang3.mutable.Mutable;
+import org.apache.commons.lang3.mutable.MutableObject;
 import org.apache.hyracks.algebricks.common.exceptions.AlgebricksException;
 import org.apache.hyracks.algebricks.common.utils.Pair;
 import org.apache.hyracks.algebricks.core.algebra.base.ILogicalExpression;
@@ -38,11 +40,13 @@ import org.apache.hyracks.algebricks.core.algebra.expressions.AbstractFunctionCa
 import org.apache.hyracks.algebricks.core.algebra.expressions.VariableReferenceExpression;
 import org.apache.hyracks.algebricks.core.algebra.functions.FunctionIdentifier;
 import org.apache.hyracks.algebricks.core.algebra.operators.logical.AbstractLogicalOperator;
+import org.apache.hyracks.algebricks.core.algebra.operators.logical.DistinctOperator;
 import org.apache.hyracks.algebricks.core.algebra.operators.logical.LimitOperator;
 import org.apache.hyracks.algebricks.core.algebra.operators.logical.OrderOperator;
 import org.apache.hyracks.algebricks.core.algebra.operators.logical.OrderOperator.IOrder;
 import org.apache.hyracks.algebricks.core.algebra.operators.logical.OrderOperator.IOrder.OrderKind;
 import org.apache.hyracks.algebricks.core.algebra.operators.logical.SelectOperator;
+import org.apache.hyracks.algebricks.core.algebra.operators.logical.UnnestMapOperator;
 import org.apache.hyracks.algebricks.core.algebra.operators.logical.visitors.VariableUtilities;
 import org.apache.hyracks.algebricks.core.algebra.util.OperatorPropertiesUtil;
 
@@ -100,6 +104,8 @@ public class IntroduceSelectAccessMethodRule extends AbstractIntroduceAccessMeth
     List<Pair<IOrder, Mutable<ILogicalExpression>>> orderByExpressions;
     protected boolean leftOuterJoinFound = false;
     protected boolean leftOuterJoinVisited = false;
+    protected boolean appliedDistinctForSHBtree = false;
+    protected boolean isSHBtree = false;
 
     // Register access methods.
     protected static Map<FunctionIdentifier, List<IAccessMethod>> accessMethods = new HashMap<FunctionIdentifier, List<IAccessMethod>>();
@@ -208,6 +214,9 @@ public class IntroduceSelectAccessMethodRule extends AbstractIntroduceAccessMeth
                                 // Get the access method context for the chosen index.
                                 AccessMethodAnalysisContext analysisCtx = analyzedAMs.get(chosenIndex.first);
 
+                                // Set whether the chosen index is SHBtree or not.
+                                isSHBtree = chosenIndex.second.getIndexType() == IndexType.STATIC_HILBERT_BTREE;
+
                                 // Find the field name of each variable in the sub-tree - required when checking index-only plan.
                                 fillFieldNamesInTheSubTree(subTree);
 
@@ -300,6 +309,7 @@ public class IntroduceSelectAccessMethodRule extends AbstractIntroduceAccessMeth
         for (int i = 0; i < op.getInputs().size(); i++) {
             selectFoundAndOptimizationApplied = checkAndApplyTheRule(op.getInputs().get(i), i);
             if (selectFoundAndOptimizationApplied) {
+                removeDuplicationForSHBtree(op, op.getInputs().get(i));
                 return true;
             }
         }
@@ -332,5 +342,40 @@ public class IntroduceSelectAccessMethodRule extends AbstractIntroduceAccessMeth
         limitNumberOfResult = -1;
         canPushDownLimit = true;
         orderByExpressions = null;
+    }
+
+    private void removeDuplicationForSHBtree(AbstractLogicalOperator topOp, Mutable<ILogicalOperator> op)
+            throws AlgebricksException {
+        try {
+            if (isSHBtree) {
+
+                //find the primary index unnest-map operator which is always the first unnest-map operator from the topOp.
+                ILogicalOperator childOp = op.getValue();
+                while (childOp.getOperatorTag() != LogicalOperatorTag.UNNEST_MAP) {
+                    if (childOp.getInputs().size() == 0) {
+                        throw new AlgebricksException("UNNEST_MAP operator wasn't found");
+                    }
+                    childOp = childOp.getInputs().get(0).getValue();
+                }
+                UnnestMapOperator unnestMapOp = (UnnestMapOperator) childOp;
+
+                //use the PK variables produced by the unnest-map operator as a key of the distinctOperator
+                List<LogicalVariable> pkVars = unnestMapOp.getVariables();
+                ArrayList<Mutable<ILogicalExpression>> distinctExprList = new ArrayList<Mutable<ILogicalExpression>>();
+                for (int j = 0; j < pkVars.size() - 1 /* ignore the record variable */; j++) {
+                    distinctExprList.add(new MutableObject<ILogicalExpression>(new VariableReferenceExpression(pkVars
+                            .get(j))));
+                }
+                DistinctOperator distinctOp = new DistinctOperator(distinctExprList);
+                distinctOp.getInputs().add(op);
+                context.computeAndSetTypeEnvironmentForOperator(distinctOp);
+                topOp.getInputs().clear();
+                topOp.getInputs().add(new MutableObject<ILogicalOperator>(distinctOp));
+                context.computeAndSetTypeEnvironmentForOperator(topOp);
+            }
+        } finally {
+            isSHBtree = false;
+        }
+
     }
 }

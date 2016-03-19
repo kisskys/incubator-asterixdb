@@ -24,8 +24,12 @@ import java.util.BitSet;
 import org.apache.asterix.common.config.DatasetConfig.IndexTypeProperty;
 import org.apache.asterix.dataflow.data.nontagged.Coordinate;
 import org.apache.asterix.dataflow.data.nontagged.comparators.HilbertCurve;
+import org.apache.asterix.dataflow.data.nontagged.serde.ACircleSerializerDeserializer;
 import org.apache.asterix.dataflow.data.nontagged.serde.ADoubleSerializerDeserializer;
+import org.apache.asterix.dataflow.data.nontagged.serde.AInt16SerializerDeserializer;
+import org.apache.asterix.dataflow.data.nontagged.serde.ALineSerializerDeserializer;
 import org.apache.asterix.dataflow.data.nontagged.serde.APointSerializerDeserializer;
+import org.apache.asterix.dataflow.data.nontagged.serde.APolygonSerializerDeserializer;
 import org.apache.asterix.dataflow.data.nontagged.serde.ARectangleSerializerDeserializer;
 import org.apache.asterix.om.types.ATypeTag;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
@@ -66,6 +70,7 @@ public abstract class SpatialCellBinaryTokenizer implements IBinaryTokenizer {
     protected int nextCount;
     protected final BitSet highkeyFlag;
     protected final InMemorySpatialCellIdQuickSorter cellIdSorter;
+    protected double x1, x2, y1, y2; //MBR of a given shape to tokenize
 
     //temporary variables
     protected final double[] regionCoordinate = new double[4];
@@ -76,17 +81,17 @@ public abstract class SpatialCellBinaryTokenizer implements IBinaryTokenizer {
     public SpatialCellBinaryTokenizer(double bottomLeftX, double bottomLeftY, double topRightX, double topRightY,
             short[] levelDensity, int cellsPerObject, ITokenFactory tokenFactory, int frameSize, boolean isQuery) {
         assert levelDensity.length == MAX_LEVEL;
-        
+
         //initialize OOPS and ALL byte array
-        OOPS_BYTE_ARRAY = new byte[MAX_LEVEL+1];
-        ALL_BYTE_ARRAY = new byte[MAX_LEVEL+1];
+        OOPS_BYTE_ARRAY = new byte[MAX_LEVEL + 1];
+        ALL_BYTE_ARRAY = new byte[MAX_LEVEL + 1];
         for (int i = 0; i < MAX_LEVEL; i++) {
             OOPS_BYTE_ARRAY[i] = (byte) 255;
             ALL_BYTE_ARRAY[i] = 0;
         }
         OOPS_BYTE_ARRAY[MAX_LEVEL] = MAX_LEVEL + 1;
         ALL_BYTE_ARRAY[MAX_LEVEL] = 0;
-        
+
         this.levelCount = levelDensity.length;
         this.tokenSize = levelCount + 1; // +1 for level indicator
         this.cellIdSorter = new InMemorySpatialCellIdQuickSorter(tokenSize);
@@ -185,6 +190,8 @@ public abstract class SpatialCellBinaryTokenizer implements IBinaryTokenizer {
         hilbertValueCount = 0;
         hOffset = 0;
 
+        validateSupportedTypeTag(inputData[start]);
+
         //check type tag
         if (inputData[start] == ATypeTag.POINT.serialize()) {
             double x = ADoubleSerializerDeserializer.getDouble(inputData,
@@ -213,15 +220,8 @@ public abstract class SpatialCellBinaryTokenizer implements IBinaryTokenizer {
             convertCellId2HilbertValue(cellId, levelCount, hilbertValue[hilbertValueCount]);
             hilbertValueCount++;
 
-        } else if (inputData[start] == ATypeTag.RECTANGLE.serialize()) {
-            double x1 = ADoubleSerializerDeserializer.getDouble(inputData,
-                    start + ARectangleSerializerDeserializer.getBottomLeftCoordinateOffset(Coordinate.X));
-            double y1 = ADoubleSerializerDeserializer.getDouble(inputData,
-                    start + ARectangleSerializerDeserializer.getBottomLeftCoordinateOffset(Coordinate.Y));
-            double x2 = ADoubleSerializerDeserializer.getDouble(inputData,
-                    start + ARectangleSerializerDeserializer.getUpperRightCoordinateOffset(Coordinate.X));
-            double y2 = ADoubleSerializerDeserializer.getDouble(inputData,
-                    start + ARectangleSerializerDeserializer.getUpperRightCoordinateOffset(Coordinate.Y));
+        } else {
+            getMBRofGivenShape(inputData, start);
 
             //initialize variables
             int parentLevel = -1;
@@ -308,8 +308,114 @@ public abstract class SpatialCellBinaryTokenizer implements IBinaryTokenizer {
         if (DEBUG) {
             System.out.println("------- generatedCellIds -------");
             for (int i = 0; i < hilbertValueCount; i++) {
-                System.out.println("[" + i + "] range? " + (highkeyFlag.get(i) ? "y " : "n ") +  cellId2String(hilbertValue[i]));
+                System.out.println("[" + i + "] range? " + (highkeyFlag.get(i) ? "y " : "n ")
+                        + cellId2String(hilbertValue[i]));
             }
+        }
+    }
+
+    private void getMBRofGivenShape(byte[] inputData, int start) throws HyracksDataException {
+        /****************************************************************
+         * Format of non-point data type
+         * LINE -
+         * 1 byte - type tag (30, excluded when known)
+         * 16 bytes - nontagged POINT serialization
+         * 16 bytes - nontagged POINT serialization
+         * RECTANGLE -
+         * 1 byte - type tag (33, excluded when known)
+         * 16 bytes - nontagged POINT serialization
+         * 16 bytes - nontagged POINT serialization
+         * CIRCLE -
+         * 1 byte - type tag (32, excluded when known)
+         * 16 bytes - nontagged POINT serialization
+         * 8 bytes - nontagged DOUBLE serialization
+         * POLYGON -
+         * 1 byte - type tag (31, excluded when known)
+         * 2 bytes - NUMBER of points, as an int16
+         * remaining bytes - A series of nontagged POINT serializations
+         ****************************************************************/
+        if (inputData[start] == ATypeTag.LINE.serialize()) {
+            double t; //temp var
+            x1 = ADoubleSerializerDeserializer.getDouble(inputData,
+                    start + ALineSerializerDeserializer.getStartPointCoordinateOffset(Coordinate.X));
+            y1 = ADoubleSerializerDeserializer.getDouble(inputData,
+                    start + ALineSerializerDeserializer.getStartPointCoordinateOffset(Coordinate.Y));
+            x2 = ADoubleSerializerDeserializer.getDouble(inputData,
+                    start + ALineSerializerDeserializer.getEndPointCoordinateOffset(Coordinate.X));
+            y2 = ADoubleSerializerDeserializer.getDouble(inputData,
+                    start + ALineSerializerDeserializer.getEndPointCoordinateOffset(Coordinate.Y));
+            if (x1 > x2) {
+                //swap
+                t = x1;
+                x1 = x2;
+                x2 = t;
+            }
+            if (y1 > y2) {
+                //swap
+                t = y1;
+                y1 = y2;
+                y2 = t;
+            }
+        } else if (inputData[start] == ATypeTag.RECTANGLE.serialize()) {
+            x1 = ADoubleSerializerDeserializer.getDouble(inputData,
+                    start + ARectangleSerializerDeserializer.getBottomLeftCoordinateOffset(Coordinate.X));
+            y1 = ADoubleSerializerDeserializer.getDouble(inputData,
+                    start + ARectangleSerializerDeserializer.getBottomLeftCoordinateOffset(Coordinate.Y));
+            x2 = ADoubleSerializerDeserializer.getDouble(inputData,
+                    start + ARectangleSerializerDeserializer.getUpperRightCoordinateOffset(Coordinate.X));
+            y2 = ADoubleSerializerDeserializer.getDouble(inputData,
+                    start + ARectangleSerializerDeserializer.getUpperRightCoordinateOffset(Coordinate.Y));
+        } else if (inputData[start] == ATypeTag.CIRCLE.serialize()) {
+            double cx = ADoubleSerializerDeserializer.getDouble(inputData,
+                    start + ACircleSerializerDeserializer.getCenterPointCoordinateOffset(Coordinate.X));
+            double cy = ADoubleSerializerDeserializer.getDouble(inputData,
+                    start + ACircleSerializerDeserializer.getCenterPointCoordinateOffset(Coordinate.Y));
+            double radius = ADoubleSerializerDeserializer.getDouble(inputData,
+                    start + ACircleSerializerDeserializer.getRadiusOffset());
+            x1 = cx - radius;
+            y1 = cy - radius;
+            x2 = cx + radius;
+            y2 = cy + radius;
+        } else if (inputData[start] == ATypeTag.POLYGON.serialize()) {
+            int numberOfPoint = AInt16SerializerDeserializer.getShort(inputData,
+                    start + APolygonSerializerDeserializer.getNumberOfPointsOffset());
+            double t;
+
+            //first point
+            x1 = ADoubleSerializerDeserializer.getDouble(inputData,
+                    start + APolygonSerializerDeserializer.getCoordinateOffset(0, Coordinate.X));
+            y1 = ADoubleSerializerDeserializer.getDouble(inputData,
+                    start + APolygonSerializerDeserializer.getCoordinateOffset(0, Coordinate.Y));
+            x2 = x1;
+            y2 = y1;
+
+            for (int i = 1; i < numberOfPoint; i++) {
+                t = ADoubleSerializerDeserializer.getDouble(inputData,
+                        start + APolygonSerializerDeserializer.getCoordinateOffset(i, Coordinate.X));
+                if (x1 > t) {
+                    x1 = t;
+                }
+                if (x2 < t) {
+                    x2 = t;
+                }
+                t = ADoubleSerializerDeserializer.getDouble(inputData,
+                        start + APolygonSerializerDeserializer.getCoordinateOffset(i, Coordinate.Y));
+                if (y1 > t) {
+                    y1 = t;
+                }
+                if (y2 < t) {
+                    y2 = t;
+                }
+            }
+        }
+
+    }
+
+    private void validateSupportedTypeTag(byte b) throws HyracksDataException {
+        if (b != ATypeTag.POINT.serialize() && b != ATypeTag.LINE.serialize() && b != ATypeTag.LINE.serialize()
+                && b != ATypeTag.RECTANGLE.serialize() && b != ATypeTag.CIRCLE.serialize()
+                && b != ATypeTag.POLYGON.serialize()) {
+            throw new HyracksDataException("Unsupported type for SHB-tree - type byte value [" + b + "]");
         }
     }
 
@@ -326,8 +432,14 @@ public abstract class SpatialCellBinaryTokenizer implements IBinaryTokenizer {
             ++highkey;
             ++head;
         }
+        boolean isMergable = false;
         while (head < hilbertValueCount) {
-            if (isMergable(hilbertValue[head], hilbertValue[highkey])) {
+            if (isQuery) {
+                isMergable = isMergableForQuery(hilbertValue[head], hilbertValue[highkey]);
+            } else {
+                isMergable = isMergableForNonQuery(hilbertValue[head], hilbertValue[highkey]);
+            }
+            if (isMergable) {
                 if (lowkey == highkey) {
                     highkey = lowkey + 1;
                     highkeyFlag.set(lowkey);
@@ -359,18 +471,116 @@ public abstract class SpatialCellBinaryTokenizer implements IBinaryTokenizer {
             ++head;
         }
         hilbertValueCount = highkey + 1;
-        
+
         if (DEBUG && merged) {
             System.out.println("------- mergedCellIds -------");
             for (int i = 0; i < hilbertValueCount; i++) {
-                System.out.println("[" + i + "] range? " + (highkeyFlag.get(i) ? "y " : "n ") +  cellId2String(hilbertValue[i]));
+                System.out.println("[" + i + "] range? " + (highkeyFlag.get(i) ? "y " : "n ")
+                        + cellId2String(hilbertValue[i]));
             }
         }
-        
+
         return merged;
     }
 
-    protected abstract boolean isMergable(byte[] head, byte[] highkey);
+    protected abstract boolean isMergableForQuery(byte[] head, byte[] highkey);
+
+    protected boolean isMergableForNonQuery(byte[] head, byte[] highkey) {
+        int maxValidLevel = head[MAX_LEVEL] - 1;
+        if (maxValidLevel < 0 /* entire space case */|| highkey[MAX_LEVEL] - 1 != maxValidLevel)
+            return false;
+        for (int i = 0; i < maxValidLevel; i++) {
+            if (head[i] != highkey[i])
+                return false;
+        }
+
+        if ((0xff & head[maxValidLevel]) - (0xff & highkey[maxValidLevel]) != 1)
+            return false;
+
+        return true;
+    }
+
+    protected boolean promoteCellIds() {
+        boolean promoted = false;
+        int lowkey = 0;
+        int tail = 0;
+
+        while (lowkey < hilbertValueCount) {
+            if (highkeyFlag.get(lowkey)) { /* range */
+                if (isPromotableRange(lowkey)) {
+                    promoteRange(lowkey, tail);
+
+                    //flip the highkeyFlag
+                    highkeyFlag.set(lowkey, false);
+
+                    lowkey += 2;
+                    ++tail;
+                    promoted = true;
+                } else {
+                    if (lowkey != tail) {
+                        System.arraycopy(hilbertValue[lowkey], 0, hilbertValue[tail], 0, tokenSize);
+                        System.arraycopy(hilbertValue[lowkey + 1], 0, hilbertValue[tail + 1], 0, tokenSize);
+                    }
+
+                    //flip the src and dest highkeyFlag
+                    highkeyFlag.set(lowkey, false);
+                    highkeyFlag.set(tail);
+
+                    lowkey += 2;
+                    tail += 2;
+                }
+            } else { /* non-range */
+                if (lowkey != tail) {
+                    System.arraycopy(hilbertValue[lowkey], 0, hilbertValue[tail], 0, tokenSize);
+                }
+                ++lowkey;
+                ++tail;
+            }
+        }
+
+        hilbertValueCount = tail;
+
+        if (DEBUG && promoted) {
+            System.out.println("------- promotededCellIds -------");
+            for (int i = 0; i < hilbertValueCount; i++) {
+                System.out.println("[" + i + "] range? " + (highkeyFlag.get(i) ? "y " : "n ")
+                        + cellId2String(hilbertValue[i]));
+            }
+        }
+
+        return promoted;
+    }
+
+    protected boolean isPromotableRange(int lowkey) {
+        //Promotion examples:
+        //There are 4 levels and each level has 2x2 cells.
+        //Range(00003, 00303) is promoted into  00002.
+        //Range(01003, 01303) is promoted into  01002.
+
+        int validLevelNum = (0xff & (hilbertValue[lowkey][MAX_LEVEL])) - 1;
+        int cellCount = axisCellNum[validLevelNum] * axisCellNum[validLevelNum];
+        int highkeyCellNum = (0xff & (hilbertValue[lowkey + 1][validLevelNum]));
+        int lowkeyCellNum = (0xff & (hilbertValue[lowkey][validLevelNum]));
+        if (highkeyCellNum - lowkeyCellNum + 1 == cellCount) {
+            return true;
+        }
+        return false;
+    }
+
+    protected void promoteRange(int lowkey, int dest) {
+        //Promotion examples:
+        //There are 4 levels and each level has 2x2 cells.
+        //Range(00003, 00303) is promoted into  00002.
+        //Range(01003, 01303) is promoted into  01002.
+
+        int newValidLevelCount = (0xff & (hilbertValue[lowkey][MAX_LEVEL])) - 1;
+        if (lowkey != dest) {
+            for (int i = 0; i < MAX_LEVEL; i++) {
+                hilbertValue[dest][i] = hilbertValue[lowkey][i];
+            }
+        }
+        hilbertValue[dest][MAX_LEVEL] = (byte) newValidLevelCount;
+    }
 
     private void computeRegionCoordinateIntersectedWithCell(double rx1, double ry1, double rx2, double ry2, double cx1,
             double cy1, double cx2, double cy2, double[] rCoordinate) {

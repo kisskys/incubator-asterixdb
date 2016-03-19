@@ -131,6 +131,20 @@ public class SocketTweetGeneratorConfig {
         return addresses;
     }
 
+    @Option(name = "-lsdist", aliases = "--location-size-distribution", usage = "The distribution to generate sendLocationObjectSize", required = true)
+    private String locationSizeDistribution;
+
+    public String getLocationSizeDistribution() {
+        return locationSizeDistribution;
+    }
+
+    @Option(name = "-lt", aliases = "--location-type", usage = "The location type to generate, e.g. point or rectangle", required = true)
+    private String locationType;
+
+    public String getLocationType() {
+        return locationType;
+    }
+
     public static class AddressOptionHandler extends OptionHandler<Pair<String, Integer>> {
 
         public AddressOptionHandler(CmdLineParser parser, OptionDef option, Setter<? super Pair<String, Integer>> setter) {

@@ -164,105 +164,12 @@ public class MultiLevelSIFBinaryTokenizer extends SpatialCellBinaryTokenizer {
         rangeOffset = 0;
     }
 
-    protected boolean isMergable(byte[] head, byte[] highkey) {
-        int maxValidLevel = head[MAX_LEVEL] - 1;
-        if (maxValidLevel < 0 /* entire space case */|| highkey[MAX_LEVEL] - 1 != maxValidLevel)
-            return false;
-        for (int i = 0; i < maxValidLevel; i++) {
-            if (head[i] != highkey[i])
-                return false;
-        }
-
-        if ((0xff & head[maxValidLevel]) - (0xff & highkey[maxValidLevel]) != 1)
-            return false;
-
-        return true;
-    }
-
-    private boolean promoteCellIds() {
-        boolean promoted = false;
-        int lowkey = 0;
-        int tail = 0;
-
-        while (lowkey < hilbertValueCount) {
-            if (highkeyFlag.get(lowkey)) { /* range */
-                if (isPromotableRange(lowkey)) {
-                    promoteRange(lowkey, tail);
-
-                    //flip the highkeyFlag
-                    highkeyFlag.set(lowkey, false);
-
-                    lowkey += 2;
-                    ++tail;
-                    promoted = true;
-                } else {
-                    if (lowkey != tail) {
-                        System.arraycopy(hilbertValue[lowkey], 0, hilbertValue[tail], 0, tokenSize);
-                        System.arraycopy(hilbertValue[lowkey + 1], 0, hilbertValue[tail + 1], 0, tokenSize);
-                    }
-
-                    //flip the src and dest highkeyFlag
-                    highkeyFlag.set(lowkey, false);
-                    highkeyFlag.set(tail);
-
-                    lowkey += 2;
-                    tail += 2;
-                }
-            } else { /* non-range */
-                if (lowkey != tail) {
-                    System.arraycopy(hilbertValue[lowkey], 0, hilbertValue[tail], 0, tokenSize);
-                }
-                ++lowkey;
-                ++tail;
-            }
-        }
-
-        hilbertValueCount = tail;
-
-        if (DEBUG && promoted) {
-            System.out.println("------- promotededCellIds -------");
-            for (int i = 0; i < hilbertValueCount; i++) {
-                System.out.println("[" + i + "] range? " + (highkeyFlag.get(i) ? "y " : "n ")
-                        + cellId2String(hilbertValue[i]));
-            }
-        }
-
-        return promoted;
-    }
-
-    private boolean isPromotableRange(int lowkey) {
-        //Promotion examples:
-        //There are 4 levels and each level has 2x2 cells.
-        //Range(00003, 00303) is promoted into  00002.
-        //Range(01003, 01303) is promoted into  01002.
-
-        int validLevelNum = (0xff & (hilbertValue[lowkey][MAX_LEVEL])) - 1;
-        int cellCount = axisCellNum[validLevelNum] * axisCellNum[validLevelNum];
-        int highkeyCellNum = (0xff & (hilbertValue[lowkey + 1][validLevelNum]));
-        int lowkeyCellNum = (0xff & (hilbertValue[lowkey][validLevelNum]));
-        if (highkeyCellNum - lowkeyCellNum + 1 == cellCount) {
-            return true;
-        }
-        return false;
-    }
-
-    private void promoteRange(int lowkey, int dest) {
-        //Promotion examples:
-        //There are 4 levels and each level has 2x2 cells.
-        //Range(00003, 00303) is promoted into  00002.
-        //Range(01003, 01303) is promoted into  01002.
-
-        int newValidLevelCount = (0xff & (hilbertValue[lowkey][MAX_LEVEL])) - 1;
-        if (lowkey != dest) {
-            for (int i = 0; i < MAX_LEVEL; i++) {
-                hilbertValue[dest][i] = hilbertValue[lowkey][i];
-            }
-        }
-        hilbertValue[dest][MAX_LEVEL] = (byte) newValidLevelCount;
-    }
-
     @Override
     public short getTokensCount() {
         return 0;
+    }
+
+    protected boolean isMergableForQuery(byte[] head, byte[] highkey) {
+        return isMergableForNonQuery(head, highkey);
     }
 }

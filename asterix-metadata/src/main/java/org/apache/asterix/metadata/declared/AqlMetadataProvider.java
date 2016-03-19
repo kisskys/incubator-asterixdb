@@ -881,7 +881,7 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
                                 dataset.getDatasetId()), AsterixRuntimeComponentsProvider.RUNTIME_PROVIDER,
                         LSMBTreeWithBuddyIOOperationCallbackFactory.INSTANCE, getStorageProperties()
                                 .getBloomFilterFalsePositiveRate(), buddyBTreeFields,
-                        ExternalDatasetsRegistry.INSTANCE.getAndLockDatasetVersion(dataset, this), !temp);
+                        ExternalDatasetsRegistry.INSTANCE.getAndLockDatasetVersion(dataset, this), null, !temp);
                 btreeSearchOp = new ExternalBTreeSearchOperatorDescriptor(jobSpec, outputRecDesc, rtcProvider,
                         rtcProvider, spPc.first, typeTraits, comparatorFactories, bloomFilterKeyFields, lowKeyFields,
                         highKeyFields, lowKeyInclusive, highKeyInclusive, indexDataflowHelperFactory, retainInput,
@@ -942,9 +942,16 @@ public class AqlMetadataProvider implements IMetadataProvider<AqlSourceId, Strin
                     BuiltinType.ABINARY, true);
             typeTraits[i] = AqlTypeTraitProvider.INSTANCE.getTypeTrait(BuiltinType.ABINARY);
             ++i;
-            comparatorFactories[i] = AqlBinaryComparatorFactoryProvider.INSTANCE.getBinaryComparatorFactory(
-                    BuiltinType.APOINT, true);
-            typeTraits[i] = AqlTypeTraitProvider.INSTANCE.getTypeTrait(BuiltinType.APOINT);
+            //            comparatorFactories[i] = AqlBinaryComparatorFactoryProvider.INSTANCE.getBinaryComparatorFactory(
+            //                    BuiltinType.APOINT, true);
+            //            typeTraits[i] = AqlTypeTraitProvider.INSTANCE.getTypeTrait(BuiltinType.APOINT);
+            //            ++i;
+            Pair<IAType, Boolean> keyPairType = Index.getNonNullableOpenFieldType(sidxKeyFieldTypes.get(0),
+                    sidxKeyFieldNames.get(0), recType);
+            IAType keyType = keyPairType.first;
+            comparatorFactories[i] = AqlBinaryComparatorFactoryProvider.INSTANCE.getBinaryComparatorFactory(keyType,
+                    true);
+            typeTraits[i] = AqlTypeTraitProvider.INSTANCE.getTypeTrait(keyType);
             ++i;
         } else {
             for (; i < sidxKeyFieldCount; ++i) {

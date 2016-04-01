@@ -53,7 +53,7 @@ public class StaticHilbertBTreeBinaryTokenizer extends SpatialCellBinaryTokenize
     @Override
     public boolean hasNext() {
         nextCount = 0;
-        return nonBottomHOffset < nonBottomHilbertValueCount || hOffset < hilbertValueCount;
+        return hOffset < hilbertValueCount;
     }
 
     @Override
@@ -71,7 +71,7 @@ public class StaticHilbertBTreeBinaryTokenizer extends SpatialCellBinaryTokenize
                         //provide a highkey
                         token.reset(nonBottomHilbertValue[nonBottomHOffset + 1], 0, tokenSize, tokenSize, 1);
                         //flip the flag
-                        nonBottomHighkeyFlag.set(hOffset++, false);
+                        nonBottomHighkeyFlag.set(nonBottomHOffset++, false);
                     } else {
                         //provide the lowkey as a highkey
                         token.reset(nonBottomHilbertValue[nonBottomHOffset], 0, tokenSize, tokenSize, 1);

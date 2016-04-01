@@ -22,11 +22,11 @@ package org.apache.asterix.experiment.report;
 public class ReportBuilderRunner {
     public static final boolean REPORT_SIE1 = false;
     public static final boolean REPORT_SIE2 = false;
-    public static final boolean REPORT_SIE3 = false;
+    public static final boolean REPORT_SIE3 = true;
     public static final boolean REPORT_SIE4 = false;
     public static final boolean REPORT_SIE5 = false;
 
-    public static final boolean REPORT_SIE1_RECT = true;
+    public static final boolean REPORT_SIE1_RECT = false;
     public static final boolean REPORT_SIE2_RECT = false;
     public static final boolean REPORT_SIE3_RECT = false;
     public static final boolean REPORT_SIE4_RECT = false;
@@ -43,14 +43,14 @@ public class ReportBuilderRunner {
             sie1.generateAccumulatedInsertPS();
         }
 
-        if (REPORT_SIE1_RECT) {
-            SIE1RectReportBuilderRunner sie1 = new SIE1RectReportBuilderRunner();
-            sie1.generateSIE1IPS();
-            sie1.generateInstantaneousInsertPS();
-            sie1.generateIndexSize();
-            sie1.generateGanttInstantaneousInsertPS();
-            sie1.generateAccumulatedInsertPS();
-        }
+        //        if (REPORT_SIE1_RECT) {
+        //            SIE1RectReportBuilderRunner sie1 = new SIE1RectReportBuilderRunner();
+        //            sie1.generateSIE1IPS();
+        //            sie1.generateInstantaneousInsertPS();
+        //            sie1.generateIndexSize();
+        //            sie1.generateGanttInstantaneousInsertPS();
+        //            sie1.generateAccumulatedInsertPS();
+        //        }
 
         if (REPORT_SIE2) {
             SIE2ReportBuilderRunner sie2 = new SIE2ReportBuilderRunner();

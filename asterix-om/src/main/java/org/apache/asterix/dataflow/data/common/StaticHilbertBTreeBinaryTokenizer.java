@@ -53,29 +53,51 @@ public class StaticHilbertBTreeBinaryTokenizer extends SpatialCellBinaryTokenize
     @Override
     public boolean hasNext() {
         nextCount = 0;
-        return hOffset < hilbertValueCount;
+        return nonBottomHOffset < nonBottomHilbertValueCount || hOffset < hilbertValueCount;
     }
 
     @Override
     public void next() throws HyracksDataException {
         //reset token
         if (isQuery) {
-            if (nextCount == 0) {
-                token.reset(hilbertValue[hOffset], 0, tokenSize, tokenSize, 1);
-                nextCount = 1;
-            } else {
-                if (highkeyFlag.get(hOffset)) {
-                    //provide a highkey
-                    computeCellIdRange(hilbertValue[hOffset + 1]);
-                    //flip the flag
-                    highkeyFlag.set(hOffset++, false);
+            //consume nonBottomLevelCells
+            if (nonBottomHOffset < nonBottomHilbertValueCount) {
+                //consume bottomLevelCells
+                if (nextCount == 0) {
+                    token.reset(nonBottomHilbertValue[nonBottomHOffset], 0, tokenSize, tokenSize, 1);
+                    nextCount = 1;
                 } else {
-                    //provide the lowkey as a highkey
-                    computeCellIdRange(hilbertValue[hOffset]);
+                    if (nonBottomHighkeyFlag.get(nonBottomHOffset)) {
+                        //provide a highkey
+                        token.reset(nonBottomHilbertValue[nonBottomHOffset + 1], 0, tokenSize, tokenSize, 1);
+                        //flip the flag
+                        nonBottomHighkeyFlag.set(hOffset++, false);
+                    } else {
+                        //provide the lowkey as a highkey
+                        token.reset(nonBottomHilbertValue[nonBottomHOffset], 0, tokenSize, tokenSize, 1);
+                    }
+                    nonBottomHOffset++;
+                    nextCount = 0;
                 }
-                token.reset(tHilbertValue, 0, tokenSize, tokenSize, 1);
-                hOffset++;
-                nextCount = 0;
+            } else {
+                //consume bottomLevelCells
+                if (nextCount == 0) {
+                    token.reset(hilbertValue[hOffset], 0, tokenSize, tokenSize, 1);
+                    nextCount = 1;
+                } else {
+                    if (highkeyFlag.get(hOffset)) {
+                        //provide a highkey
+                        computeCellIdRange(hilbertValue[hOffset + 1]);
+                        //flip the flag
+                        highkeyFlag.set(hOffset++, false);
+                    } else {
+                        //provide the lowkey as a highkey
+                        computeCellIdRange(hilbertValue[hOffset]);
+                    }
+                    token.reset(tHilbertValue, 0, tokenSize, tokenSize, 1);
+                    hOffset++;
+                    nextCount = 0;
+                }
             }
         } else {
             if (isInputRectangleType) {
@@ -137,6 +159,7 @@ public class StaticHilbertBTreeBinaryTokenizer extends SpatialCellBinaryTokenize
     @Override
     public void reset(byte[] data, int start, int length) throws HyracksDataException {
         highkeyFlag.clear();
+        nonBottomHighkeyFlag.clear();
         generateSortedCellIds(data, start, length);
 
         isInputRectangleType = inputData[start] == ATypeTag.RECTANGLE.serialize();

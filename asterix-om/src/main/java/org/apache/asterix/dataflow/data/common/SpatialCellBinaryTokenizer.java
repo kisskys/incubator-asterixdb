@@ -72,6 +72,12 @@ public abstract class SpatialCellBinaryTokenizer implements IBinaryTokenizer {
     protected final InMemorySpatialCellIdQuickSorter cellIdSorter;
     protected double x1, x2, y1, y2; //MBR of a given shape to tokenize
 
+    //values to deal with non-bottom level overlapping ranges with a non-point object.
+    protected final byte[][] nonBottomHilbertValue;
+    protected int nonBottomHilbertValueCount;
+    protected int nonBottomHOffset;
+    protected final BitSet nonBottomHighkeyFlag;
+
     //temporary variables
     protected final double[] regionCoordinate = new double[4];
     protected final double[] cellCoordinate = new double[4];
@@ -146,6 +152,9 @@ public abstract class SpatialCellBinaryTokenizer implements IBinaryTokenizer {
         this.nextLevelOffset = new int[levelCount];
         this.tCellId1 = new int[2];
         this.tCellId2 = new int[2];
+
+        this.nonBottomHilbertValue = new byte[cellsPerObject][tokenSize];
+        this.nonBottomHighkeyFlag = new BitSet(cellsPerObject);
     }
 
     @Override
@@ -189,6 +198,8 @@ public abstract class SpatialCellBinaryTokenizer implements IBinaryTokenizer {
         this.inputData = data;
         hilbertValueCount = 0;
         hOffset = 0;
+        nonBottomHilbertValueCount = 0;
+        nonBottomHOffset = 0;
 
         validateSupportedTypeTag(inputData[start]);
 
@@ -276,6 +287,11 @@ public abstract class SpatialCellBinaryTokenizer implements IBinaryTokenizer {
                 }
                 if (parentLevel == -1 || nextLevelOffset[parentLevel] == tcOffset) {
                     nextLevelOffset[++parentLevel] = hcOffset;
+                    if (isQuery && parentLevel + 1 < levelCount) {
+                        nonBottomHilbertValueCount = computeHValueForNonBottomLevelOverlappingCells(candidateCellId,
+                                parentLevel == 0 ? 0 : nextLevelOffset[parentLevel - 1], hcOffset - 1, parentLevel + 1,
+                                nonBottomHilbertValue, nonBottomHilbertValueCount);
+                    }
                 }
 
                 //stop decomposition if the parentLevel reached levelCount-1
@@ -303,6 +319,11 @@ public abstract class SpatialCellBinaryTokenizer implements IBinaryTokenizer {
 
             //sort the hilbertValue array
             cellIdSorter.quicksort(hilbertValue, hilbertValueCount);
+
+            if (isQuery) {
+                nonBottomHilbertValueCount = mergeCellIdsForNonBottomLevelOverlappingCells(nonBottomHilbertValue,
+                        nonBottomHilbertValueCount, nonBottomHighkeyFlag, tokenSize);
+            }
         }
 
         if (DEBUG) {
@@ -312,6 +333,16 @@ public abstract class SpatialCellBinaryTokenizer implements IBinaryTokenizer {
                         + cellId2String(hilbertValue[i]));
             }
         }
+    }
+
+    private int computeHValueForNonBottomLevelOverlappingCells(int[][][] inputCellIdArray, int inputBegin,
+            int inputEnd, int level, byte[][] outputHilbertValueArray, int outputBegin) {
+        int outputEnd = outputBegin;
+        for (int i = inputBegin; i <= inputEnd; i++) {
+            convertCellId2HilbertValue(inputCellIdArray[i], level, outputHilbertValueArray[outputEnd++]);
+        }
+        cellIdSorter.quicksort(outputHilbertValueArray, outputBegin, outputEnd - 1);
+        return outputEnd;
     }
 
     private void getMBRofGivenShape(byte[] inputData, int start) throws HyracksDataException {
@@ -481,6 +512,64 @@ public abstract class SpatialCellBinaryTokenizer implements IBinaryTokenizer {
         }
 
         return merged;
+    }
+
+    protected int mergeCellIdsForNonBottomLevelOverlappingCells(byte[][] hilbertValue, int hilbertValueCount,
+            BitSet highkeyFlag, int tokenSize) {
+        boolean merged = false;
+        int lowkey = 0;
+        int highkey = 0;
+        int head = 1;
+        //forward head and highkey if the lowkey is in a range
+        if (highkeyFlag.get(lowkey)) {
+            ++highkey;
+            ++head;
+        }
+        boolean isMergable = false;
+        while (head < hilbertValueCount) {
+            isMergable = isMergableForNonQuery(hilbertValue[head], hilbertValue[highkey]);
+            if (isMergable) {
+                if (lowkey == highkey) {
+                    highkey = lowkey + 1;
+                    highkeyFlag.set(lowkey);
+                }
+                if (highkeyFlag.get(head)) { /* head is in a range */
+                    highkeyFlag.set(head, false);
+                    System.arraycopy(hilbertValue[++head], 0, hilbertValue[highkey], 0, tokenSize);
+                } else {
+                    System.arraycopy(hilbertValue[head], 0, hilbertValue[highkey], 0, tokenSize);
+                }
+                merged = true;
+            } else {
+                ++highkey;
+                lowkey = highkey;
+                if (head != lowkey) {
+                    System.arraycopy(hilbertValue[head], 0, hilbertValue[lowkey], 0, tokenSize);
+                    if (highkeyFlag.get(head)) { /* head is in a range */
+                        highkeyFlag.set(lowkey);
+                        highkeyFlag.set(head, false);
+                        System.arraycopy(hilbertValue[++head], 0, hilbertValue[++highkey], 0, tokenSize);
+                    }
+                } else {
+                    if (highkeyFlag.get(head)) { /* head is in a range */
+                        ++head;
+                        ++highkey;
+                    }
+                }
+            }
+            ++head;
+        }
+        hilbertValueCount = highkey + 1;
+
+        if (DEBUG && merged) {
+            System.out.println("------- mergedCellIds -------");
+            for (int i = 0; i < hilbertValueCount; i++) {
+                System.out.println("[" + i + "] range? " + (highkeyFlag.get(i) ? "y " : "n ")
+                        + cellId2String(hilbertValue[i]));
+            }
+        }
+
+        return hilbertValueCount;
     }
 
     protected abstract boolean isMergableForQuery(byte[] head, byte[] highkey);

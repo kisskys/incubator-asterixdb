@@ -27,7 +27,7 @@ import java.util.ArrayList;
 
 public class SIE3ReportBuilderRunner {
     static boolean IS_PROFILE = false;
-    String outputFilePath = "/Users/kisskys/workspace/asterix_master/resultLog/MemBuf3g-DiskBuf3g-Lsev-Jvm7g-Lock0g/result-report/";
+    String outputFilePath = "/Users/kisskys/workspace/asterix_master/resultLog/result-report/";
     SIE3ReportBuilder sie3Dhbtree;
     SIE3ReportBuilder sie3Dhvbtree;
     SIE3ReportBuilder sie3Rtree;
@@ -51,23 +51,23 @@ public class SIE3ReportBuilderRunner {
 
     public SIE3ReportBuilderRunner() {
 
-        String expHomePath = "/Users/kisskys/workspace/asterix_master/resultLog/MemBuf3g-DiskBuf3g-Lsev-Jvm7g-Lock0g/exp3-rg128k-rect-lake/";
+        String expHomePath = "/Users/kisskys/workspace/asterix_master/resultLog/MemBuf5g-DiskBuf5g-Lsev-Jvm11g-Lock0g/exp3-rg128k/";
         profileFileHomeDir = "/Users/kisskys/workspace/asterix_master/resultLog/MemBuf3g-DiskBuf3g-Lsev-Jvm7g-Lock0g/profile-exp3-rg128k-large-radius/";
         String runLogFileName = "run-exp3.log";
         profileLogFileName = "run-exp3.log"; //"profile-exp3.log";
         String queryLogFileNamePrefix = "QueryGenResult-";
         String queryLogFileNameSuffix = "-130.149.249.51.txt";
 
-        sie3Dhbtree = new SIE3ReportBuilder(expHomePath, "SpatialIndexExperiment3Rtree", runLogFileName,
-                queryLogFileNamePrefix + "SpatialIndexExperiment3Rtree" + queryLogFileNameSuffix);
-        sie3Dhvbtree = new SIE3ReportBuilder(expHomePath, "SpatialIndexExperiment3Rtree", runLogFileName,
-                queryLogFileNamePrefix + "SpatialIndexExperiment3Rtree" + queryLogFileNameSuffix);
+        sie3Dhbtree = new SIE3ReportBuilder(expHomePath, "SpatialIndexExperiment3Dhbtree", runLogFileName,
+                queryLogFileNamePrefix + "SpatialIndexExperiment3Dhbtree" + queryLogFileNameSuffix);
+        sie3Dhvbtree = new SIE3ReportBuilder(expHomePath, "SpatialIndexExperiment3Dhvbtree", runLogFileName,
+                queryLogFileNamePrefix + "SpatialIndexExperiment3Dhvbtree" + queryLogFileNameSuffix);
         sie3Rtree = new SIE3ReportBuilder(expHomePath, "SpatialIndexExperiment3Rtree", runLogFileName,
                 queryLogFileNamePrefix + "SpatialIndexExperiment3Rtree" + queryLogFileNameSuffix);
         sie3Shbtree = new SIE3ReportBuilder(expHomePath, "SpatialIndexExperiment3Shbtree", runLogFileName,
                 queryLogFileNamePrefix + "SpatialIndexExperiment3Shbtree" + queryLogFileNameSuffix);
-        sie3Sif = new SIE3ReportBuilder(expHomePath, "SpatialIndexExperiment3Rtree", runLogFileName,
-                queryLogFileNamePrefix + "SpatialIndexExperiment3Rtree" + queryLogFileNameSuffix);
+        sie3Sif = new SIE3ReportBuilder(expHomePath, "SpatialIndexExperiment3Sif", runLogFileName,
+                queryLogFileNamePrefix + "SpatialIndexExperiment3Sif" + queryLogFileNameSuffix);
 
         //        sie3Dhbtree = new SIE3ReportBuilder(expHomePath, "SpatialIndexExperiment3Dhbtree", runLogFileName,
         //                queryLogFileNamePrefix + "SpatialIndexExperiment3Dhbtree" + queryLogFileNameSuffix);

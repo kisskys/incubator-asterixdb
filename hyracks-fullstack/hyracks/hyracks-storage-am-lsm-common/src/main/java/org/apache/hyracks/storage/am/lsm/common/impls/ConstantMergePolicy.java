@@ -35,8 +35,8 @@ public class ConstantMergePolicy implements ILSMMergePolicy {
     private int numComponents;
 
     @Override
-    public void diskComponentAdded(final ILSMIndex index, boolean fullMergeIsRequested) throws HyracksDataException,
-            IndexException {
+    public void diskComponentAdded(final ILSMIndex index, boolean fullMergeIsRequested)
+            throws HyracksDataException, IndexException {
         List<ILSMComponent> immutableComponents = index.getImmutableComponents();
         for (ILSMComponent c : immutableComponents) {
             if (c.getState() != ComponentState.READABLE_UNWRITABLE) {
@@ -57,5 +57,26 @@ public class ConstantMergePolicy implements ILSMMergePolicy {
     @Override
     public void configure(Map<String, String> properties) {
         numComponents = Integer.parseInt(properties.get("num-components"));
+    }
+
+    @Override
+    public boolean isMergeLagging(ILSMIndex index) {
+        // see PrefixMergePolicy.isMergeLagging() for the rationale behind this code.
+
+        List<ILSMComponent> immutableComponents = index.getImmutableComponents();
+        int totalImmutableComponentCount = immutableComponents.size();
+        int mergableImmutableComponentCount = 0;
+        int i = 0;
+        for (i = 0; i < totalImmutableComponentCount; i++) {
+            AbstractDiskLSMComponent c = (AbstractDiskLSMComponent) immutableComponents.get(i);
+            if (c.getState() != ComponentState.READABLE_UNWRITABLE) {
+                break;
+            }
+            ++mergableImmutableComponentCount;
+            if (mergableImmutableComponentCount == numComponents) {
+                return true;
+            }
+        }
+        return false;
     }
 }

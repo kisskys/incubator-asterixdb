@@ -39,15 +39,21 @@ public interface ILSMMergePolicy {
      * disk components in order to provide a reasonable query response time. Otherwise, the query
      * response time gets slower as the number of disk components increases.
      * In order to avoid such an unexpected situation according to the merge policy, a way to
-     * control the number of mergable disk components is provided by introducing a new method,
-     * isMegeLagging() in ILSMMergePolicy interface.When flushing an in-memory component is completed,
+     * control the number of disk components is provided by introducing a new method,
+     * isMegeLagging() in ILSMMergePolicy interface. When flushing an in-memory component is completed,
      * the provided isMergeLagging() method is called to decide whether the memory budget for the
      * current flushed in-memory component should be available for the incoming updated(inserted/deleted/updated)
      * entries or not. If the method returns true, i.e., the merge operation is lagged according to
      * the merge policy, the memory budget will not be made available for the incoming entries by
      * making the current flush operation thread wait until (ongoing) merge operation finishes.
-     * Therefore, this will effectively prevent the number of mergable disk components from exceeding
-     * the maximum number of mergable disk components.
+     * Therefore, this will effectively prevent the number of disk components from exceeding
+     * a threshold of the allowed number of disk components.
+     * 
+     * @param index
+     * @return true if merge operation is lagged according to the implemented merge policy,
+     *         false otherwise.
+     * @throws HyracksDataException
+     * @throws IndexException
      */
-    public boolean isMergeLagging(ILSMIndex index);
+    public boolean isMergeLagging(ILSMIndex index) throws HyracksDataException, IndexException;
 }

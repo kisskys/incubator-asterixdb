@@ -48,7 +48,7 @@ public interface ILSMMergePolicy {
      * making the current flush operation thread wait until (ongoing) merge operation finishes.
      * Therefore, this will effectively prevent the number of disk components from exceeding
      * a threshold of the allowed number of disk components.
-     * 
+     *
      * @param index
      * @return true if merge operation is lagged according to the implemented merge policy,
      *         false otherwise.

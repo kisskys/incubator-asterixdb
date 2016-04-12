@@ -44,11 +44,11 @@ public class ConstantMergePolicy implements ILSMMergePolicy {
         }
 
         if (fullMergeIsRequested) {
-            ILSMIndexAccessor accessor = (ILSMIndexAccessor) index.createAccessor(NoOpOperationCallback.INSTANCE,
+            ILSMIndexAccessor accessor = index.createAccessor(NoOpOperationCallback.INSTANCE,
                     NoOpOperationCallback.INSTANCE);
             accessor.scheduleFullMerge(index.getIOOperationCallback());
         } else if (immutableComponents.size() >= numComponents) {
-            ILSMIndexAccessor accessor = (ILSMIndexAccessor) index.createAccessor(NoOpOperationCallback.INSTANCE,
+            ILSMIndexAccessor accessor = index.createAccessor(NoOpOperationCallback.INSTANCE,
                     NoOpOperationCallback.INSTANCE);
             accessor.scheduleMerge(index.getIOOperationCallback(), immutableComponents);
         }
@@ -63,27 +63,27 @@ public class ConstantMergePolicy implements ILSMMergePolicy {
     public boolean isMergeLagging(ILSMIndex index) throws HyracksDataException, IndexException {
         // see PrefixMergePolicy.isMergeLagging() for the rationale behind this code.
 
-        // case 1. 
-        // if totalImmutableCommponentCount < threshold,
-        // merge operation is not lagged ==> return false.
-        //
-        // case 2.
-        // if a) totalImmutableCommponentCount >= threshold && b) there is an ongoing merge, 
-        // merge operation is lagged. ==> return true.
-        //
-        // case 3. *SPECIAL CASE*
-        // if a) totalImmutableCommponentCount >= threshold && b) there is *NO* ongoing merge,
-        // merge operation is lagged. ==> *schedule a merge operation* and then return true. 
-        // This is a special case that requires to schedule a merge operation. 
-        // Otherwise, all flush operations will be hung.
-        // This case can happen in a following situation:
-        // The system may crash when
-        // condition 1) the mergableImmutableCommponentCount >= threshold and
-        // condition 2) merge operation is going on.
-        // After the system is recovered, still condition 1) is true. 
-        // If there are flush operations in the same dataset partition after the recovery,
-        // all these flush operations may not proceed since there is no ongoing merge and 
-        // there will be no new merge either in this situation.
+        /**
+         * case 1.
+         * if totalImmutableCommponentCount < threshold,
+         * merge operation is not lagged ==> return false.
+         * case 2.
+         * if a) totalImmutableCommponentCount >= threshold && b) there is an ongoing merge,
+         * merge operation is lagged. ==> return true.
+         * case 3. *SPECIAL CASE*
+         * if a) totalImmutableCommponentCount >= threshold && b) there is *NO* ongoing merge,
+         * merge operation is lagged. ==> *schedule a merge operation* and then return true.
+         * This is a special case that requires to schedule a merge operation.
+         * Otherwise, all flush operations will be hung.
+         * This case can happen in a following situation:
+         * The system may crash when
+         * condition 1) the mergableImmutableCommponentCount >= threshold and
+         * condition 2) merge operation is going on.
+         * After the system is recovered, still condition 1) is true.
+         * If there are flush operations in the same dataset partition after the recovery,
+         * all these flush operations may not proceed since there is no ongoing merge and
+         * there will be no new merge either in this situation.
+         */
 
         List<ILSMComponent> immutableComponents = index.getImmutableComponents();
         int totalImmutableComponentCount = immutableComponents.size();
@@ -105,7 +105,7 @@ public class ConstantMergePolicy implements ILSMMergePolicy {
             if (!areComponentsMergable(immutableComponents)) {
                 throw new IllegalStateException();
             }
-            ILSMIndexAccessor accessor = (ILSMIndexAccessor) index.createAccessor(NoOpOperationCallback.INSTANCE,
+            ILSMIndexAccessor accessor = index.createAccessor(NoOpOperationCallback.INSTANCE,
                     NoOpOperationCallback.INSTANCE);
             accessor.scheduleMerge(index.getIOOperationCallback(), immutableComponents);
             return true;
@@ -114,7 +114,7 @@ public class ConstantMergePolicy implements ILSMMergePolicy {
 
     /**
      * checks whether all given components are mergable or not
-     * 
+     *
      * @param immutableComponents
      * @return true if all components are mergable, false otherwise.
      */
@@ -130,9 +130,9 @@ public class ConstantMergePolicy implements ILSMMergePolicy {
     /**
      * This method returns whether there is an ongoing merge operation or not by checking
      * each component state of given components.
-     * 
+     *
      * @param immutableComponents
-     * @return the index of the latest component being merged among the given list of immutable components
+     * @return true if there is an ongoing merge operation, false otherwise.
      */
     private boolean isMergeOngoing(List<ILSMComponent> immutableComponents) {
         int size = immutableComponents.size();

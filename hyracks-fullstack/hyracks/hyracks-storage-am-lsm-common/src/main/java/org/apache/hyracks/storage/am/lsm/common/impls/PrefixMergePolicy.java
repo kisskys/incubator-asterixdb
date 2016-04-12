@@ -49,7 +49,7 @@ public class PrefixMergePolicy implements ILSMMergePolicy {
         }
 
         if (fullMergeIsRequested) {
-            ILSMIndexAccessor accessor = (ILSMIndexAccessor) index.createAccessor(NoOpOperationCallback.INSTANCE,
+            ILSMIndexAccessor accessor = index.createAccessor(NoOpOperationCallback.INSTANCE,
                     NoOpOperationCallback.INSTANCE);
             accessor.scheduleFullMerge(index.getIOOperationCallback());
             return;
@@ -108,27 +108,27 @@ public class PrefixMergePolicy implements ILSMMergePolicy {
          * where the mergable components are disk components whose i) state == RU and ii) size < maxMergableComponentSize.
          */
 
-        // case 1. 
-        // if mergableImmutableCommponentCount < threshold,
-        // merge operation is not lagged ==> return false.
-        //
-        // case 2.
-        // if a) mergableImmutableCommponentCount >= threshold && b) there is an ongoing merge, 
-        // merge operation is lagged. ==> return true.
-        //
-        // case 3. *SPECIAL CASE*
-        // if a) mergableImmutableCommponentCount >= threshold && b) there is *NO* ongoing merge,
-        // merge operation is lagged. ==> *schedule a merge operation* and then return true. 
-        // This is a special case that requires to schedule a merge operation. 
-        // Otherwise, all flush operations will be hung.
-        // This case can happen in a following situation:
-        // The system may crash when
-        // condition 1) the mergableImmutableCommponentCount >= threshold and
-        // condition 2) merge operation is going on.
-        // After the system is recovered, still condition 1) is true. 
-        // If there are flush operations in the same dataset partition after the recovery,
-        // all these flush operations may not proceed since there is no ongoing merge and 
-        // there will be no new merge either in this situation.
+        /**
+         * case 1.
+         * if mergableImmutableCommponentCount < threshold,
+         * merge operation is not lagged ==> return false.
+         * case 2.
+         * if a) mergableImmutableCommponentCount >= threshold && b) there is an ongoing merge,
+         * merge operation is lagged. ==> return true.
+         * case 3. *SPECIAL CASE*
+         * if a) mergableImmutableCommponentCount >= threshold && b) there is *NO* ongoing merge,
+         * merge operation is lagged. ==> *schedule a merge operation* and then return true.
+         * This is a special case that requires to schedule a merge operation.
+         * Otherwise, all flush operations will be hung.
+         * This case can happen in a following situation:
+         * The system may crash when
+         * condition 1) the mergableImmutableCommponentCount >= threshold and
+         * condition 2) merge operation is going on.
+         * After the system is recovered, still condition 1) is true.
+         * If there are flush operations in the same dataset partition after the recovery,
+         * all these flush operations may not proceed since there is no ongoing merge and
+         * there will be no new merge either in this situation.
+         */
 
         List<ILSMComponent> immutableComponents = index.getImmutableComponents();
         int mergableImmutableComponentCount = getMergableImmutableComponentCount(immutableComponents);
@@ -162,9 +162,9 @@ public class PrefixMergePolicy implements ILSMMergePolicy {
     /**
      * This method returns whether there is an ongoing merge operation or not by checking
      * each component state of given components.
-     * 
+     *
      * @param immutableComponents
-     * @return the index of the latest component being merged among the given list of immutable components
+     * @return true if there is an ongoing merge operation, false otherwise.
      */
     private boolean isMergeOngoing(List<ILSMComponent> immutableComponents) {
         int size = immutableComponents.size();
@@ -180,7 +180,7 @@ public class PrefixMergePolicy implements ILSMMergePolicy {
      * This method returns the number of mergable components among the given list
      * of immutable components that are ordered from the latest component to order ones. A caller
      * need to make sure the order in the list.
-     * 
+     *
      * @param immutableComponents
      * @return the number of mergable component
      */
@@ -199,7 +199,7 @@ public class PrefixMergePolicy implements ILSMMergePolicy {
 
     /**
      * checks whether all given components are of READABLE_UNWRITABLE state
-     * 
+     *
      * @param immutableComponents
      * @return true if all components are of READABLE_UNWRITABLE state, false otherwise.
      */
@@ -214,7 +214,7 @@ public class PrefixMergePolicy implements ILSMMergePolicy {
 
     /**
      * schedule a merge operation according to this prefix merge policy
-     * 
+     *
      * @param index
      * @return true if merge is scheduled, false otherwise.
      * @throws HyracksDataException
@@ -249,7 +249,7 @@ public class PrefixMergePolicy implements ILSMMergePolicy {
                 }
                 // Reverse the components order back to its original order
                 Collections.reverse(mergableComponents);
-                ILSMIndexAccessor accessor = (ILSMIndexAccessor) index.createAccessor(NoOpOperationCallback.INSTANCE,
+                ILSMIndexAccessor accessor = index.createAccessor(NoOpOperationCallback.INSTANCE,
                         NoOpOperationCallback.INSTANCE);
                 accessor.scheduleMerge(index.getIOOperationCallback(), mergableComponents);
                 return true;

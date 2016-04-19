@@ -19,6 +19,7 @@
 package org.apache.hyracks.storage.am.common.impls;
 
 import org.apache.hyracks.api.context.IHyracksTaskContext;
+import org.apache.hyracks.api.dataflow.IOperatorNodePushable;
 import org.apache.hyracks.api.exceptions.HyracksDataException;
 import org.apache.hyracks.storage.am.common.api.IModificationOperationCallback;
 import org.apache.hyracks.storage.am.common.api.IModificationOperationCallbackFactory;
@@ -30,8 +31,8 @@ import org.apache.hyracks.storage.am.common.api.ISearchOperationCallbackFactory;
  * Implemented as an enum to preserve singleton model while being serializable
  */
 public enum NoOpOperationCallbackFactory
-    implements ISearchOperationCallbackFactory,IModificationOperationCallbackFactory {
-        INSTANCE;
+        implements ISearchOperationCallbackFactory, IModificationOperationCallbackFactory {
+    INSTANCE;
 
     @Override
     public ISearchOperationCallback createSearchOperationCallback(long resourceId, IHyracksTaskContext ctx) {
@@ -40,7 +41,8 @@ public enum NoOpOperationCallbackFactory
 
     @Override
     public IModificationOperationCallback createModificationOperationCallback(String resourcePath, long resourceId,
-            int resourcePartition, Object resource, IHyracksTaskContext ctx) throws HyracksDataException {
+            int resourcePartition, Object resource, IHyracksTaskContext ctx, IOperatorNodePushable operatorNodePushable)
+            throws HyracksDataException {
         return NoOpOperationCallback.INSTANCE;
     }
 }

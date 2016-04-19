@@ -22,6 +22,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Random;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
 import org.apache.asterix.common.config.AsterixPropertiesAccessor;
 import org.apache.asterix.common.config.AsterixTransactionProperties;
@@ -32,6 +33,7 @@ import org.apache.asterix.common.transactions.ILockManager;
 import org.apache.asterix.common.transactions.ITransactionContext;
 import org.apache.asterix.common.transactions.ITransactionManager;
 import org.apache.asterix.common.transactions.JobId;
+import org.apache.asterix.common.transactions.JobThreadId;
 import org.apache.asterix.transaction.management.service.logging.LogManager;
 import org.apache.asterix.transaction.management.service.transaction.TransactionContext;
 import org.apache.asterix.transaction.management.service.transaction.TransactionManagementConstants.LockManagerConstants.LockMode;
@@ -461,7 +463,8 @@ class LockRequestProducer implements Runnable {
         switch (request.requestType) {
             case RequestType.LOCK:
                 try {
-                    lockMgr.lock(request.datasetIdObj, request.entityHashValue, request.lockMode, request.txnContext);
+                    lockMgr.lock(request.jobThreadId, request.datasetIdObj, request.entityHashValue, request.lockMode,
+                            request.txnContext);
                 } catch (ACIDException e) {
                     if (request.txnContext.isTimeout()) {
                         if (request.txnContext.getTxnState() != ITransactionManager.ABORTED) {
@@ -469,7 +472,11 @@ class LockRequestProducer implements Runnable {
                             log("*** " + request.txnContext.getJobId() + " lock request causing deadlock ***");
                             log("Abort --> Releasing all locks acquired by " + request.txnContext.getJobId());
                             try {
-                                lockMgr.releaseLocks(request.txnContext);
+                                ConcurrentLinkedQueue<JobThreadId> jobThreadIdList = request.txnContext
+                                        .getJobThreadIdList();
+                                while (!jobThreadIdList.isEmpty()) {
+                                    lockMgr.releaseLocks(jobThreadIdList.remove(), request.txnContext);
+                                }
                             } catch (ACIDException e1) {
                                 e1.printStackTrace();
                             }
@@ -483,8 +490,8 @@ class LockRequestProducer implements Runnable {
                 break;
             case RequestType.INSTANT_LOCK:
                 try {
-                    lockMgr.instantLock(request.datasetIdObj, request.entityHashValue, request.lockMode,
-                            request.txnContext);
+                    lockMgr.instantLock(request.jobThreadId, request.datasetIdObj, request.entityHashValue,
+                            request.lockMode, request.txnContext);
                 } catch (ACIDException e) {
                     if (request.txnContext.isTimeout()) {
                         if (request.txnContext.getTxnState() != ITransactionManager.ABORTED) {
@@ -492,7 +499,11 @@ class LockRequestProducer implements Runnable {
                             log("*** " + request.txnContext.getJobId() + " lock request causing deadlock ***");
                             log("Abort --> Releasing all locks acquired by " + request.txnContext.getJobId());
                             try {
-                                lockMgr.releaseLocks(request.txnContext);
+                                ConcurrentLinkedQueue<JobThreadId> jobThreadIdList = request.txnContext
+                                        .getJobThreadIdList();
+                                while (!jobThreadIdList.isEmpty()) {
+                                    lockMgr.releaseLocks(jobThreadIdList.remove(), request.txnContext);
+                                }
                             } catch (ACIDException e1) {
                                 e1.printStackTrace();
                             }
@@ -505,18 +516,22 @@ class LockRequestProducer implements Runnable {
                 }
                 break;
             case RequestType.TRY_LOCK:
-                request.isTryLockFailed = !lockMgr.tryLock(request.datasetIdObj, request.entityHashValue,
-                        request.lockMode, request.txnContext);
+                request.isTryLockFailed = !lockMgr.tryLock(request.jobThreadId, request.datasetIdObj,
+                        request.entityHashValue, request.lockMode, request.txnContext);
                 break;
             case RequestType.INSTANT_TRY_LOCK:
-                lockMgr.instantTryLock(request.datasetIdObj, request.entityHashValue, request.lockMode,
-                        request.txnContext);
+                lockMgr.instantTryLock(request.jobThreadId, request.datasetIdObj, request.entityHashValue,
+                        request.lockMode, request.txnContext);
                 break;
             case RequestType.UNLOCK:
-                lockMgr.unlock(request.datasetIdObj, request.entityHashValue, request.lockMode, request.txnContext);
+                lockMgr.unlock(request.jobThreadId, request.datasetIdObj, request.entityHashValue, request.lockMode,
+                        request.txnContext);
                 break;
             case RequestType.RELEASE_LOCKS:
-                lockMgr.releaseLocks(request.txnContext);
+                ConcurrentLinkedQueue<JobThreadId> jobThreadIdList = request.txnContext.getJobThreadIdList();
+                while (!jobThreadIdList.isEmpty()) {
+                    lockMgr.releaseLocks(jobThreadIdList.remove(), request.txnContext);
+                }
                 break;
             default:
                 throw new UnsupportedOperationException("Unsupported lock method");
@@ -536,6 +551,7 @@ class LockRequestProducer implements Runnable {
 
 class LockRequest {
     public int requestType;
+    public JobThreadId jobThreadId;
     public DatasetId datasetIdObj;
     public int entityHashValue;
     public byte lockMode;
@@ -548,6 +564,7 @@ class LockRequest {
     public LockRequest(String threadName, int requestType, DatasetId datasetIdObj, int entityHashValue, byte lockMode,
             ITransactionContext txnContext) {
         this.requestType = requestType;
+        this.jobThreadId = new JobThreadId(txnContext.getJobId().getId());
         this.datasetIdObj = datasetIdObj;
         this.entityHashValue = entityHashValue;
         this.lockMode = lockMode;
@@ -615,7 +632,7 @@ class LockRequest {
             default:
                 throw new UnsupportedOperationException("Unsupported method");
         }
-        s.append("\tJ").append(txnContext.getJobId().getId()).append("\tD").append(datasetIdObj.getId()).append("\tE")
+        s.append("\tJ").append(jobThreadId).append("\tD").append(datasetIdObj.getId()).append("\tE")
                 .append(entityHashValue).append("\t");
         s.append(LockMode.toString(lockMode)).append("\n");
         return s.toString();

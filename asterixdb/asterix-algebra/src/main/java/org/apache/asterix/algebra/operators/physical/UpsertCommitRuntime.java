@@ -47,7 +47,7 @@ public class UpsertCommitRuntime extends CommitRuntime {
         } else {
             // Previous record found (delete + insert)
             int pkHash = computePrimaryKeyHashValue(frameTupleReference, primaryKeyFields);
-            TransactionUtil.formEntityCommitLogRecord(logRecord, transactionContext, datasetId, pkHash,
+            TransactionUtil.formEntityCommitLogRecord(logRecord, transactionContext, threadId, datasetId, pkHash,
                     frameTupleReference, primaryKeyFields, resourcePartition, LogType.UPSERT_ENTITY_COMMIT);
         }
     }

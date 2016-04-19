@@ -43,7 +43,7 @@ public class PrimaryIndexInstantSearchOperationCallback extends AbstractOperatio
     public boolean proceed(ITupleReference tuple) throws HyracksDataException {
         int pkHash = computePrimaryKeyHashValue(tuple, primaryKeyFields);
         try {
-            return lockManager.instantTryLock(datasetId, pkHash, LockMode.S, txnCtx);
+            return lockManager.instantTryLock(jobThreadId, datasetId, pkHash, LockMode.S, txnCtx);
         } catch (ACIDException e) {
             throw new HyracksDataException(e);
         }
@@ -53,7 +53,7 @@ public class PrimaryIndexInstantSearchOperationCallback extends AbstractOperatio
     public void reconcile(ITupleReference tuple) throws HyracksDataException {
         int pkHash = computePrimaryKeyHashValue(tuple, primaryKeyFields);
         try {
-            lockManager.lock(datasetId, pkHash, LockMode.S, txnCtx);
+            lockManager.lock(jobThreadId, datasetId, pkHash, LockMode.S, txnCtx);
         } catch (ACIDException e) {
             throw new HyracksDataException(e);
         }
@@ -68,7 +68,7 @@ public class PrimaryIndexInstantSearchOperationCallback extends AbstractOperatio
     public void complete(ITupleReference tuple) throws HyracksDataException {
         int pkHash = computePrimaryKeyHashValue(tuple, primaryKeyFields);
         try {
-            lockManager.unlock(datasetId, pkHash, LockMode.S, txnCtx);
+            lockManager.unlock(jobThreadId, datasetId, pkHash, LockMode.S, txnCtx);
         } catch (ACIDException e) {
             throw new HyracksDataException(e);
         }

@@ -54,7 +54,6 @@ public abstract class AbstractIndexModificationOperationCallback extends Abstrac
         tupleWriter = new SimpleTupleWriter();
         logRecord = new LogRecord();
         logRecord.setTxnCtx(txnCtx);
-        logRecord.setLogType(LogType.UPDATE);
         logRecord.setJobId(txnCtx.getJobId().getId());
         logRecord.setDatasetId(datasetId);
         logRecord.setResourceId(resourceId);
@@ -63,6 +62,7 @@ public abstract class AbstractIndexModificationOperationCallback extends Abstrac
     }
 
     protected void log(int PKHash, ITupleReference newValue) throws ACIDException {
+        logRecord.setLogType(LogType.UPDATE);
         logRecord.setPKHashValue(PKHash);
         logRecord.setPKFields(primaryKeyFields);
         logRecord.setPKValue(newValue);

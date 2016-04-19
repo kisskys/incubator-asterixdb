@@ -74,6 +74,9 @@ public class AsterixLSMPrimaryUpsertOperatorNodePushable extends LSMIndexInsertU
     private int presetFieldIndex = -1;
     private ARecordPointable recPointable;
     private DataOutput prevDos;
+    private int currentTupleIdx;
+    private int lastFlushedTupleIdx;
+    private boolean flushedPartialTuples;
 
     public AsterixLSMPrimaryUpsertOperatorNodePushable(IIndexOperatorDescriptor opDesc, IHyracksTaskContext ctx,
             int partition, int[] fieldPermutation, IRecordDescriptorProvider recordDescProvider, int numOfPrimaryKeys,
@@ -109,6 +112,7 @@ public class AsterixLSMPrimaryUpsertOperatorNodePushable extends LSMIndexInsertU
         RecordDescriptor inputRecDesc = recordDescProvider.getInputRecordDescriptor(opDesc.getActivityId(), 0);
         accessor = new FrameTupleAccessor(inputRecDesc);
         writeBuffer = new VSizeFrame(ctx);
+        appender = new FrameTupleAppender(writeBuffer);
         writer.open();
         indexHelper.open();
         index = indexHelper.getIndexInstance();
@@ -128,7 +132,7 @@ public class AsterixLSMPrimaryUpsertOperatorNodePushable extends LSMIndexInsertU
             appender = new FrameTupleAppender(new VSizeFrame(ctx), true);
             modCallback = opDesc.getModificationOpCallbackFactory().createModificationOperationCallback(
                     indexHelper.getResourcePath(), indexHelper.getResourceID(), indexHelper.getResourcePartition(),
-                    index, ctx);
+                    index, ctx, this);
 
             indexAccessor = index.createAccessor(modCallback, opDesc.getSearchOpCallbackFactory()
                     .createSearchOperationCallback(indexHelper.getResourceID(), ctx));
@@ -191,6 +195,10 @@ public class AsterixLSMPrimaryUpsertOperatorNodePushable extends LSMIndexInsertU
     //TODO: use tryDelete/tryInsert in order to prevent deadlocks
     @Override
     public void nextFrame(ByteBuffer buffer) throws HyracksDataException {
+        currentTupleIdx = 0;
+        lastFlushedTupleIdx = 0;
+        flushedPartialTuples = false;
+
         accessor.reset(buffer);
         LSMTreeIndexAccessor lsmAccessor = (LSMTreeIndexAccessor) indexAccessor;
         int tupleCount = accessor.getTupleCount();
@@ -229,14 +237,31 @@ public class AsterixLSMPrimaryUpsertOperatorNodePushable extends LSMIndexInsertU
                 }
                 writeOutput(i, recordWasInserted);
                 i++;
+                currentTupleIdx++;
             }
             if (tupleCount > 0) {
                 // All tuples has to move forward to maintain the correctness of the transaction pipeline
-                appender.write(writer, true);
+                if (flushedPartialTuples) {
+                    flushPartialFrame();
+                } else {
+                    appender.write(writer, true);
+                }
             }
         } catch (IndexException | IOException | AsterixException e) {
             throw new HyracksDataException(e);
         }
+    }
+
+    /*
+     * flushes tuples in a frame from lastFlushedTupleIdx(inclusive) to currentTupleIdx(exclusive)
+     */
+    public void flushPartialFrame() throws HyracksDataException {
+        for (int i = lastFlushedTupleIdx; i < currentTupleIdx; i++) {
+            FrameUtils.appendToWriter(writer, appender, accessor, i);
+        }
+        appender.write(writer, true);
+        lastFlushedTupleIdx = currentTupleIdx;
+        flushedPartialTuples = true;
     }
 
     private ITupleReference getPrevTupleWithFilter(ITupleReference prevTuple) throws IOException, AsterixException {

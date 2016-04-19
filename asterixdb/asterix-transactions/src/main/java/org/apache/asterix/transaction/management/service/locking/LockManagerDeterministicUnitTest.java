@@ -25,8 +25,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.NoSuchElementException;
 import java.util.Scanner;
-
-import org.apache.commons.io.FileUtils;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
 import org.apache.asterix.common.config.AsterixPropertiesAccessor;
 import org.apache.asterix.common.config.AsterixTransactionProperties;
@@ -36,10 +35,12 @@ import org.apache.asterix.common.transactions.DatasetId;
 import org.apache.asterix.common.transactions.ILockManager;
 import org.apache.asterix.common.transactions.ITransactionManager;
 import org.apache.asterix.common.transactions.JobId;
+import org.apache.asterix.common.transactions.JobThreadId;
 import org.apache.asterix.transaction.management.service.logging.LogManager;
 import org.apache.asterix.transaction.management.service.transaction.TransactionContext;
 import org.apache.asterix.transaction.management.service.transaction.TransactionManagementConstants.LockManagerConstants.LockMode;
 import org.apache.asterix.transaction.management.service.transaction.TransactionSubsystem;
+import org.apache.commons.io.FileUtils;
 
 public class LockManagerDeterministicUnitTest {
 
@@ -54,7 +55,7 @@ public class LockManagerDeterministicUnitTest {
 
         //initialize controller thread
         String requestFileName = new String(
-                "src/main/java/org.apache/asterix/transaction/management/service/locking/LockRequestFile");
+                "src/main/java/org/apache/asterix/transaction/management/service/locking/LockRequestFile");
         Thread t = new Thread(new LockRequestController(requestFileName));
         t.start();
     }
@@ -73,8 +74,8 @@ class LockRequestController implements Runnable {
     long defaultWaitTime;
 
     public LockRequestController(String requestFileName) throws ACIDException, AsterixException {
-        this.txnProvider = new TransactionSubsystem("nc1", new TestRuntimeContextProvider(), new AsterixTransactionProperties(
-                new AsterixPropertiesAccessor()));
+        this.txnProvider = new TransactionSubsystem("nc1", new TestRuntimeContextProvider(),
+                new AsterixTransactionProperties(new AsterixPropertiesAccessor()));
         this.workerReadyQueue = new WorkerReadyQueue();
         this.requestList = new ArrayList<LockRequest>();
         this.expectedResultList = new ArrayList<ArrayList<Integer>>();
@@ -299,8 +300,8 @@ class LockRequestController implements Runnable {
                     }
                     log("LockRequest[" + i++ + "]:T" + threadId + "," + requestType + ",J" + jobId + ",D" + datasetId
                             + ",E" + PKHashVal + "," + lockMode);
-                    lockRequest = new LockRequest("Thread-" + threadId, getRequestType(requestType), new DatasetId(
-                            datasetId), PKHashVal, getLockMode(lockMode), txnContext);
+                    lockRequest = new LockRequest("Thread-" + threadId, getRequestType(requestType),
+                            new DatasetId(datasetId), PKHashVal, getLockMode(lockMode), txnContext);
                 }
 
                 requestList.add(lockRequest);
@@ -445,7 +446,11 @@ class LockRequestWorker implements Runnable {
                         log("*** " + lockRequest.txnContext.getJobId() + " lock request causing deadlock ***");
                         log("Abort --> Releasing all locks acquired by " + lockRequest.txnContext.getJobId());
                         try {
-                            lockMgr.releaseLocks(lockRequest.txnContext);
+                            ConcurrentLinkedQueue<JobThreadId> jobThreadIdList = lockRequest.txnContext
+                                    .getJobThreadIdList();
+                            while (!jobThreadIdList.isEmpty()) {
+                                lockMgr.releaseLocks(jobThreadIdList.remove(), lockRequest.txnContext);
+                            }
                         } catch (ACIDException e1) {
                             e1.printStackTrace();
                         }
@@ -473,24 +478,30 @@ class LockRequestWorker implements Runnable {
 
         switch (request.requestType) {
             case RequestType.LOCK:
-                lockMgr.lock(request.datasetIdObj, request.entityHashValue, request.lockMode, request.txnContext);
-                break;
-            case RequestType.INSTANT_LOCK:
-                lockMgr.instantLock(request.datasetIdObj, request.entityHashValue, request.lockMode, request.txnContext);
-                break;
-            case RequestType.TRY_LOCK:
-                request.isTryLockFailed = !lockMgr.tryLock(request.datasetIdObj, request.entityHashValue,
-                        request.lockMode, request.txnContext);
-                break;
-            case RequestType.INSTANT_TRY_LOCK:
-                lockMgr.instantTryLock(request.datasetIdObj, request.entityHashValue, request.lockMode,
+                lockMgr.lock(request.jobThreadId, request.datasetIdObj, request.entityHashValue, request.lockMode,
                         request.txnContext);
                 break;
+            case RequestType.INSTANT_LOCK:
+                lockMgr.instantLock(request.jobThreadId, request.datasetIdObj, request.entityHashValue,
+                        request.lockMode, request.txnContext);
+                break;
+            case RequestType.TRY_LOCK:
+                request.isTryLockFailed = !lockMgr.tryLock(request.jobThreadId, request.datasetIdObj,
+                        request.entityHashValue, request.lockMode, request.txnContext);
+                break;
+            case RequestType.INSTANT_TRY_LOCK:
+                lockMgr.instantTryLock(request.jobThreadId, request.datasetIdObj, request.entityHashValue,
+                        request.lockMode, request.txnContext);
+                break;
             case RequestType.UNLOCK:
-                lockMgr.unlock(request.datasetIdObj, request.entityHashValue, request.lockMode, request.txnContext);
+                lockMgr.unlock(request.jobThreadId, request.datasetIdObj, request.entityHashValue, request.lockMode,
+                        request.txnContext);
                 break;
             case RequestType.RELEASE_LOCKS:
-                lockMgr.releaseLocks(request.txnContext);
+                ConcurrentLinkedQueue<JobThreadId> jobThreadIdList = request.txnContext.getJobThreadIdList();
+                while (!jobThreadIdList.isEmpty()) {
+                    lockMgr.releaseLocks(request.jobThreadId, request.txnContext);
+                }
                 break;
             default:
                 throw new UnsupportedOperationException("Unsupported lock method");

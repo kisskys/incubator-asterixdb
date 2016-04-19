@@ -32,9 +32,10 @@ public interface ILogRecord {
     }
 
     public static final int JOB_TERMINATE_LOG_SIZE = 14; //JOB_COMMIT or ABORT log type
-    public static final int ENTITY_COMMIT_LOG_BASE_SIZE = 30;
+    public static final int ENTITY_COMMIT_LOG_BASE_SIZE = 38;
     public static final int UPDATE_LOG_BASE_SIZE = 59;
     public static final int FLUSH_LOG_SIZE = 18;
+    public static final int WAIT_LOG_SIZE = 14;
 
     public LogRecord.RECORD_STATUS readLogRecord(ByteBuffer buffer);
 
@@ -55,6 +56,10 @@ public interface ILogRecord {
     public int getJobId();
 
     public void setJobId(int jobId);
+
+    public long getThreadId();
+
+    public void setThreadId(long threadId);
 
     public int getDatasetId();
 

@@ -46,7 +46,7 @@ public class PrimaryIndexSearchOperationCallback extends AbstractOperationCallba
     @Override
     public boolean proceed(ITupleReference tuple) throws HyracksDataException {
         try {
-            return lockManager.tryLock(datasetId, -1, LockMode.S, txnCtx);
+            return lockManager.tryLock(jobThreadId, datasetId, -1, LockMode.S, txnCtx);
         } catch (ACIDException e) {
             throw new HyracksDataException(e);
         }
@@ -55,7 +55,7 @@ public class PrimaryIndexSearchOperationCallback extends AbstractOperationCallba
     @Override
     public void reconcile(ITupleReference tuple) throws HyracksDataException {
         try {
-            lockManager.lock(datasetId, -1, LockMode.S, txnCtx);
+            lockManager.lock(jobThreadId, datasetId, -1, LockMode.S, txnCtx);
         } catch (ACIDException e) {
             throw new HyracksDataException(e);
         }

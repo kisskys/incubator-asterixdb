@@ -37,7 +37,8 @@ import org.apache.hyracks.storage.am.common.tuples.SimpleTupleWriter;
  * LogType(1)
  * JobId(4)
  * ---------------------------
- * [Header2] (16 bytes + PKValueSize) : for entity_commit, upsert_entity_commit, and update log types
+ * [Header2] (24 bytes + PKValueSize) : for entity_commit, upsert_entity_commit, and update log types
+ * ThreadId(8) //only for entity commit log
  * DatasetId(4) //stored in dataset_dataset in Metadata Node
  * ResourcePartition(4)
  * PKHashValue(4)
@@ -60,11 +61,14 @@ import org.apache.hyracks.storage.am.common.tuples.SimpleTupleWriter;
  * ---------------------------
  * = LogSize =
  * 1) JOB_COMMIT_LOG_SIZE: 14 bytes (Header1(6) + Tail(8))
- * 2) ENTITY_COMMIT || UPSERT_ENTITY_COMMIT: (Header1(6) + Header2(16) + Tail(8)) + PKValueSize
- *    --> ENTITY_COMMIT_LOG_BASE_SIZE = 30
+ * 2) ENTITY_COMMIT || UPSERT_ENTITY_COMMIT: (Header1(6) + Header2(24) + Tail(8)) + PKValueSize
+ *    --> ENTITY_COMMIT_LOG_BASE_SIZE = 38
  * 3) UPDATE: (Header1(6) + Header2(16) + + Header3(20) + Body(9) + Tail(8)) + PKValueSize + NewValueSize
  *    --> UPDATE_LOG_BASE_SIZE = 59
  * 4) FLUSH: 18 bytes (Header1(6) + DatasetId(4) + Tail(8))
+ * 5) WAIT_LOG_SIZE: 14 bytes (Header1(6) + Tail(8)) 
+ *    --> WAIT_LOG only requires LogType Field, but in order to conform the log reader protocol 
+ *        it also includes LogSource and JobId fields.
  */
 
 public class LogRecord implements ILogRecord {
@@ -73,6 +77,7 @@ public class LogRecord implements ILogRecord {
     private byte logSource;
     private byte logType;
     private int jobId;
+    private long threadId;
     private int datasetId;
     private int PKHashValue;
     private int PKValueSize;
@@ -122,6 +127,7 @@ public class LogRecord implements ILogRecord {
     public final static int PKHASH_LEN = Integer.BYTES;
     public final static int PKSZ_LEN = Integer.BYTES;
     private final static int PRVLSN_LEN = Long.BYTES;
+    private final static int THREADID_LEN = Long.BYTES;
     private final static int RS_PARTITION_LEN = Integer.BYTES;
     private final static int RSID_LEN = Long.BYTES;
     private final static int LOGRCD_SZ_LEN = Integer.BYTES;
@@ -131,7 +137,8 @@ public class LogRecord implements ILogRecord {
     private final static int CHKSUM_LEN = Long.BYTES;
 
     private final static int ALL_RECORD_HEADER_LEN = LOG_SOURCE_LEN + TYPE_LEN + JobId.BYTES;
-    private final static int ENTITYCOMMIT_UPDATE_HEADER_LEN = RS_PARTITION_LEN + DatasetId.BYTES + PKHASH_LEN
+    private final static int UPDATE_HEADER_LEN = RS_PARTITION_LEN + DatasetId.BYTES + PKHASH_LEN + PKSZ_LEN;
+    private final static int ENTITYCOMMIT_HEADER_LEN = THREADID_LEN + RS_PARTITION_LEN + DatasetId.BYTES + PKHASH_LEN
             + PKSZ_LEN;
     private final static int UPDATE_LSN_HEADER = PRVLSN_LEN + RSID_LEN + LOGRCD_SZ_LEN;
     private final static int UPDATE_BODY_HEADER = FLDCNT_LEN + NEWOP_LEN + NEWVALSZ_LEN;
@@ -142,6 +149,9 @@ public class LogRecord implements ILogRecord {
         buffer.put(logType);
         buffer.putInt(jobId);
         if (logType == LogType.UPDATE || logType == LogType.ENTITY_COMMIT || logType == LogType.UPSERT_ENTITY_COMMIT) {
+            if (logType == LogType.ENTITY_COMMIT || logType == LogType.UPSERT_ENTITY_COMMIT) {
+                buffer.putLong(threadId);
+            }
             buffer.putInt(resourcePartition);
             buffer.putInt(datasetId);
             buffer.putInt(PKHashValue);
@@ -265,14 +275,30 @@ public class LogRecord implements ILogRecord {
         logType = buffer.get();
         jobId = buffer.getInt();
 
-        if (logType != LogType.FLUSH) {
+        if (logType == LogType.FLUSH) {
+            if (buffer.remaining() < DatasetId.BYTES) {
+                return RECORD_STATUS.TRUNCATED;
+            }
+            datasetId = buffer.getInt();
+            resourceId = 0l;
+            computeAndSetLogSize();
+        } else if (logType == LogType.WAIT) {
+            computeAndSetLogSize();
+        } else {
             if (logType == LogType.JOB_COMMIT || logType == LogType.ABORT) {
                 datasetId = -1;
                 PKHashValue = -1;
             } else {
-                //attempt to read in the resourcePartition, dsid, PK hash and PK length
-                if (buffer.remaining() < ENTITYCOMMIT_UPDATE_HEADER_LEN) {
+                //attempt to read in the threadid only for entity commit log, resourcePartition, dsid, PK hash and PK length
+                if (logType == LogType.UPDATE && buffer.remaining() < UPDATE_HEADER_LEN) {
                     return RECORD_STATUS.TRUNCATED;
+                } else if (buffer.remaining() < ENTITYCOMMIT_HEADER_LEN) {
+                    //for either ENTITY_COMMIT or UPSERT_ENTITY_COMMIT type
+                    return RECORD_STATUS.TRUNCATED;
+                }
+
+                if (logType == LogType.ENTITY_COMMIT || logType == LogType.UPSERT_ENTITY_COMMIT) {
+                    threadId = buffer.getLong();
                 }
                 resourcePartition = buffer.getInt();
                 datasetId = buffer.getInt();
@@ -306,15 +332,8 @@ public class LogRecord implements ILogRecord {
             } else {
                 computeAndSetLogSize();
             }
-        } else {
-            computeAndSetLogSize();
-            if (buffer.remaining() < DatasetId.BYTES) {
-                return RECORD_STATUS.TRUNCATED;
-            }
-            datasetId = buffer.getInt();
-            resourceId = 0l;
-            computeAndSetLogSize();
         }
+
         return RECORD_STATUS.OK;
     }
 
@@ -412,6 +431,9 @@ public class LogRecord implements ILogRecord {
             case LogType.FLUSH:
                 logSize = FLUSH_LOG_SIZE;
                 break;
+            case LogType.WAIT:
+                logSize = WAIT_LOG_SIZE;
+                break;
             default:
                 throw new IllegalStateException("Unsupported Log Type");
         }
@@ -425,7 +447,10 @@ public class LogRecord implements ILogRecord {
         builder.append(" LogType : ").append(LogType.toString(logType));
         builder.append(" LogSize : ").append(logSize);
         builder.append(" JobId : ").append(jobId);
-        if (logType == LogType.ENTITY_COMMIT || logType == LogType.UPDATE) {
+        if (logType == LogType.ENTITY_COMMIT || logType == LogType.UPSERT_ENTITY_COMMIT) {
+            builder.append(" ThreadId : ").append(threadId);
+        }
+        if (logType == LogType.ENTITY_COMMIT || logType == LogType.UPSERT_ENTITY_COMMIT || logType == LogType.UPDATE) {
             builder.append(" DatasetId : ").append(datasetId);
             builder.append(" ResourcePartition : ").append(resourcePartition);
             builder.append(" PKHashValue : ").append(PKHashValue);
@@ -491,6 +516,16 @@ public class LogRecord implements ILogRecord {
     @Override
     public void setJobId(int jobId) {
         this.jobId = jobId;
+    }
+
+    @Override
+    public long getThreadId() {
+        return threadId;
+    }
+
+    @Override
+    public void setThreadId(long threadId) {
+        this.threadId = threadId;
     }
 
     @Override

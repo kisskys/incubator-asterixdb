@@ -42,14 +42,15 @@ public interface ILockManager {
      * request
      * Waiting transaction would eventually garb the lock, or get timed-out
      *
+     * @param JobThreadId
      * @param datasetId
      * @param entityHashValue
      * @param lockMode
      * @param txnContext
      * @throws ACIDException
      */
-    public void lock(DatasetId datasetId, int entityHashValue, byte lockMode, ITransactionContext txnContext)
-            throws ACIDException;
+    public void lock(JobThreadId jobThreadId, DatasetId datasetId, int entityHashValue, byte lockMode,
+            ITransactionContext txnContext) throws ACIDException;
 
     /**
      * The method releases "All" the locks taken/waiting-on by a specific
@@ -57,38 +58,28 @@ public interface ILockManager {
      * potential waiters, which can be waken up based on their requested lock
      * mode and the waiting policy would be waken up
      *
+     * @param JobThreadId
      * @param txnContext
      * @throws ACIDException
      */
-    public void releaseLocks(ITransactionContext txnContext) throws ACIDException;
+    public void releaseLocks(JobThreadId jobThreadId, ITransactionContext txnContext) throws ACIDException;
 
     /**
+     * @param JobThreadId
      * @param datasetId
      * @param entityHashValue
      * @param lockMode
      * @param txnContext
      * @throws ACIDException
-     *             TODO
      * @return
      */
-    public void unlock(DatasetId datasetId, int entityHashValue, byte lockMode, ITransactionContext txnContext)
-            throws ACIDException;
+    public void unlock(JobThreadId jobThreadId, DatasetId datasetId, int entityHashValue, byte lockMode,
+            ITransactionContext txnContext) throws ACIDException;
 
     /**
      * Call to lock and unlock a specific resource in a specific lock mode
      *
-     * @param datasetId
-     * @param entityHashValue
-     * @param lockMode
-     *            TODO
-     * @param context
-     * @return
-     * @throws ACIDException
-     */
-    public void instantLock(DatasetId datasetId, int entityHashValue, byte lockMode, ITransactionContext context)
-            throws ACIDException;
-
-    /**
+     * @param JobThreadId
      * @param datasetId
      * @param entityHashValue
      * @param lockMode
@@ -96,10 +87,23 @@ public interface ILockManager {
      * @return
      * @throws ACIDException
      */
-    public boolean tryLock(DatasetId datasetId, int entityHashValue, byte lockMode, ITransactionContext context)
-            throws ACIDException;
+    public void instantLock(JobThreadId jobThreadId, DatasetId datasetId, int entityHashValue, byte lockMode,
+            ITransactionContext context) throws ACIDException;
 
     /**
+     * @param JobThreadId
+     * @param datasetId
+     * @param entityHashValue
+     * @param lockMode
+     * @param context
+     * @return
+     * @throws ACIDException
+     */
+    public boolean tryLock(JobThreadId jobThreadId, DatasetId datasetId, int entityHashValue, byte lockMode,
+            ITransactionContext context) throws ACIDException;
+
+    /**
+     * @param JobThreadId
      * @param datasetId
      * @param entityHashValue
      * @param lockMode
@@ -107,8 +111,8 @@ public interface ILockManager {
      * @return
      * @throws ACIDException
      */
-    boolean instantTryLock(DatasetId datasetId, int entityHashValue, byte lockMode, ITransactionContext txnContext)
-            throws ACIDException;
+    boolean instantTryLock(JobThreadId jobThreadId, DatasetId datasetId, int entityHashValue, byte lockMode,
+            ITransactionContext txnContext) throws ACIDException;
 
     /**
      * Prints out the contents of the transactions' table in a readable fashion

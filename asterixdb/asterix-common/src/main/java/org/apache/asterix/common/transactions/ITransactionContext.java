@@ -18,6 +18,8 @@
  */
 package org.apache.asterix.common.transactions;
 
+import java.util.concurrent.ConcurrentLinkedQueue;
+
 import org.apache.hyracks.storage.am.lsm.common.api.ILSMIndex;
 
 public interface ITransactionContext {
@@ -56,4 +58,8 @@ public interface ITransactionContext {
     public void incrementNumActiveOperations();
 
     public void decrementNumActiveOperations();
+
+    public void addJobThreadId(JobThreadId jobThreadId);
+
+    public ConcurrentLinkedQueue<JobThreadId> getJobThreadIdList();
 }

@@ -18,13 +18,15 @@
 */
 package org.apache.asterix.transaction.management.service.locking;
 
+import java.io.PrintStream;
+import java.util.concurrent.ConcurrentLinkedQueue;
+
 import org.apache.asterix.common.exceptions.ACIDException;
 import org.apache.asterix.common.transactions.DatasetId;
 import org.apache.asterix.common.transactions.ILockManager;
 import org.apache.asterix.common.transactions.ITransactionContext;
+import org.apache.asterix.common.transactions.JobThreadId;
 import org.apache.asterix.transaction.management.service.transaction.TransactionManagementConstants;
-
-import java.io.PrintStream;
 
 /**
  * repesents a lock request for testing.
@@ -56,68 +58,69 @@ abstract class Request {
         this.txnCtx = txnCtx;
     }
 
-    String asString(final Kind kind, final ITransactionContext txnCtx,
-                    final DatasetId dsId, final int hashValue, final byte lockMode) {
-        return txnCtx.getJobId().toString() + ":" + kind.name() + ":" + dsId.getId() + ":" + hashValue + ":"
+    String asString(final Kind kind, final JobThreadId jobThreadId, final DatasetId dsId, final int hashValue,
+            final byte lockMode) {
+        return jobThreadId.toString() + ":" + kind.name() + ":" + dsId.getId() + ":" + hashValue + ":"
                 + TransactionManagementConstants.LockManagerConstants.LockMode.toString(lockMode);
     }
 
     abstract boolean execute(ILockManager lockMgr) throws ACIDException;
 
-    static Request create(final Kind kind, final ITransactionContext txnCtx,
-                          final DatasetId dsId, final int hashValue, final byte lockMode) {
+    static Request create(final Kind kind, final ITransactionContext txnCtx, JobThreadId jobThreadId, final DatasetId dsId,
+            final int hashValue, final byte lockMode) {
+
         switch (kind) {
             case INSTANT_TRY_LOCK:
                 return new Request(kind, txnCtx) {
                     boolean execute(ILockManager lockMgr) throws ACIDException {
-                        return lockMgr.instantTryLock(dsId, hashValue, lockMode, txnCtx);
+                        return lockMgr.instantTryLock(jobThreadId, dsId, hashValue, lockMode, txnCtx);
                     }
 
                     public String toString() {
-                        return asString(kind, txnCtx, dsId, hashValue, lockMode);
+                        return asString(kind, jobThreadId, dsId, hashValue, lockMode);
                     }
                 };
             case INSTANT_LOCK:
                 return new Request(kind, txnCtx) {
                     boolean execute(ILockManager lockMgr) throws ACIDException {
-                        lockMgr.instantLock(dsId, hashValue, lockMode, txnCtx);
+                        lockMgr.instantLock(jobThreadId, dsId, hashValue, lockMode, txnCtx);
                         return true;
                     }
 
                     public String toString() {
-                        return asString(kind, txnCtx, dsId, hashValue, lockMode);
+                        return asString(kind, jobThreadId, dsId, hashValue, lockMode);
                     }
                 };
             case LOCK:
                 return new Request(kind, txnCtx) {
                     boolean execute(ILockManager lockMgr) throws ACIDException {
-                        lockMgr.lock(dsId, hashValue, lockMode, txnCtx);
+                        lockMgr.lock(jobThreadId, dsId, hashValue, lockMode, txnCtx);
                         return true;
                     }
 
                     public String toString() {
-                        return asString(kind, txnCtx, dsId, hashValue, lockMode);
+                        return asString(kind, jobThreadId, dsId, hashValue, lockMode);
                     }
                 };
             case TRY_LOCK:
                 return new Request(kind, txnCtx) {
                     boolean execute(ILockManager lockMgr) throws ACIDException {
-                        return lockMgr.tryLock(dsId, hashValue, lockMode, txnCtx);
+                        return lockMgr.tryLock(jobThreadId, dsId, hashValue, lockMode, txnCtx);
                     }
 
                     public String toString() {
-                        return asString(kind, txnCtx, dsId, hashValue, lockMode);
+                        return asString(kind, jobThreadId, dsId, hashValue, lockMode);
                     }
                 };
             case UNLOCK:
                 return new Request(kind, txnCtx) {
                     boolean execute(ILockManager lockMgr) throws ACIDException {
-                        lockMgr.unlock(dsId, hashValue, lockMode, txnCtx);
+                        lockMgr.unlock(jobThreadId, dsId, hashValue, lockMode, txnCtx);
                         return true;
                     }
 
                     public String toString() {
-                        return asString(kind, txnCtx, dsId, hashValue, lockMode);
+                        return asString(kind, jobThreadId, dsId, hashValue, lockMode);
                     }
                 };
             default:
@@ -129,7 +132,10 @@ abstract class Request {
         if (kind == Kind.RELEASE) {
             return new Request(kind, txnCtx) {
                 boolean execute(ILockManager lockMgr) throws ACIDException {
-                    lockMgr.releaseLocks(txnCtx);
+                    ConcurrentLinkedQueue<JobThreadId> jobThreadIdList = txnCtx.getJobThreadIdList();
+                    while (!jobThreadIdList.isEmpty()) {
+                        lockMgr.releaseLocks(jobThreadIdList.remove(), txnCtx);
+                    }
                     return true;
                 }
 

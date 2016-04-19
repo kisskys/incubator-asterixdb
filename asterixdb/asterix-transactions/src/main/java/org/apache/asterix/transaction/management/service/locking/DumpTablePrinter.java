@@ -21,23 +21,22 @@ package org.apache.asterix.transaction.management.service.locking;
 
 import java.util.concurrent.ConcurrentHashMap;
 
+import org.apache.asterix.common.transactions.JobThreadId;
+
 public class DumpTablePrinter implements TablePrinter {
     private ResourceGroupTable table;
     private ResourceArenaManager resArenaMgr;
     private RequestArenaManager reqArenaMgr;
     private JobArenaManager jobArenaMgr;
-    private ConcurrentHashMap<Integer, Long> jobIdSlotMap;
+    private ConcurrentHashMap<JobThreadId, Long> jobThreadId2SlotMap;
 
-    DumpTablePrinter(ResourceGroupTable table,
-                     ResourceArenaManager resArenaMgr,
-                     RequestArenaManager reqArenaMgr,
-                     JobArenaManager jobArenaMgr,
-                     ConcurrentHashMap<Integer, Long> jobIdSlotMap) {
+    DumpTablePrinter(ResourceGroupTable table, ResourceArenaManager resArenaMgr, RequestArenaManager reqArenaMgr,
+            JobArenaManager jobArenaMgr, ConcurrentHashMap<JobThreadId, Long> jobIdSlotMap) {
         this.table = table;
         this.resArenaMgr = resArenaMgr;
         this.reqArenaMgr = reqArenaMgr;
         this.jobArenaMgr = jobArenaMgr;
-        this.jobIdSlotMap = jobIdSlotMap;
+        this.jobThreadId2SlotMap = jobIdSlotMap;
     }
 
     public StringBuilder append(StringBuilder sb) {
@@ -56,9 +55,9 @@ public class DumpTablePrinter implements TablePrinter {
             sb.append(">>dump_end\t>>----- [reqArenaMgr] -----\n");
 
             sb.append(">>dump_begin\t>>----- [jobIdSlotMap] -----\n");
-            for (Integer i : jobIdSlotMap.keySet()) {
-                sb.append(i).append(" : ");
-                TypeUtil.Global.append(sb, jobIdSlotMap.get(i));
+            for (JobThreadId j : jobThreadId2SlotMap.keySet()) {
+                sb.append(j).append(" : ");
+                TypeUtil.Global.append(sb, jobThreadId2SlotMap.get(j));
                 sb.append("\n");
             }
             sb.append(">>dump_end\t>>----- [jobIdSlotMap] -----\n");

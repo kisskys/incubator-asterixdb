@@ -62,8 +62,8 @@ public class LogManagerWithReplication extends LogManager {
         }
 
         if (logRecord.getLogSource() == LogSource.LOCAL) {
-            if ((logRecord.getLogType() == LogType.JOB_COMMIT || logRecord.getLogType() == LogType.ABORT)
-                    && !logRecord.isFlushed()) {
+            if ((logRecord.getLogType() == LogType.JOB_COMMIT || logRecord.getLogType() == LogType.ABORT
+                    || logRecord.getLogType() == LogType.WAIT) && !logRecord.isFlushed()) {
                 synchronized (logRecord) {
                     while (!logRecord.isFlushed()) {
                         try {

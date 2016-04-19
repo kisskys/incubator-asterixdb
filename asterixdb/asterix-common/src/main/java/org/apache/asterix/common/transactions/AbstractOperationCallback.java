@@ -31,6 +31,7 @@ public abstract class AbstractOperationCallback {
     protected final ITransactionContext txnCtx;
     protected final ILockManager lockManager;
     protected final long[] longHashes;
+    protected final JobThreadId jobThreadId;
 
     public AbstractOperationCallback(int datasetId, int[] primaryKeyFields, ITransactionContext txnCtx,
             ILockManager lockManager) {
@@ -39,6 +40,10 @@ public abstract class AbstractOperationCallback {
         this.txnCtx = txnCtx;
         this.lockManager = lockManager;
         this.longHashes = new long[2];
+        this.jobThreadId = txnCtx != null ? new JobThreadId(txnCtx.getJobId().getId()) : null;
+        if (txnCtx != null) {
+            txnCtx.addJobThreadId(jobThreadId);
+        }
     }
 
     public int computePrimaryKeyHashValue(ITupleReference tuple, int[] primaryKeyFields) {

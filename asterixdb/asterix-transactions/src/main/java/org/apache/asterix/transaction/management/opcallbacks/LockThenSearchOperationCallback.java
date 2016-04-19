@@ -55,7 +55,7 @@ public class LockThenSearchOperationCallback extends AbstractOperationCallback i
     public void before(ITupleReference tuple) throws HyracksDataException {
         int pkHash = computePrimaryKeyHashValue(tuple, primaryKeyFields);
         try {
-            lockManager.lock(datasetId, pkHash, LockMode.X, txnCtx);
+            lockManager.lock(jobThreadId, datasetId, pkHash, LockMode.X, txnCtx);
         } catch (ACIDException e) {
             throw new HyracksDataException(e);
         }

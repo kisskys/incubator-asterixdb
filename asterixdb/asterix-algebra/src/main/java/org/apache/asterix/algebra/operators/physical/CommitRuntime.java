@@ -58,6 +58,7 @@ public class CommitRuntime implements IPushRuntime {
     protected ITransactionContext transactionContext;
     protected FrameTupleAccessor frameTupleAccessor;
     protected final int resourcePartition;
+    protected long threadId;
 
     public CommitRuntime(IHyracksTaskContext ctx, JobId jobId, int datasetId, int[] primaryKeyFields,
             boolean isTemporaryDatasetWriteJob, boolean isWriteTransaction, int resourcePartition) {
@@ -79,6 +80,7 @@ public class CommitRuntime implements IPushRuntime {
     @Override
     public void open() throws HyracksDataException {
         try {
+            this.threadId = Thread.currentThread().getId();
             transactionContext = transactionManager.getTransactionContext(jobId, false);
             transactionContext.setWriteTxn(isWriteTransaction);
         } catch (ACIDException e) {
@@ -117,8 +119,8 @@ public class CommitRuntime implements IPushRuntime {
 
     protected void formLogRecord(ByteBuffer buffer, int t) {
         int pkHash = computePrimaryKeyHashValue(frameTupleReference, primaryKeyFields);
-        TransactionUtil.formEntityCommitLogRecord(logRecord, transactionContext, datasetId, pkHash, frameTupleReference,
-                primaryKeyFields, resourcePartition, LogType.ENTITY_COMMIT);
+        TransactionUtil.formEntityCommitLogRecord(logRecord, transactionContext, threadId, datasetId, pkHash,
+                frameTupleReference, primaryKeyFields, resourcePartition, LogType.ENTITY_COMMIT);
     }
 
     protected int computePrimaryKeyHashValue(ITupleReference tuple, int[] primaryKeyFields) {

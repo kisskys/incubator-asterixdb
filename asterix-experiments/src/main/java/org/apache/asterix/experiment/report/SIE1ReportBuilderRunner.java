@@ -23,9 +23,9 @@ import java.io.FileOutputStream;
 import java.util.ArrayList;
 
 public class SIE1ReportBuilderRunner {
-    String expHomePath = "/Users/kisskys/workspace/asterix_master/resultLog/MemBuf3g-DiskBuf3g-Lsev-Jvm7g-Lock0g/exp1/";
+    String expHomePath = "/Users/kisskys/workspace/asterix_master/resultLog/MemBuf2g-DiskBuf3g-Lsev-Jvm9g-Lock4p5g/exp1/";
     String runLogFileName = "run-exp1.log";
-    String outputFilePath = "/Users/kisskys/workspace/asterix_master/resultLog/MemBuf3g-DiskBuf3g-Lsev-Jvm7g-Lock0g/result-report/";
+    String outputFilePath = "/Users/kisskys/workspace/asterix_master/resultLog/result-report/";
 
     SIE1ReportBuilder sie1ADhbtree = new SIE1ReportBuilder(expHomePath, "SpatialIndexExperiment1ADhbtree",
             runLogFileName);
@@ -188,37 +188,127 @@ public class SIE1ReportBuilderRunner {
         }
     }
 
-    public void generateIndexSize() throws Exception {
+    public void generatePrimaryIndexSize() throws Exception {
         sb.setLength(0);
-        sb.append("# sie1 index size report\n");
+        sb.append("# sie1 primary index size report\n");
+
+        sb.append("# number of nodes, dhbtree, dhvbtree, rtree, shbtree, sif\n");
+        sb.append("1,").append(sie1ADhbtree.getIndexSize("Tweets_idx_Tweets/device_id")).append(",")
+                .append(sie1ADhvbtree.getIndexSize("Tweets_idx_Tweets/device_id")).append(",")
+                .append(sie1ARtree.getIndexSize("Tweets_idx_Tweets/device_id")).append(",")
+                .append(sie1AShbtree.getIndexSize("Tweets_idx_Tweets/device_id")).append(",")
+                .append(sie1ASif.getIndexSize("Tweets_idx_Tweets/device_id")).append("\n");
+        sb.append("2,").append(sie1BDhbtree.getIndexSize("Tweets_idx_Tweets/device_id")).append(",")
+                .append(sie1BDhvbtree.getIndexSize("Tweets_idx_Tweets/device_id")).append(",")
+                .append(sie1BRtree.getIndexSize("Tweets_idx_Tweets/device_id")).append(",")
+                .append(sie1BShbtree.getIndexSize("Tweets_idx_Tweets/device_id")).append(",")
+                .append(sie1BSif.getIndexSize("Tweets_idx_Tweets/device_id")).append("\n");
+        sb.append("4,").append(sie1CDhbtree.getIndexSize("Tweets_idx_Tweets/device_id")).append(",")
+                .append(sie1CDhvbtree.getIndexSize("Tweets_idx_Tweets/device_id")).append(",")
+                .append(sie1CRtree.getIndexSize("Tweets_idx_Tweets/device_id")).append(",")
+                .append(sie1CShbtree.getIndexSize("Tweets_idx_Tweets/device_id")).append(",")
+                .append(sie1CSif.getIndexSize("Tweets_idx_Tweets/device_id")).append("\n");
+        sb.append("8,").append(sie1DDhbtree.getIndexSize("Tweets_idx_Tweets/device_id")).append(",")
+                .append(sie1DDhvbtree.getIndexSize("Tweets_idx_Tweets/device_id")).append(",")
+                .append(sie1DRtree.getIndexSize("Tweets_idx_Tweets/device_id")).append(",")
+                .append(sie1DShbtree.getIndexSize("Tweets_idx_Tweets/device_id")).append(",")
+                .append(sie1DSif.getIndexSize("Tweets_idx_Tweets/device_id")).append("\n");
+
+        FileOutputStream fos = ReportBuilderHelper.openOutputFile(outputFilePath + "sie1_primary_index_size.txt");
+        fos.write(sb.toString().getBytes());
+        ReportBuilderHelper.closeOutputFile(fos);
+    }
+
+    public void generateSecondaryIndexSize() throws Exception {
+        sb.setLength(0);
+        sb.append("# sie1 secondary index size report\n");
 
         sb.append("# number of nodes, dhbtree, dhvbtree, rtree, shbtree, sif\n");
         sb.append("1,").append(sie1ADhbtree.getIndexSize("Tweets_idx_dhbtreeLocation/device_id")).append(",")
                 .append(sie1ADhvbtree.getIndexSize("Tweets_idx_dhvbtreeLocation/device_id")).append(",")
                 .append(sie1ARtree.getIndexSize("Tweets_idx_rtreeLocation/device_id")).append(",")
                 .append(sie1AShbtree.getIndexSize("Tweets_idx_shbtreeLocation/device_id")).append(",")
-                .append(sie1ASif.getIndexSize("Tweets_idx_sifLocation/device_id")).append(",")
-                .append(sie1ASif.getIndexSize("Tweets_idx_Tweets/device_id")).append("\n");
+                .append(sie1ASif.getIndexSize("Tweets_idx_sifLocation/device_id")).append("\n");
         sb.append("2,").append(sie1BDhbtree.getIndexSize("Tweets_idx_dhbtreeLocation/device_id")).append(",")
                 .append(sie1BDhvbtree.getIndexSize("Tweets_idx_dhvbtreeLocation/device_id")).append(",")
                 .append(sie1BRtree.getIndexSize("Tweets_idx_rtreeLocation/device_id")).append(",")
                 .append(sie1BShbtree.getIndexSize("Tweets_idx_shbtreeLocation/device_id")).append(",")
-                .append(sie1BSif.getIndexSize("Tweets_idx_sifLocation/device_id")).append(",")
-                .append(sie1BSif.getIndexSize("Tweets_idx_Tweets/device_id")).append("\n");
+                .append(sie1BSif.getIndexSize("Tweets_idx_sifLocation/device_id")).append("\n");
         sb.append("4,").append(sie1CDhbtree.getIndexSize("Tweets_idx_dhbtreeLocation/device_id")).append(",")
                 .append(sie1CDhvbtree.getIndexSize("Tweets_idx_dhvbtreeLocation/device_id")).append(",")
                 .append(sie1CRtree.getIndexSize("Tweets_idx_rtreeLocation/device_id")).append(",")
                 .append(sie1CShbtree.getIndexSize("Tweets_idx_shbtreeLocation/device_id")).append(",")
-                .append(sie1CSif.getIndexSize("Tweets_idx_sifLocation/device_id")).append(",")
-                .append(sie1CSif.getIndexSize("Tweets_idx_Tweets/device_id")).append("\n");
+                .append(sie1CSif.getIndexSize("Tweets_idx_sifLocation/device_id")).append("\n");
         sb.append("8,").append(sie1DDhbtree.getIndexSize("Tweets_idx_dhbtreeLocation/device_id")).append(",")
                 .append(sie1DDhvbtree.getIndexSize("Tweets_idx_dhvbtreeLocation/device_id")).append(",")
                 .append(sie1DRtree.getIndexSize("Tweets_idx_rtreeLocation/device_id")).append(",")
                 .append(sie1DShbtree.getIndexSize("Tweets_idx_shbtreeLocation/device_id")).append(",")
-                .append(sie1DSif.getIndexSize("Tweets_idx_sifLocation/device_id")).append(",")
-                .append(sie1DSif.getIndexSize("Tweets_idx_Tweets/device_id")).append("\n");
+                .append(sie1DSif.getIndexSize("Tweets_idx_sifLocation/device_id")).append("\n");
 
-        FileOutputStream fos = ReportBuilderHelper.openOutputFile(outputFilePath + "sie1_index_size.txt");
+        FileOutputStream fos = ReportBuilderHelper.openOutputFile(outputFilePath + "sie1_secondary_index_size.txt");
+        fos.write(sb.toString().getBytes());
+        ReportBuilderHelper.closeOutputFile(fos);
+    }
+
+    public void generateAverageFlushedComponentSize() throws Exception {
+        sb.setLength(0);
+        sb.append("# sie1 average flushed component size report\n");
+        sb.append("# number of nodes, dhbtree, dhvbtree, rtree, shbtree, sif, dhbtree-pidx, dhvbtree-pidx, rtree-pidx, shbtree-pidx, sif-pidx\n");
+        sb.append("1,").append(sie1ADhbtree.getAverageFlushedComponentSize("Tweets_idx_dhbtreeLocation/device_id"))
+                .append(",")
+                .append(sie1ADhvbtree.getAverageFlushedComponentSize("Tweets_idx_dhvbtreeLocation/device_id"))
+                .append(",").append(sie1ARtree.getAverageFlushedComponentSize("Tweets_idx_rtreeLocation/device_id"))
+                .append(",")
+                .append(sie1DShbtree.getAverageFlushedComponentSize("Tweets_idx_shbtreeLocation/device_id"))
+                .append(",").append(sie1ASif.getAverageFlushedComponentSize("Tweets_idx_sifLocation/device_id"))
+                .append(",").append(sie1ADhbtree.getAverageFlushedComponentSize("Tweets_idx_Tweets/device_id"))
+                .append(",").append(sie1ADhvbtree.getAverageFlushedComponentSize("Tweets_idx_Tweets/device_id"))
+                .append(",").append(sie1ARtree.getAverageFlushedComponentSize("Tweets_idx_Tweets/device_id"))
+                .append(",").append(sie1AShbtree.getAverageFlushedComponentSize("Tweets_idx_Tweets/device_id"))
+                .append(",").append(sie1ASif.getAverageFlushedComponentSize("Tweets_idx_Tweets/device_id"))
+                .append("\n");
+        sb.append("2,").append(sie1BDhbtree.getAverageFlushedComponentSize("Tweets_idx_dhbtreeLocation/device_id"))
+                .append(",")
+                .append(sie1BDhvbtree.getAverageFlushedComponentSize("Tweets_idx_dhvbtreeLocation/device_id"))
+                .append(",").append(sie1BRtree.getAverageFlushedComponentSize("Tweets_idx_rtreeLocation/device_id"))
+                .append(",")
+                .append(sie1DShbtree.getAverageFlushedComponentSize("Tweets_idx_shbtreeLocation/device_id"))
+                .append(",").append(sie1BSif.getAverageFlushedComponentSize("Tweets_idx_sifLocation/device_id"))
+                .append(",").append(sie1BDhbtree.getAverageFlushedComponentSize("Tweets_idx_Tweets/device_id"))
+                .append(",").append(sie1BDhvbtree.getAverageFlushedComponentSize("Tweets_idx_Tweets/device_id"))
+                .append(",").append(sie1BRtree.getAverageFlushedComponentSize("Tweets_idx_Tweets/device_id"))
+                .append(",").append(sie1BShbtree.getAverageFlushedComponentSize("Tweets_idx_Tweets/device_id"))
+                .append(",").append(sie1BSif.getAverageFlushedComponentSize("Tweets_idx_Tweets/device_id"))
+                .append("\n");
+        sb.append("4,").append(sie1CDhbtree.getAverageFlushedComponentSize("Tweets_idx_dhbtreeLocation/device_id"))
+                .append(",")
+                .append(sie1CDhvbtree.getAverageFlushedComponentSize("Tweets_idx_dhvbtreeLocation/device_id"))
+                .append(",").append(sie1CRtree.getAverageFlushedComponentSize("Tweets_idx_rtreeLocation/device_id"))
+                .append(",")
+                .append(sie1DShbtree.getAverageFlushedComponentSize("Tweets_idx_shbtreeLocation/device_id"))
+                .append(",").append(sie1CSif.getAverageFlushedComponentSize("Tweets_idx_sifLocation/device_id"))
+                .append(",").append(sie1CDhbtree.getAverageFlushedComponentSize("Tweets_idx_Tweets/device_id"))
+                .append(",").append(sie1CDhvbtree.getAverageFlushedComponentSize("Tweets_idx_Tweets/device_id"))
+                .append(",").append(sie1CRtree.getAverageFlushedComponentSize("Tweets_idx_Tweets/device_id"))
+                .append(",").append(sie1CShbtree.getAverageFlushedComponentSize("Tweets_idx_Tweets/device_id"))
+                .append(",").append(sie1CSif.getAverageFlushedComponentSize("Tweets_idx_Tweets/device_id"))
+                .append("\n");
+        sb.append("8,").append(sie1DDhbtree.getAverageFlushedComponentSize("Tweets_idx_dhbtreeLocation/device_id"))
+                .append(",")
+                .append(sie1DDhvbtree.getAverageFlushedComponentSize("Tweets_idx_dhvbtreeLocation/device_id"))
+                .append(",").append(sie1DRtree.getAverageFlushedComponentSize("Tweets_idx_rtreeLocation/device_id"))
+                .append(",")
+                .append(sie1DShbtree.getAverageFlushedComponentSize("Tweets_idx_shbtreeLocation/device_id"))
+                .append(",").append(sie1DSif.getAverageFlushedComponentSize("Tweets_idx_sifLocation/device_id"))
+                .append(",").append(sie1DDhbtree.getAverageFlushedComponentSize("Tweets_idx_Tweets/device_id"))
+                .append(",").append(sie1DDhvbtree.getAverageFlushedComponentSize("Tweets_idx_Tweets/device_id"))
+                .append(",").append(sie1DRtree.getAverageFlushedComponentSize("Tweets_idx_Tweets/device_id"))
+                .append(",").append(sie1DShbtree.getAverageFlushedComponentSize("Tweets_idx_Tweets/device_id"))
+                .append(",").append(sie1DSif.getAverageFlushedComponentSize("Tweets_idx_Tweets/device_id"))
+                .append("\n");
+
+        FileOutputStream fos = ReportBuilderHelper.openOutputFile(outputFilePath
+                + "sie1_average_flushed_component_size.txt");
         fos.write(sb.toString().getBytes());
         ReportBuilderHelper.closeOutputFile(fos);
     }

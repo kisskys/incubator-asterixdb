@@ -27,7 +27,7 @@ import java.util.ArrayList;
 
 public class SIE3ReportBuilderRunner {
     static boolean IS_PROFILE = false;
-    String outputFilePath = "/Users/kisskys/workspace/asterix_master/resultLog/MemBuf3g-DiskBuf3g-Lsev-Jvm7g-Lock0g/result-report/";
+    String outputFilePath = "/Users/kisskys/workspace/asterix_master/resultLog/result-report/";
     SIE3ReportBuilder sie3Dhbtree;
     SIE3ReportBuilder sie3Dhvbtree;
     SIE3ReportBuilder sie3Rtree;
@@ -51,8 +51,8 @@ public class SIE3ReportBuilderRunner {
 
     public SIE3ReportBuilderRunner() {
 
-        String expHomePath = "/Users/kisskys/workspace/asterix_master/resultLog/MemBuf3g-DiskBuf3g-Lsev-Jvm7g-Lock0g/exp3-rg128k-large-radius/";
-        profileFileHomeDir = "/Users/kisskys/workspace/asterix_master/resultLog/MemBuf3g-DiskBuf3g-Lsev-Jvm7g-Lock0g/profile-exp3-rg128k-large-radius/";
+        String expHomePath = "/Users/kisskys/workspace/asterix_master/resultLog/MemBuf1g-DiskBuf3g-Lsev-Jvm7g-Lock0g/profile-exp3-rg128k/";
+        profileFileHomeDir = "/Users/kisskys/workspace/asterix_master/resultLog/Profile-MemBuf1g-DiskBuf9p5g-Lsev-Jvm13p5g-Lock0g/exp3/";
         String runLogFileName = "run-exp3.log";
         profileLogFileName = "run-exp3.log"; //"profile-exp3.log";
         String queryLogFileNamePrefix = "QueryGenResult-";
@@ -728,7 +728,7 @@ public class SIE3ReportBuilderRunner {
         executionTimeFileParentPath[4] = parentPath + "SpatialIndexExperiment3Sif/logs/";
         ArrayList<String> fileList = new ArrayList<String>(8);
         //        fileList.add("executionTime-192.168.0.11.txt");
-        fileList.add("executionTime-130.149.249.52.txt");
+        fileList.add("executionTime-130.149.249.60.txt");
         fileList.add("executionTime-130.149.249.53.txt");
         fileList.add("executionTime-130.149.249.54.txt");
         fileList.add("executionTime-130.149.249.55.txt");
@@ -789,7 +789,6 @@ public class SIE3ReportBuilderRunner {
             sb.append(st[0]);
             sb.append("sif,").append(st[1]);
 
-            String outputFilePath = "/Users/kisskys/workspace/asterix_master/resultLog/MemBuf3g-DiskBuf3g-Lsev-Jvm7g-Lock0g/result-report/";
             FileOutputStream fos = ReportBuilderHelper.openOutputFile(outputFilePath
                     + "sie3_select_query_operator_profile_time_r" + i + ".txt");
             fos.write(sb.toString().getBytes());
@@ -818,7 +817,6 @@ public class SIE3ReportBuilderRunner {
             sb.append(st[0]);
             sb.append("sif,").append(st[1]);
 
-            String outputFilePath = "/Users/kisskys/workspace/asterix_master/resultLog/MemBuf3g-DiskBuf3g-Lsev-Jvm7g-Lock0g/result-report/";
             FileOutputStream fos = ReportBuilderHelper.openOutputFile(outputFilePath
                     + "sie3_join_query_operator_profile_time_r" + i + ".txt");
             fos.write(sb.toString().getBytes());
@@ -837,7 +835,7 @@ public class SIE3ReportBuilderRunner {
         executionTimeFileParentPath[4] = parentPath + "SpatialIndexExperiment3Sif/logs/";
         ArrayList<String> fileList = new ArrayList<String>(8);
         //        fileList.add("executionTime-192.168.0.11.txt");
-        fileList.add("cacheMissPerQuery-130.149.249.52.txt");
+        fileList.add("cacheMissPerQuery-130.149.249.60.txt");
         fileList.add("cacheMissPerQuery-130.149.249.53.txt");
         fileList.add("cacheMissPerQuery-130.149.249.54.txt");
         fileList.add("cacheMissPerQuery-130.149.249.55.txt");
@@ -871,7 +869,6 @@ public class SIE3ReportBuilderRunner {
             sb.append("shbtree,").append(shbtreeOprb.getCacheMiss(false, i, isIndexOnlyPlan)).append("\n");
             sb.append("sif,").append(sifOprb.getCacheMiss(false, i, isIndexOnlyPlan)).append("\n");
 
-            String outputFilePath = "/Users/kisskys/workspace/asterix_master/resultLog/MemBuf3g-DiskBuf3g-Lsev-Jvm7g-Lock0g/result-report/";
             FileOutputStream fos = ReportBuilderHelper.openOutputFile(outputFilePath + "sie3_select_query_cache_miss_r"
                     + i + ".txt");
             fos.write(sb.toString().getBytes());
@@ -889,7 +886,6 @@ public class SIE3ReportBuilderRunner {
             sb.append("shbtree,").append(shbtreeOprb.getCacheMiss(true, i, isIndexOnlyPlan)).append("\n");
             sb.append("sif,").append(sifOprb.getCacheMiss(true, i, isIndexOnlyPlan)).append("\n");
 
-            String outputFilePath = "/Users/kisskys/workspace/asterix_master/resultLog/MemBuf3g-DiskBuf3g-Lsev-Jvm7g-Lock0g/result-report/";
             FileOutputStream fos = ReportBuilderHelper.openOutputFile(outputFilePath + "sie3_join_query_cache_miss_r"
                     + i + ".txt");
             fos.write(sb.toString().getBytes());
@@ -908,7 +904,7 @@ public class SIE3ReportBuilderRunner {
         executionTimeFileParentPath[4] = parentPath + "SpatialIndexExperiment3Sif/logs/";
         ArrayList<String> fileList = new ArrayList<String>(8);
         //        fileList.add("executionTime-192.168.0.11.txt");
-        fileList.add("falsePositivePerQuery-130.149.249.52.txt");
+        fileList.add("falsePositivePerQuery-130.149.249.60.txt");
         fileList.add("falsePositivePerQuery-130.149.249.53.txt");
         fileList.add("falsePositivePerQuery-130.149.249.54.txt");
         fileList.add("falsePositivePerQuery-130.149.249.55.txt");
@@ -943,7 +939,6 @@ public class SIE3ReportBuilderRunner {
             sb.append(shbtreeOprb.getFalsePositive(false, i, isIndexOnlyPlan)).append(",");
             sb.append(sifOprb.getFalsePositive(false, i, isIndexOnlyPlan)).append("\n");
         }
-        String outputFilePath = "/Users/kisskys/workspace/asterix_master/resultLog/MemBuf3g-DiskBuf3g-Lsev-Jvm7g-Lock0g/result-report/";
         FileOutputStream fos = ReportBuilderHelper.openOutputFile(outputFilePath
                 + "sie3_select_query_false_positive.txt");
         fos.write(sb.toString().getBytes());
@@ -961,7 +956,6 @@ public class SIE3ReportBuilderRunner {
             sb.append(shbtreeOprb.getFalsePositive(true, i, isIndexOnlyPlan)).append(",");
             sb.append(sifOprb.getFalsePositive(true, i, isIndexOnlyPlan)).append("\n");
         }
-        outputFilePath = "/Users/kisskys/workspace/asterix_master/resultLog/MemBuf3g-DiskBuf3g-Lsev-Jvm7g-Lock0g/result-report/";
         fos = ReportBuilderHelper.openOutputFile(outputFilePath + "sie3_join_query_false_positive.txt");
         fos.write(sb.toString().getBytes());
         ReportBuilderHelper.closeOutputFile(fos);
@@ -994,7 +988,7 @@ public class SIE3ReportBuilderRunner {
         executionTimeFileParentPath[4] = parentPath + "SpatialIndexExperiment3Sif/logs/";
         ArrayList<String> fileList = new ArrayList<String>(8);
         //        fileList.add("executionTime-192.168.0.11.txt");
-        fileList.add("cacheMissPerQuery-130.149.249.52.txt");
+        fileList.add("cacheMissPerQuery-130.149.249.60.txt");
         fileList.add("cacheMissPerQuery-130.149.249.53.txt");
         fileList.add("cacheMissPerQuery-130.149.249.54.txt");
         fileList.add("cacheMissPerQuery-130.149.249.55.txt");
@@ -1043,7 +1037,7 @@ public class SIE3ReportBuilderRunner {
         executionTimeFileParentPath[4] = parentPath + "SpatialIndexExperiment3Sif/logs/";
         ArrayList<String> fileList = new ArrayList<String>(8);
         //        fileList.add("executionTime-192.168.0.11.txt");
-        fileList.add("executionTime-130.149.249.52.txt");
+        fileList.add("executionTime-130.149.249.60.txt");
         fileList.add("executionTime-130.149.249.53.txt");
         fileList.add("executionTime-130.149.249.54.txt");
         fileList.add("executionTime-130.149.249.55.txt");
@@ -1086,7 +1080,6 @@ public class SIE3ReportBuilderRunner {
         sb.append(st[0]);
         sb.append("sif,").append(st[1]);
 
-        String outputFilePath = "/Users/kisskys/workspace/asterix_master/resultLog/MemBuf3g-DiskBuf3g-Lsev-Jvm7g-Lock0g/result-report/";
         FileOutputStream fos = ReportBuilderHelper.openOutputFile(outputFilePath
                 + "sie3_index_build_operator_profile_time.txt");
         fos.write(sb.toString().getBytes());

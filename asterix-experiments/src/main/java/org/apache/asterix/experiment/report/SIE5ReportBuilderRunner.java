@@ -23,9 +23,9 @@ import java.io.FileOutputStream;
 import java.util.ArrayList;
 
 public class SIE5ReportBuilderRunner {
-    String expHomePath = "/Users/kisskys/workspace/asterix_master/resultLog/MemBuf3g-DiskBuf3g-Lsev-Jvm7g-Lock0g/exp5-3/";
+    String expHomePath = "/Users/kisskys/workspace/asterix_master/resultLog/MemBuf1g-DiskBuf7g-Lsev-Jvm11g-Lock2p5g/exp5-3/";
     String runLogFileName = "run-exp5-3.log";
-    String outputFilePath = "/Users/kisskys/workspace/asterix_master/resultLog/MemBuf3g-DiskBuf3g-Lsev-Jvm7g-Lock0g/result-report/";
+    String outputFilePath = "/Users/kisskys/workspace/asterix_master/resultLog/result-report/";
 
     SIE2ReportBuilder sie5Dhbtree = new SIE2ReportBuilder(expHomePath, "SpatialIndexExperiment5Dhbtree", runLogFileName);
     SIE2ReportBuilder sie5Dhvbtree = new SIE2ReportBuilder(expHomePath, "SpatialIndexExperiment5Dhvbtree",

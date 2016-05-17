@@ -27,7 +27,7 @@ import java.util.ArrayList;
 
 public class SIE4ReportBuilderRunner {
     static boolean IS_PROFILE = false;
-    String outputFilePath = "/Users/kisskys/workspace/asterix_master/resultLog/MemBuf3g-DiskBuf3g-Lsev-Jvm7g-Lock0g/result-report/";
+    String outputFilePath = "/Users/kisskys/workspace/asterix_master/resultLog/result-report/";
     SIE3ReportBuilder sie4Dhbtree;
     SIE3ReportBuilder sie4Dhvbtree;
     SIE3ReportBuilder sie4Rtree;
@@ -49,7 +49,7 @@ public class SIE4ReportBuilderRunner {
     StringBuilder sb = new StringBuilder();
 
     public SIE4ReportBuilderRunner() {
-        String expHomePath = "/Users/kisskys/workspace/asterix_master/resultLog/MemBuf3g-DiskBuf3g-Lsev-Jvm7g-Lock0g/exp4/";
+        String expHomePath = "/Users/kisskys/workspace/asterix_master/resultLog/MemBuf1g-DiskBuf9p5g-Lsev-Jvm13p5g-Lock0g/exp4/";
         profileFileHomeDir = "/Users/kisskys/workspace/asterix_master/resultLog/MemBuf3g-DiskBuf3g-Lsev-Jvm7g-Lock0g/profile-exp4/";
         String runLogFileName = "run-exp4.log";
         String queryLogFileNamePrefix = "QueryGenResult-";
@@ -785,7 +785,6 @@ public class SIE4ReportBuilderRunner {
             sb.append(st[0]);
             sb.append("sif,").append(st[1]);
 
-            String outputFilePath = "/Users/kisskys/workspace/asterix_master/resultLog/MemBuf3g-DiskBuf3g-Lsev-Jvm7g-Lock0g/result-report/";
             FileOutputStream fos = ReportBuilderHelper.openOutputFile(outputFilePath
                     + "sie4_select_query_operator_profile_time_r" + i + ".txt");
             fos.write(sb.toString().getBytes());

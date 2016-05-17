@@ -20,12 +20,11 @@
 package org.apache.asterix.experiment.report;
 
 public class ReportBuilderRunner {
-    public static final boolean REPORT_SIE1 = false;
+    public static final boolean REPORT_SIE1 = true;
     public static final boolean REPORT_SIE2 = false;
     public static final boolean REPORT_SIE3 = true;
     public static final boolean REPORT_SIE4 = false;
     public static final boolean REPORT_SIE5 = false;
-
     public static final boolean REPORT_SIE1_RECT = false;
     public static final boolean REPORT_SIE2_RECT = false;
     public static final boolean REPORT_SIE3_RECT = false;
@@ -38,9 +37,11 @@ public class ReportBuilderRunner {
             SIE1ReportBuilderRunner sie1 = new SIE1ReportBuilderRunner();
             sie1.generateSIE1IPS();
             sie1.generateInstantaneousInsertPS();
-            sie1.generateIndexSize();
+            sie1.generatePrimaryIndexSize();
+            sie1.generateSecondaryIndexSize();
             sie1.generateGanttInstantaneousInsertPS();
             sie1.generateAccumulatedInsertPS();
+            sie1.generateAverageFlushedComponentSize();
         }
 
         //        if (REPORT_SIE1_RECT) {
@@ -97,16 +98,16 @@ public class ReportBuilderRunner {
 
         if (REPORT_SIE4) {
             SIE4ReportBuilderRunner sie4 = new SIE4ReportBuilderRunner();
-            //            sie4.generateIndexCreationTime();
-            //            sie4.generateIndexSize();
-            //            sie4.generateSelectQueryResponseTime();
-            //            sie4.generateJoinQueryResponseTime();
-            //            sie4.generateSelectQueryResultCount();
-            //            sie4.generateJoinQueryResultCount();
+            sie4.generateIndexCreationTime();
+            sie4.generateIndexSize();
+            sie4.generateSelectQueryResponseTime();
+            sie4.generateJoinQueryResponseTime();
+            sie4.generateSelectQueryResultCount();
+            sie4.generateJoinQueryResultCount();
 
             //profile info
             //            sie4.generateQueryProfiledOperatorTime();
-            sie4.generateQueryProfiledCacheMiss();
+            //            sie4.generateQueryProfiledCacheMiss();
 
         }
 

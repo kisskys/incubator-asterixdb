@@ -33,6 +33,14 @@ public class NCLogReportBuilder {
     private BufferedReader br;
     private String timeLine;
     private String msgLine;
+    private int pid0count;
+    private int pid1count;
+    private int pid2count;
+    private int pid3count;
+    private int sid0count;
+    private int sid1count;
+    private int sid2count;
+    private int sid3count;
 
     public NCLogReportBuilder(String filePath) {
         if (filePath != null) {
@@ -43,18 +51,29 @@ public class NCLogReportBuilder {
     public String getFlushMergeEventAsGanttChartFormat(long testBeginTimeStamp) throws Exception {
         openNCLog();
         StringBuilder sb = new StringBuilder();
-        long flushStartTimeStamp, flushFinishTimeStamp, mergeStartTimeStamp, mergeFinishTimeStamp;
+        long flushStartTimeStamp, flushFinishTimeStamp, mergeStartTimeStamp = 0, mergeFinishTimeStamp;
         String indexName;
+        String threadId;
         SimpleDateFormat format = new SimpleDateFormat("MMM dd, yyyy hh:mm:ss aa");
         HashMap<String, Long> flushMap = new HashMap<String, Long>();
         HashMap<String, Long> mergeMap = new HashMap<String, Long>();
         long sTime, fTime;
+        int flushCount = 0;
+        int mergeCount = 0;
+        long pidxTotalFlushTime = 0;
+        long pidxTotalMergeTime = 0;
+        long sidxTotalFlushTime = 0;
+        long sidxTotalMergeTime = 0;
+        int pidxFlushCount = 0;
+        int pidxMergeCount = 0;
+        int sidxFlushCount = 0;
+        int sidxMergeCount = 0;
         try {
             while ((timeLine = br.readLine()) != null) {
                 if ((msgLine = br.readLine()) == null) {
                     break;
                 }
-                while (!msgLine.contains("INFO:")) {
+                while (!msgLine.contains("SEVERE:")) {
                     timeLine = msgLine;
                     msgLine = br.readLine();
                     if (msgLine == null) {
@@ -74,7 +93,9 @@ public class NCLogReportBuilder {
                         continue;
                     }
 
-                    indexName = ReportBuilderHelper.getString(msgLine, "experiments/Tweets_idx_", "/]");
+                    indexName = ReportBuilderHelper.getString(msgLine, "SEVERE: [", "]")
+                            + ReportBuilderHelper.getString(msgLine, "experiments/Tweets_idx_", "/]");
+                    //                    indexName = ReportBuilderHelper.getString(msgLine, "experiments/Tweets_idx_", "/]");
                     flushMap.put(indexName, flushStartTimeStamp);
                 }
 
@@ -87,7 +108,9 @@ public class NCLogReportBuilder {
                         continue;
                     }
 
-                    indexName = ReportBuilderHelper.getString(msgLine, "experiments/Tweets_idx_", "/]");
+                    indexName = ReportBuilderHelper.getString(msgLine, "SEVERE: [", "]")
+                            + ReportBuilderHelper.getString(msgLine, "experiments/Tweets_idx_", "/]");
+                    //                    indexName = ReportBuilderHelper.getString(msgLine, "experiments/Tweets_idx_", "/]");
 
                     if (flushMap.containsKey(indexName)) {
                         flushStartTimeStamp = flushMap.remove(indexName);
@@ -103,6 +126,16 @@ public class NCLogReportBuilder {
                         sb.append("f-" + getPrintName(indexName)).append("\t").append(sTime).append("\t").append(fTime)
                                 .append("\t").append(indexName.contains("Tweets") ? "flushPidx" : "flushSidx")
                                 .append("\n");
+                    } else {
+                        System.out.println("Flush start of " + indexName + " doesn't exist!!");
+                    }
+                    ++flushCount;
+                    if (getPrintName(indexName).contains("pidx")) {
+                        pidxTotalFlushTime += flushFinishTimeStamp - flushFinishTimeStamp;
+                        ++pidxFlushCount;
+                    } else {
+                        sidxTotalFlushTime += flushFinishTimeStamp - flushFinishTimeStamp;
+                        ++sidxFlushCount;
                     }
                 }
 
@@ -115,7 +148,9 @@ public class NCLogReportBuilder {
                         continue;
                     }
 
-                    indexName = ReportBuilderHelper.getString(msgLine, "experiments/Tweets_idx_", "/]");
+                    indexName = ReportBuilderHelper.getString(msgLine, "SEVERE: [", "]")
+                            + ReportBuilderHelper.getString(msgLine, "experiments/Tweets_idx_", "/]");
+                    //                    indexName = ReportBuilderHelper.getString(msgLine, "experiments/Tweets_idx_", "/]");
                     mergeMap.put(indexName, mergeStartTimeStamp);
                 }
 
@@ -128,7 +163,9 @@ public class NCLogReportBuilder {
                         continue;
                     }
 
-                    indexName = ReportBuilderHelper.getString(msgLine, "experiments/Tweets_idx_", "/]");
+                    indexName = ReportBuilderHelper.getString(msgLine, "SEVERE: [", "]")
+                            + ReportBuilderHelper.getString(msgLine, "experiments/Tweets_idx_", "/]");
+                    //                    indexName = ReportBuilderHelper.getString(msgLine, "experiments/Tweets_idx_", "/]");
 
                     if (mergeMap.containsKey(indexName)) {
                         mergeStartTimeStamp = mergeMap.remove(indexName);
@@ -144,6 +181,14 @@ public class NCLogReportBuilder {
                         sb.append("m-" + getPrintName(indexName)).append("\t").append(sTime).append("\t").append(fTime)
                                 .append("\t").append(indexName.contains("Tweets") ? "mergePidx" : "mergeSidx")
                                 .append("\n");
+                    }
+                    ++mergeCount;
+                    if (getPrintName(indexName).contains("pidx")) {
+                        pidxTotalMergeTime += mergeFinishTimeStamp - mergeStartTimeStamp;
+                        ++pidxMergeCount;
+                    } else {
+                        sidxTotalMergeTime += mergeFinishTimeStamp - mergeStartTimeStamp;
+                        ++sidxMergeCount;
                     }
                 }
             }
@@ -170,30 +215,51 @@ public class NCLogReportBuilder {
             return sb.toString();
         } finally {
             closeNCLog();
+            //            System.out.println("exp: " + ncLogFilePath);
+            //            System.out.println("flushCount: " + flushCount);
+            //            System.out.println("mergeCount: " + mergeCount);
+            //            System.out.println("count: " + pid0count + "," + pid1count + "," + pid2count + "," + pid3count + ","
+            //                    + sid0count + "," + sid1count + "," + sid2count + "," + sid3count);
+            //            System.out.println("" + pidxTotalFlushTime + "," + pidxTotalFlushTime / pidxFlushCount + ","
+            //                    + pidxTotalMergeTime + "," + pidxTotalMergeTime / pidxMergeCount + "," + sidxTotalFlushTime + ","
+            //                    + sidxTotalFlushTime / sidxFlushCount + "," + sidxTotalMergeTime + "," + sidxTotalMergeTime
+            //                    / sidxMergeCount);
+            //            System.out.println("" + (pidxTotalMergeTime / 1000) + "," + (pidxTotalMergeTime / 1000) / pidxMergeCount
+            //                    + "," + (sidxTotalMergeTime / 1000) + "," + (sidxTotalMergeTime / 1000) / sidxMergeCount);
+            System.out
+                    .println("" + pidxFlushCount + "," + pidxMergeCount + "," + sidxFlushCount + "," + sidxMergeCount);
         }
     }
 
     private String getPrintName(String indexName) {
         String name = null;
         if (indexName.contains("Tweets")) {
-            if (indexName.contains("0")) {
+            if (indexName.contains("id_0")) {
                 name = "pidx0";
-            } else if (indexName.contains("1")) {
+                pid0count++;
+            } else if (indexName.contains("id_1")) {
                 name = "pidx1";
-            } else if (indexName.contains("2")) {
+                pid1count++;
+            } else if (indexName.contains("id_2")) {
                 name = "pidx2";
-            } else if (indexName.contains("3")) {
+                pid2count++;
+            } else if (indexName.contains("id_3")) {
                 name = "pidx3";
+                pid3count++;
             }
         } else if (indexName.contains("Location")) {
-            if (indexName.contains("0")) {
+            if (indexName.contains("id_0")) {
                 name = "sidx0"; //ReportBuilderHelper.getString(indexName, "Location") + "0";
-            } else if (indexName.contains("1")) {
+                sid0count++;
+            } else if (indexName.contains("id_1")) {
                 name = "sidx1"; //ReportBuilderHelper.getString(indexName, "Location") + "1";
-            } else if (indexName.contains("2")) {
+                sid1count++;
+            } else if (indexName.contains("id_2")) {
                 name = "sidx2"; //ReportBuilderHelper.getString(indexName, "Location") + "2";
-            } else if (indexName.contains("3")) {
+                sid2count++;
+            } else if (indexName.contains("id_3")) {
                 name = "sidx3"; //ReportBuilderHelper.getString(indexName, "Location") + "2";
+                sid3count++;
             }
         }
         return name;

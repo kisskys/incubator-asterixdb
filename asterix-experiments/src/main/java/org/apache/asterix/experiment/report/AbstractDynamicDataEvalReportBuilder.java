@@ -226,7 +226,7 @@ public abstract class AbstractDynamicDataEvalReportBuilder implements IDynamicDa
                         if (line.contains("INFO  [ParallelActionThread")) {
                             //format1 = new SimpleDateFormat("MMM dd, yyyy hh:mm:ss aa");
                             //format2 = new SimpleDateFormat("yyyy-MM-dd hh:mm:ss");
-                            SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd hh:mm:ss");
+                            SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
                             return ReportBuilderHelper.getTimeStampAsLong(line, format);
                         }
                     }
@@ -281,6 +281,82 @@ public abstract class AbstractDynamicDataEvalReportBuilder implements IDynamicDa
             return rsb.toString();
         } finally {
             closeRunLog();
+        }
+    }
+
+    public String getAverageFlushedComponentSize(String indexDirPath) throws Exception {
+        /*
+         * exmaple
+         * /mnt/data/sdb/youngsk2/asterix/storage/experiments/Tweets_idx_dhbtreeLocation/device_id_0:
+        total 211200
+        -rw-r--r-- 1 youngsk2 grad 191234048 Jun 29 00:11 2015-06-29-00-09-59-023_2015-06-28-23-51-56-984_b
+        -rw-r--r-- 1 youngsk2 grad   7864320 Jun 29 00:11 2015-06-29-00-09-59-023_2015-06-28-23-51-56-984_f
+        -rw-r--r-- 1 youngsk2 grad   4194304 Jun 29 00:10 2015-06-29-00-10-26-997_2015-06-29-00-10-26-997_b
+        -rw-r--r-- 1 youngsk2 grad    393216 Jun 29 00:10 2015-06-29-00-10-26-997_2015-06-29-00-10-26-997_f
+        -rw-r--r-- 1 youngsk2 grad   5898240 Jun 29 00:11 2015-06-29-00-10-59-791_2015-06-29-00-10-59-791_b
+        -rw-r--r-- 1 youngsk2 grad    393216 Jun 29 00:11 2015-06-29-00-10-59-791_2015-06-29-00-10-59-791_f
+        -rw-r--r-- 1 youngsk2 grad   5898240 Jun 29 00:11 2015-06-29-00-11-30-486_2015-06-29-00-11-30-486_b
+        -rw-r--r-- 1 youngsk2 grad    393216 Jun 29 00:11 2015-06-29-00-11-30-486_2015-06-29-00-11-30-486_f
+        
+         */
+        renewStringBuilder();
+        openRunLog();
+        try {
+            if (!moveToExperimentBegin()) {
+                //The experiment run log doesn't exist in this run log file
+                return null;
+            }
+
+            String line;
+            String[] tokens;
+            long totalFlushedComponentSize = 0;
+            long totalFlushedComponentCount = 0;
+            long diskComponentSize = 0;
+            String diskComponentFileName;
+            int componentPartySize = getComponentPartySize(indexDirPath);
+            while ((line = br.readLine()) != null) {
+                if (line.contains(indexDirPath)) {
+                    br.readLine();//discard "total XXXX" line
+                    //read and sum file size
+                    while (!(line = br.readLine()).isEmpty()) {
+                        tokens = line.split("\\s+");;
+                        diskComponentSize = Long.parseLong(tokens[4].trim());
+                        diskComponentFileName = tokens[8].trim();
+                        tokens = diskComponentFileName.split("_");
+                        if (tokens[0].contentEquals(tokens[1])) {
+                            //found a flushed but non-merged component
+                            totalFlushedComponentSize += diskComponentSize;
+                            ++totalFlushedComponentCount;
+                        }
+                    }
+                }
+                if (line.contains("Running")) {
+                    break;
+                }
+            }
+            rsb.append(totalFlushedComponentSize / (totalFlushedComponentCount / componentPartySize));
+            return rsb.toString();
+        } finally {
+            closeRunLog();
+        }
+    }
+
+    private int getComponentPartySize(String indexDirPath) {
+        if (indexDirPath.contains("Tweets_idx_dhbtreeLocation")) {
+            return 1;
+        } else if (indexDirPath.contains("Tweets_idx_dhvbtreeLocation/device_id")) {
+            return 1;
+        } else if (indexDirPath.contains("Tweets_idx_rtreeLocation/device_id")) {
+            return 1;
+        } else if (indexDirPath.contains("Tweets_idx_shbtreeLocation/device_id")) {
+            return 1;
+        } else if (indexDirPath.contains("Tweets_idx_sifLocation/device_id")) {
+            return 4;
+        } else if (indexDirPath.contains("Tweets_idx_Tweets")) {
+            //primary index
+            return 2;
+        } else {
+            throw new IllegalStateException("illegal dir path: " + indexDirPath);
         }
     }
 }

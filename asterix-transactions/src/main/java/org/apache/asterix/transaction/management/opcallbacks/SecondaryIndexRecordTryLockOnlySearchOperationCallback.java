@@ -30,8 +30,8 @@ import org.apache.hyracks.storage.am.common.api.ISearchOperationCallback;
  * This Callback method tries to get a lock. If it fails, do nothing since its purpose is attempt to get a lock and get the result of it.
  * This operation callback is used in an index-only plan
  */
-public class SecondaryIndexRecordTryLockOnlySearchOperationCallback extends AbstractOperationCallback implements
-        ISearchOperationCallback {
+public class SecondaryIndexRecordTryLockOnlySearchOperationCallback extends AbstractOperationCallback
+        implements ISearchOperationCallback {
 
     public SecondaryIndexRecordTryLockOnlySearchOperationCallback(int datasetId, int[] entityIdFields,
             ILockManager lockManager, ITransactionContext txnCtx) {
@@ -45,7 +45,7 @@ public class SecondaryIndexRecordTryLockOnlySearchOperationCallback extends Abst
     public boolean proceed(ITupleReference tuple) throws HyracksDataException {
         int pkHash = computePrimaryKeyHashValue(tuple, primaryKeyFields);
         try {
-            return lockManager.tryLock(jobThreadId, datasetId, pkHash, LockMode.S, txnCtx);
+            return lockManager.instantTryLock(jobThreadId, datasetId, pkHash, LockMode.S, txnCtx);
         } catch (ACIDException e) {
             throw new HyracksDataException(e);
         }

@@ -1,0 +1,28 @@
+gnuplot sie3_index_creation_time.plt
+gnuplot sie3_sidx_size.plt
+gnuplot sie3_select_query_response_time.plt
+gnuplot sie3_select_query_response_time_ratio.plt
+gnuplot sie3_join_query_response_time.plt
+gnuplot sie3_join_query_response_time_ratio.plt
+gnuplot sie3_select_query_result_count.plt
+gnuplot sie3_join_query_result_count.plt
+
+# converting to eps without margin
+ps2epsi sie3_index_creation_time.eps
+ps2epsi sie3_join_query_response_time.eps
+ps2epsi sie3_join_query_response_time_ratio.eps
+ps2epsi sie3_join_query_result_count.eps
+ps2epsi sie3_select_query_response_time.eps
+ps2epsi sie3_select_query_response_time_ratio.eps
+ps2epsi sie3_select_query_result_count.eps
+ps2epsi sie3_sidx_size.eps
+mv sie3_index_creation_time.epsi sie3_index_creation_time.eps
+mv sie3_join_query_response_time.epsi sie3_join_query_response_time.eps
+mv sie3_join_query_response_time_ratio.epsi sie3_join_query_response_time_ratio.eps
+mv sie3_join_query_result_count.epsi sie3_join_query_result_count.eps
+mv sie3_select_query_response_time.epsi sie3_select_query_response_time.eps
+mv sie3_select_query_response_time_ratio.epsi sie3_select_query_response_time_ratio.eps
+mv sie3_select_query_result_count.epsi sie3_select_query_result_count.eps
+mv sie3_sidx_size.epsi sie3_sidx_size.eps
+
+

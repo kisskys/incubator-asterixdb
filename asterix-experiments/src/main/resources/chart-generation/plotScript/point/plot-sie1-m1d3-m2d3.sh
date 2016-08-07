@@ -1,0 +1,16 @@
+gnuplot sie1_m1d3_m2d3.plt 
+
+ps2epsi sie1_m1d3_m2d3_flush_count.eps
+mv sie1_m1d3_m2d3_flush_count.epsi sie1_m1d3_m2d3_flush_count.eps
+
+ps2epsi sie1_m1d3_m2d3_merge_count.eps
+mv sie1_m1d3_m2d3_merge_count.epsi sie1_m1d3_m2d3_merge_count.eps
+
+ps2epsi sie1_m1d3_m2d3_ips.eps
+mv sie1_m1d3_m2d3_ips.epsi sie1_m1d3_m2d3_ips.eps
+
+ps2epsi sie1_m1d3_m2d3_writeamp.eps
+mv sie1_m1d3_m2d3_writeamp.epsi sie1_m1d3_m2d3_writeamp.eps
+
+ps2epsi sie1_m1d3_m2d3_change_ratio.eps
+mv sie1_m1d3_m2d3_change_ratio.epsi sie1_m1d3_m2d3_change_ratio.eps

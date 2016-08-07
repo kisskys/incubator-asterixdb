@@ -1,0 +1,45 @@
+gnuplot sie2_overall_insert_ps.plt
+gnuplot sie2_accumulated_insert_ps.plt
+gnuplot sie2_query_ps.plt
+gnuplot sie2_average_query_response_time.plt
+gnuplot sie2_average_query_result_count.plt
+gnuplot sie2_query_ps_for_all_rates.plt
+gnuplot sie2_insert_ps_for_all_rates.plt
+#gnuplot sie2_instantaneous_insert_ps_gen0.plt
+#gnuplot sie2_instantaneous_insert_ps_gen1.plt
+#gnuplot sie2_instantaneous_insert_ps_gen2.plt
+#gnuplot sie2_instantaneous_insert_ps_gen3.plt
+#gnuplot sie2_instantaneous_insert_ps_gen4.plt
+#gnuplot sie2_instantaneous_insert_ps_gen5.plt
+#gnuplot sie2_instantaneous_insert_ps_gen6.plt
+#gnuplot sie2_instantaneous_insert_ps_gen7.plt
+python gantt.py -o sie2_gantt_1node_flush_merge_dhbtree.gpl sie2_gantt_1node_flush_merge_dhbtree.txt
+gnuplot sie2_gantt_1node_flush_merge_dhbtree.plt
+python gantt.py -o sie2_gantt_1node_flush_merge_dhvbtree.gpl sie2_gantt_1node_flush_merge_dhvbtree.txt
+gnuplot sie2_gantt_1node_flush_merge_dhvbtree.plt
+python gantt.py -o sie2_gantt_1node_flush_merge_rtree.gpl sie2_gantt_1node_flush_merge_rtree.txt
+gnuplot sie2_gantt_1node_flush_merge_rtree.plt
+python gantt.py -o sie2_gantt_1node_flush_merge_shbtree.gpl sie2_gantt_1node_flush_merge_shbtree.txt
+gnuplot sie2_gantt_1node_flush_merge_shbtree.plt
+python gantt.py -o sie2_gantt_1node_flush_merge_sif.gpl sie2_gantt_1node_flush_merge_sif.txt
+gnuplot sie2_gantt_1node_flush_merge_sif.plt
+gnuplot sie2_gantt_1node_instantaneous_insert_ps_gen0.plt
+
+gnuplot sie2_select_query_response_time.plt
+gnuplot sie2_select_query_result_count.plt
+
+# converting to eps without margin
+ps2epsi sie2_overall_insert_ps.eps
+ps2epsi sie2_query_ps.eps
+mv sie2_overall_insert_ps.epsi sie2_overall_insert_ps.eps
+mv sie2_query_ps.epsi sie2_query_ps.eps
+ps2epsi sie2_select_query_response_time.eps
+ps2epsi sie2_select_query_result_count.eps
+mv sie2_select_query_response_time.epsi sie2_select_query_response_time.eps
+mv sie2_select_query_result_count.epsi sie2_select_query_result_count.eps
+ps2epsi sie2_accumulated_insert_ps.eps
+mv sie2_accumulated_insert_ps.epsi sie2_accumulated_insert_ps.eps
+ps2epsi sie2_query_ps_for_all_rates.eps
+mv sie2_query_ps_for_all_rates.epsi sie2_query_ps_for_all_rates.eps
+ps2epsi sie2_insert_ps_for_all_rates.eps
+mv sie2_insert_ps_for_all_rates.epsi sie2_insert_ps_for_all_rates.eps

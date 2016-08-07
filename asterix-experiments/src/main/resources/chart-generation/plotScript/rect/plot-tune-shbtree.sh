@@ -1,0 +1,10 @@
+gnuplot sie3_tune_shbtree.plt 
+
+ps2epsi sie3_tune_shbtree_index_creation_time.eps
+mv sie3_tune_shbtree_index_creation_time.epsi sie3_tune_shbtree_index_creation_time.eps
+
+ps2epsi sie3_tune_shbtree_query_response_time.eps
+mv sie3_tune_shbtree_query_response_time.epsi sie3_tune_shbtree_query_response_time.eps
+
+ps2epsi sie3_tune_shbtree_sidx_size.eps
+mv sie3_tune_shbtree_sidx_size.epsi sie3_tune_shbtree_sidx_size.eps

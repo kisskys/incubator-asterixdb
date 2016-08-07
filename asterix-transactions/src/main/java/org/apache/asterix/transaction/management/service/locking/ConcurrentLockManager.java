@@ -282,40 +282,41 @@ public class ConcurrentLockManager implements ILockManager, ILifeCycleComponent 
      */
     private boolean introducesDeadlock(final long resSlot, final long jobSlot, final DeadlockTracker tracker,
             int holderJobCount) {
-        synchronized (jobArenaMgr) {
-            tracker.pushResource(resSlot);
-            long reqSlot = resArenaMgr.getLastHolder(resSlot);
-            while (reqSlot >= 0) {
-                tracker.pushRequest(reqSlot);
-                final long holderJobSlot = reqArenaMgr.getJobSlot(reqSlot);
-                tracker.pushJob(holderJobSlot);
-                if (holderJobSlot == jobSlot && holderJobCount != 0) {
-                    return true;
-                }
-                boolean scanWaiters = true;
-                long waiter = jobArenaMgr.getLastWaiter(holderJobSlot);
-                if (waiter < 0 && scanWaiters) {
-                    scanWaiters = false;
-                    waiter = jobArenaMgr.getLastUpgrader(holderJobSlot);
-                }
-                while (waiter >= 0) {
-                    long watingOnResSlot = reqArenaMgr.getResourceId(waiter);
-                    if (introducesDeadlock(watingOnResSlot, jobSlot, tracker, holderJobCount + 1)) {
-                        return true;
-                    }
-                    waiter = reqArenaMgr.getNextJobRequest(waiter);
-                    if (waiter < 0 && scanWaiters) {
-                        scanWaiters = false;
-                        waiter = jobArenaMgr.getLastUpgrader(holderJobSlot);
-                    }
-                }
-                tracker.pop(); // job
-                tracker.pop(); // request
-                reqSlot = reqArenaMgr.getNextRequest(reqSlot);
-            }
-            tracker.pop(); // resource
-            return false;
-        }
+        return false;
+        //        synchronized (jobArenaMgr) {
+        //            tracker.pushResource(resSlot);
+        //            long reqSlot = resArenaMgr.getLastHolder(resSlot);
+        //            while (reqSlot >= 0) {
+        //                tracker.pushRequest(reqSlot);
+        //                final long holderJobSlot = reqArenaMgr.getJobSlot(reqSlot);
+        //                tracker.pushJob(holderJobSlot);
+        //                if (holderJobSlot == jobSlot && holderJobCount != 0) {
+        //                    return true;
+        //                }
+        //                boolean scanWaiters = true;
+        //                long waiter = jobArenaMgr.getLastWaiter(holderJobSlot);
+        //                if (waiter < 0 && scanWaiters) {
+        //                    scanWaiters = false;
+        //                    waiter = jobArenaMgr.getLastUpgrader(holderJobSlot);
+        //                }
+        //                while (waiter >= 0) {
+        //                    long watingOnResSlot = reqArenaMgr.getResourceId(waiter);
+        //                    if (introducesDeadlock(watingOnResSlot, jobSlot, tracker, holderJobCount + 1)) {
+        //                        return true;
+        //                    }
+        //                    waiter = reqArenaMgr.getNextJobRequest(waiter);
+        //                    if (waiter < 0 && scanWaiters) {
+        //                        scanWaiters = false;
+        //                        waiter = jobArenaMgr.getLastUpgrader(holderJobSlot);
+        //                    }
+        //                }
+        //                tracker.pop(); // job
+        //                tracker.pop(); // request
+        //                reqSlot = reqArenaMgr.getNextRequest(reqSlot);
+        //            }
+        //            tracker.pop(); // resource
+        //            return false;
+        //        }
     }
 
     @Override
@@ -957,8 +958,8 @@ public class ConcurrentLockManager implements ILockManager, ILifeCycleComponent 
                 + ":\n" + msg);
         System.out.println("Exception: Transaction " + txnContext.getJobId()
                 + " should abort (requested by the Lock Manager)" + ":\n" + msg);
-        throw new ACIDException("Transaction " + txnContext.getJobId()
-                + " should abort (requested by the Lock Manager)" + ":\n" + msg);
+        throw new ACIDException(
+                "Transaction " + txnContext.getJobId() + " should abort (requested by the Lock Manager)" + ":\n" + msg);
     }
 
     /*

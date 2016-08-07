@@ -23,9 +23,9 @@ import java.io.FileOutputStream;
 import java.util.ArrayList;
 
 public class SIE1RectReportBuilderRunner {
-    String expHomePath = "/Users/kisskys/workspace/asterix_master/resultLog/Rect-InstantLock-MemBuf1g-DiskBuf3g-Lsev-Jvm7g-Lock6p5g/house/exp1/";
-    String runLogFileName = "run-exp1.log";
-    String outputFilePath = "/Users/kisskys/workspace/asterix_master/resultLog/result-report/";
+    String expHomePath = "/Users/kisskys/workspace/asterix_master/resultLog/Rect-InstantLock-MemBuf1g-DiskBuf3g-Lsev-Jvm7g-Lock6p5g-cell30/run-exp1-lake/";
+    String runLogFileName = "run-exp1-lake.log";
+    String outputFilePath = "/Users/kisskys/workspace/asterix_master/plotScript/rect/";
 
     SIE1ReportBuilder sie1ARtree = new SIE1ReportBuilder(expHomePath, "SpatialIndexExperiment1ARtree", runLogFileName);
     SIE1ReportBuilder sie1AShbtree = new SIE1ReportBuilder(expHomePath, "SpatialIndexExperiment1AShbtree",

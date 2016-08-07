@@ -81,6 +81,10 @@ public class OperatorProfilerReportBuilder {
     private int lineNum;
     private ArrayList<String> fileList;
     private int fileCount;
+    private final String EXTERNAL_SORT_RUN_GEN_NAME = "EXTERNAL_SORT_RUN_GENERATOR";
+    private final String EXTERNAL_SORT_RUN_MERGER_NAME = "EXTERNAL_SORT_RUN_MERGER";
+    private long externalSortOpTime = 0;
+    private int externalSortOpTimeCount = 0;
 
     public OperatorProfilerReportBuilder(String profiledLogFileParentPath, ArrayList<String> fileList) {
         this.profiledLogFileParentPath = profiledLogFileParentPath;
@@ -95,8 +99,8 @@ public class OperatorProfilerReportBuilder {
         StringBuilder sb = new StringBuilder();
         int initialSkip = (isJoin ? IDX_INITIAL_JOIN_SKIP : IDX_INITIAL_SELECT_SKIP) + radiusIdx;
         int radiusSkip = isJoin ? IDX_JOIN_RADIUS_SKIP : IDX_SELECT_RADIUS_SKIP;
-        int queryCount = isJoin ? JOIN_QUERY_COUNT / JOIN_RADIUS_TYPE_COUNT : SELECT_QUERY_COUNT
-                / SELECT_RADIUS_TYPE_COUNT;
+        int queryCount = isJoin ? JOIN_QUERY_COUNT / JOIN_RADIUS_TYPE_COUNT
+                : SELECT_QUERY_COUNT / SELECT_RADIUS_TYPE_COUNT;
         lineNum = 0;
         JobStat jobStat = new JobStat();
 
@@ -287,8 +291,8 @@ public class OperatorProfilerReportBuilder {
         int initialSkip = (isJoin ? CM_INITIAL_JOIN_SKIP : CM_INITIAL_SELECT_SKIP)
                 + (radiusIdx * (isJoin ? CM_LINE_COUNT_PER_JOIN_QUERY : CM_LINE_COUNT_PER_SELECT_QUERY));
         int radiusSkip = isJoin ? CM_JOIN_RADIUS_SKIP : CM_SELECT_RADIUS_SKIP;
-        int queryCount = isJoin ? JOIN_QUERY_COUNT / JOIN_RADIUS_TYPE_COUNT : SELECT_QUERY_COUNT
-                / SELECT_RADIUS_TYPE_COUNT;
+        int queryCount = isJoin ? JOIN_QUERY_COUNT / JOIN_RADIUS_TYPE_COUNT
+                : SELECT_QUERY_COUNT / SELECT_RADIUS_TYPE_COUNT;
 
         CacheMissCount cmc = new CacheMissCount();
         try {
@@ -419,8 +423,8 @@ public class OperatorProfilerReportBuilder {
         int initialSkip = (isJoin ? FP_INITIAL_JOIN_SKIP : FP_INITIAL_SELECT_SKIP)
                 + (radiusIdx * (isJoin ? FP_LINE_COUNT_PER_JOIN_QUERY : FP_LINE_COUNT_PER_SELECT_QUERY));
         int radiusSkip = isJoin ? FP_JOIN_RADIUS_SKIP : FP_SELECT_RADIUS_SKIP;
-        int queryCount = isJoin ? JOIN_QUERY_COUNT / JOIN_RADIUS_TYPE_COUNT : SELECT_QUERY_COUNT
-                / SELECT_RADIUS_TYPE_COUNT;
+        int queryCount = isJoin ? JOIN_QUERY_COUNT / JOIN_RADIUS_TYPE_COUNT
+                : SELECT_QUERY_COUNT / SELECT_RADIUS_TYPE_COUNT;
 
         FalsePositiveCount fpc = new FalsePositiveCount();
         try {
@@ -592,7 +596,8 @@ public class OperatorProfilerReportBuilder {
             //                    + hyracksJobCount + "\n";
             if (humanReadable) {
                 return "SUM_OF_OPERATORS,"
-                        + (((double) (taskForAvg.getElapsedTime() + jobCommitTimeSum + distributeResultTimeSum)) / hyracksJobCount)
+                        + (((double) (taskForAvg.getElapsedTime() + jobCommitTimeSum + distributeResultTimeSum))
+                                / hyracksJobCount)
                         + "," + taskForAvg.getElapsedTime() + "," + hyracksJobCount + "\n"
                         + taskForAvg.getOperatorsElapsedTimeAsStringHumanReadable() + "TXN_JOB_COMMIT,"
                         + (((double) jobCommitTimeSum) / hyracksJobCount) + "," + jobCommitTimeSum + ","
@@ -681,12 +686,33 @@ public class OperatorProfilerReportBuilder {
 
         public String getOperatorsElapsedTime() {
             StringBuilder sb = new StringBuilder();
+            externalSortOpTime = 0;
+            externalSortOpTimeCount = 0;
+            boolean hasSortOp = false;
             //add operator times into the next row
             Iterator<Entry<String, SumCount>> iter = operator2SumCountMap.entrySet().iterator();
             while (iter.hasNext()) {
                 Entry<String, SumCount> entry = iter.next();
+                //                if (entry.getKey().equalsIgnoreCase(EXTERNAL_SORT_RUN_GEN_NAME)) {
+                //                    externalSortOpTime = entry.getValue().sum;
+                //                } else if (entry.getKey().equalsIgnoreCase(EXTERNAL_SORT_RUN_MERGER_NAME)) {
+                //                    externalSortOpTime += entry.getValue().sum;
+                //                    externalSortOpTimeCount += entry.getValue().count;
+                //                } else {
+                //                    SumCount sc = entry.getValue();
+                //                    sb.append(((double) sc.sum) / sc.count).append(",");
+                //                }
+                if (entry.getKey().equalsIgnoreCase(EXTERNAL_SORT_RUN_GEN_NAME)) {
+                    hasSortOp = true;
+                }
+                if (entry.getKey().equalsIgnoreCase("INNER_PIDX_SEARCH") && !hasSortOp) {
+                    sb.append("0.0,");
+                }
                 SumCount sc = entry.getValue();
                 sb.append(((double) sc.sum) / sc.count).append(",");
+            }
+            if (!hasSortOp) {
+                sb.append("0.0,");
             }
             return sb.toString();
         }

@@ -27,8 +27,8 @@ public class ReportBuilderRunner {
     public static final boolean REPORT_SIE5 = false;
     public static final boolean REPORT_SIE1_RECT = false;
     public static final boolean REPORT_SIE2_RECT = false;
-    public static final boolean REPORT_SIE3_RECT = true;
-    public static final boolean REPORT_SIE4_RECT = false;
+    public static final boolean REPORT_SIE3_RECT = false;
+    public static final boolean REPORT_SIE4_RECT = true;
     public static final boolean REPORT_SIE5_RECT = false;
 
     public static void main(String[] args) throws Exception {
@@ -52,7 +52,7 @@ public class ReportBuilderRunner {
             sie1.generateSecondaryIndexSize();
             sie1.generateGanttInstantaneousInsertPS();
             sie1.generateAccumulatedInsertPS();
-            sie1.generateAverageFlushedComponentSize();
+            //            sie1.generateAverageFlushedComponentSize();
         }
 
         if (REPORT_SIE2) {
@@ -113,19 +113,19 @@ public class ReportBuilderRunner {
 
         if (REPORT_SIE3_RECT) {
             SIE3RectReportBuilderRunner sie3 = new SIE3RectReportBuilderRunner();
-            sie3.generateIndexCreationTime();
-            sie3.generateIndexSize();
-            sie3.generateSelectQueryResponseTime();
-            sie3.generateJoinQueryResponseTime();
-            sie3.generateSelectQueryResultCount();
-            sie3.generateJoinQueryResultCount();
+            //            sie3.generateIndexCreationTime();
+            //            sie3.generateIndexSize();
+            //            sie3.generateSelectQueryResponseTime();
+            //            sie3.generateJoinQueryResponseTime();
+            //            sie3.generateSelectQueryResultCount();
+            //            sie3.generateJoinQueryResultCount();
 
             // profile info
-            //            sie3.generateQueryProfiledOperatorTime();
-            //            sie3.generateQueryProfiledCacheMiss();
-            //            sie3.generateQueryProfiledFalsePositive();
-            //            sie3.generateIndexBuildProfiledCacheMiss();
-            //            sie3.generateIndexBuildProfiledOperatorTime();
+            sie3.generateQueryProfiledOperatorTime();
+            sie3.generateQueryProfiledCacheMiss();
+            sie3.generateQueryProfiledFalsePositive();
+            sie3.generateIndexBuildProfiledCacheMiss();
+            sie3.generateIndexBuildProfiledOperatorTime();
 
             //            sie3.generateSelectQueryProfiledSidxSearchTime();
             //            sie3.generateSelectQueryProfiledPidxSearchTime();
@@ -151,28 +151,41 @@ public class ReportBuilderRunner {
             sie4.generateJoinQueryResultCount();
 
             //profile info
-            //            sie4.generateQueryProfiledOperatorTime();
-            //            sie4.generateQueryProfiledCacheMiss();
+            sie4.generateQueryProfiledOperatorTime();
+            sie4.generateQueryProfiledCacheMiss();
 
         }
 
         if (REPORT_SIE4_RECT) {
             SIE4RectReportBuilderRunner sie4 = new SIE4RectReportBuilderRunner();
-            sie4.generateIndexCreationTime();
-            sie4.generateIndexSize();
-            sie4.generateSelectQueryResponseTime();
-            sie4.generateJoinQueryResponseTime();
-            sie4.generateSelectQueryResultCount();
-            sie4.generateJoinQueryResultCount();
+            //            sie4.generateIndexCreationTime();
+            //            sie4.generateIndexSize();
+            //            sie4.generateSelectQueryResponseTime();
+            //            sie4.generateJoinQueryResponseTime();
+            //            sie4.generateSelectQueryResultCount();
+            //            sie4.generateJoinQueryResultCount();
 
             //profile info
-            //            sie4.generateQueryProfiledOperatorTime();
-            //            sie4.generateQueryProfiledCacheMiss();
+            sie4.generateQueryProfiledOperatorTime();
+            sie4.generateQueryProfiledCacheMiss();
 
         }
 
         if (REPORT_SIE5) {
             SIE5ReportBuilderRunner sie5 = new SIE5ReportBuilderRunner();
+            sie5.generateOverallInsertPS();
+            sie5.generateAccumulatedInsertPS();
+            sie5.generateQueryPS();
+            sie5.generateAverageQueryResultCount();
+            sie5.generateAverageQueryResponseTime();
+            sie5.generateInstantaneousInsertPS();
+            sie5.generateGanttInstantaneousInsertPS();
+            sie5.generateSelectQueryResponseTime();
+            sie5.generateSelectQueryResultCount();
+        }
+
+        if (REPORT_SIE5_RECT) {
+            SIE5RectReportBuilderRunner sie5 = new SIE5RectReportBuilderRunner();
             sie5.generateOverallInsertPS();
             sie5.generateAccumulatedInsertPS();
             sie5.generateQueryPS();

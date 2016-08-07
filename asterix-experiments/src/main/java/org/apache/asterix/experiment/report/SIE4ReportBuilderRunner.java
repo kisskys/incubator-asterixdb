@@ -130,8 +130,8 @@ public class SIE4ReportBuilderRunner {
                 .append(sie4Shbtree.getSelectQueryResponseTime(4)).append(",")
                 .append(sie4Sif.getSelectQueryResponseTime(4)).append("\n");
 
-        FileOutputStream fos = ReportBuilderHelper.openOutputFile(outputFilePath
-                + "sie4_select_query_response_time.txt");
+        FileOutputStream fos = ReportBuilderHelper
+                .openOutputFile(outputFilePath + "sie4_select_query_response_time.txt");
         fos.write(sb.toString().getBytes());
         ReportBuilderHelper.closeOutputFile(fos);
     }
@@ -181,23 +181,23 @@ public class SIE4ReportBuilderRunner {
         sb.append("0.00001,").append(sie4Dhbtree.getJoinQueryResponseTime(0)).append(",")
                 .append(sie4Dhvbtree.getJoinQueryResponseTime(0)).append(",")
                 .append(sie4Rtree.getJoinQueryResponseTime(0)).append(",")
-                .append(sie4Shbtree.getJoinQueryResponseTime(0)).append(",")
-                .append(sie4Sif.getJoinQueryResponseTime(0)).append("\n");
+                .append(sie4Shbtree.getJoinQueryResponseTime(0)).append(",").append(sie4Sif.getJoinQueryResponseTime(0))
+                .append("\n");
         sb.append("0.0001,").append(sie4Dhbtree.getJoinQueryResponseTime(1)).append(",")
                 .append(sie4Dhvbtree.getJoinQueryResponseTime(1)).append(",")
                 .append(sie4Rtree.getJoinQueryResponseTime(1)).append(",")
-                .append(sie4Shbtree.getJoinQueryResponseTime(1)).append(",")
-                .append(sie4Sif.getJoinQueryResponseTime(1)).append("\n");
+                .append(sie4Shbtree.getJoinQueryResponseTime(1)).append(",").append(sie4Sif.getJoinQueryResponseTime(1))
+                .append("\n");
         sb.append("0.001,").append(sie4Dhbtree.getJoinQueryResponseTime(2)).append(",")
                 .append(sie4Dhvbtree.getJoinQueryResponseTime(2)).append(",")
                 .append(sie4Rtree.getJoinQueryResponseTime(2)).append(",")
-                .append(sie4Shbtree.getJoinQueryResponseTime(2)).append(",")
-                .append(sie4Sif.getJoinQueryResponseTime(2)).append("\n");
+                .append(sie4Shbtree.getJoinQueryResponseTime(2)).append(",").append(sie4Sif.getJoinQueryResponseTime(2))
+                .append("\n");
         sb.append("0.01,").append(sie4Dhbtree.getJoinQueryResponseTime(3)).append(",")
                 .append(sie4Dhvbtree.getJoinQueryResponseTime(3)).append(",")
                 .append(sie4Rtree.getJoinQueryResponseTime(3)).append(",")
-                .append(sie4Shbtree.getJoinQueryResponseTime(3)).append(",")
-                .append(sie4Sif.getJoinQueryResponseTime(3)).append("\n");
+                .append(sie4Shbtree.getJoinQueryResponseTime(3)).append(",").append(sie4Sif.getJoinQueryResponseTime(3))
+                .append("\n");
 
         FileOutputStream fos = ReportBuilderHelper.openOutputFile(outputFilePath + "sie4_join_query_response_time.txt");
         fos.write(sb.toString().getBytes());
@@ -211,24 +211,20 @@ public class SIE4ReportBuilderRunner {
         sb.append("radius, dhbtree, dhvbtree, rtree, shbtree, sif\n");
         sb.append("0.00001,").append(sie4Dhbtree.getJoinQueryResultCount(0)).append(",")
                 .append(sie4Dhvbtree.getJoinQueryResultCount(0)).append(",")
-                .append(sie4Rtree.getJoinQueryResultCount(0)).append(",")
-                .append(sie4Shbtree.getJoinQueryResultCount(0)).append(",").append(sie4Sif.getJoinQueryResultCount(0))
-                .append("\n");
+                .append(sie4Rtree.getJoinQueryResultCount(0)).append(",").append(sie4Shbtree.getJoinQueryResultCount(0))
+                .append(",").append(sie4Sif.getJoinQueryResultCount(0)).append("\n");
         sb.append("0.0001,").append(sie4Dhbtree.getJoinQueryResultCount(1)).append(",")
                 .append(sie4Dhvbtree.getJoinQueryResultCount(1)).append(",")
-                .append(sie4Rtree.getJoinQueryResultCount(1)).append(",")
-                .append(sie4Shbtree.getJoinQueryResultCount(1)).append(",").append(sie4Sif.getJoinQueryResultCount(1))
-                .append("\n");
+                .append(sie4Rtree.getJoinQueryResultCount(1)).append(",").append(sie4Shbtree.getJoinQueryResultCount(1))
+                .append(",").append(sie4Sif.getJoinQueryResultCount(1)).append("\n");
         sb.append("0.001,").append(sie4Dhbtree.getJoinQueryResultCount(2)).append(",")
                 .append(sie4Dhvbtree.getJoinQueryResultCount(2)).append(",")
-                .append(sie4Rtree.getJoinQueryResultCount(2)).append(",")
-                .append(sie4Shbtree.getJoinQueryResultCount(2)).append(",").append(sie4Sif.getJoinQueryResultCount(2))
-                .append("\n");
+                .append(sie4Rtree.getJoinQueryResultCount(2)).append(",").append(sie4Shbtree.getJoinQueryResultCount(2))
+                .append(",").append(sie4Sif.getJoinQueryResultCount(2)).append("\n");
         sb.append("0.01,").append(sie4Dhbtree.getJoinQueryResultCount(3)).append(",")
                 .append(sie4Dhvbtree.getJoinQueryResultCount(3)).append(",")
-                .append(sie4Rtree.getJoinQueryResultCount(3)).append(",")
-                .append(sie4Shbtree.getJoinQueryResultCount(3)).append(",").append(sie4Sif.getJoinQueryResultCount(3))
-                .append("\n");
+                .append(sie4Rtree.getJoinQueryResultCount(3)).append(",").append(sie4Shbtree.getJoinQueryResultCount(3))
+                .append(",").append(sie4Sif.getJoinQueryResultCount(3)).append("\n");
 
         FileOutputStream fos = ReportBuilderHelper.openOutputFile(outputFilePath + "sie4_join_query_result_count.txt");
         fos.write(sb.toString().getBytes());
@@ -266,8 +262,8 @@ public class SIE4ReportBuilderRunner {
                 .append(shbtreeProfiler.getIdxNumber(true, false, 4, 0)).append(",")
                 .append(sifProfiler.getIdxNumber(true, false, 4, 0)).append("\n");
 
-        FileOutputStream fos = ReportBuilderHelper.openOutputFile(outputFilePath
-                + "sie4_select_query_profiled_sidx_search_time.txt");
+        FileOutputStream fos = ReportBuilderHelper
+                .openOutputFile(outputFilePath + "sie4_select_query_profiled_sidx_search_time.txt");
         fos.write(sb.toString().getBytes());
         ReportBuilderHelper.closeOutputFile(fos);
     }
@@ -303,8 +299,8 @@ public class SIE4ReportBuilderRunner {
                 .append(shbtreeProfiler.getIdxNumber(true, false, 4, 1)).append(",")
                 .append(sifProfiler.getIdxNumber(true, false, 4, 1)).append("\n");
 
-        FileOutputStream fos = ReportBuilderHelper.openOutputFile(outputFilePath
-                + "sie4_select_query_profiled_pidx_search_time.txt");
+        FileOutputStream fos = ReportBuilderHelper
+                .openOutputFile(outputFilePath + "sie4_select_query_profiled_pidx_search_time.txt");
         fos.write(sb.toString().getBytes());
         ReportBuilderHelper.closeOutputFile(fos);
     }
@@ -335,8 +331,8 @@ public class SIE4ReportBuilderRunner {
                 .append(shbtreeProfiler.getIdxNumber(true, true, 3, 1)).append(",")
                 .append(sifProfiler.getIdxNumber(true, true, 3, 1)).append("\n");
 
-        FileOutputStream fos = ReportBuilderHelper.openOutputFile(outputFilePath
-                + "sie4_join_query_profiled_sidx_search_time.txt");
+        FileOutputStream fos = ReportBuilderHelper
+                .openOutputFile(outputFilePath + "sie4_join_query_profiled_sidx_search_time.txt");
         fos.write(sb.toString().getBytes());
         ReportBuilderHelper.closeOutputFile(fos);
     }
@@ -367,8 +363,8 @@ public class SIE4ReportBuilderRunner {
                 .append(shbtreeProfiler.getIdxNumber(true, true, 3, 2)).append(",")
                 .append(sifProfiler.getIdxNumber(true, true, 3, 2)).append("\n");
 
-        FileOutputStream fos = ReportBuilderHelper.openOutputFile(outputFilePath
-                + "sie4_join_query_profiled_pidx_search_time.txt");
+        FileOutputStream fos = ReportBuilderHelper
+                .openOutputFile(outputFilePath + "sie4_join_query_profiled_pidx_search_time.txt");
         fos.write(sb.toString().getBytes());
         ReportBuilderHelper.closeOutputFile(fos);
     }
@@ -399,8 +395,8 @@ public class SIE4ReportBuilderRunner {
                 .append(shbtreeProfiler.getIdxNumber(true, true, 3, 0)).append(",")
                 .append(sifProfiler.getIdxNumber(true, true, 3, 0)).append("\n");
 
-        FileOutputStream fos = ReportBuilderHelper.openOutputFile(outputFilePath
-                + "sie4_join_query_profiled_seed_pidx_search_time.txt");
+        FileOutputStream fos = ReportBuilderHelper
+                .openOutputFile(outputFilePath + "sie4_join_query_profiled_seed_pidx_search_time.txt");
         fos.write(sb.toString().getBytes());
         ReportBuilderHelper.closeOutputFile(fos);
     }
@@ -436,8 +432,8 @@ public class SIE4ReportBuilderRunner {
                 .append(shbtreeProfiler.getIdxNumber(false, false, 4, 0)).append(",")
                 .append(sifProfiler.getIdxNumber(false, false, 4, 0)).append("\n");
 
-        FileOutputStream fos = ReportBuilderHelper.openOutputFile(outputFilePath
-                + "sie4_select_query_profiled_sidx_cache_miss.txt");
+        FileOutputStream fos = ReportBuilderHelper
+                .openOutputFile(outputFilePath + "sie4_select_query_profiled_sidx_cache_miss.txt");
         fos.write(sb.toString().getBytes());
         ReportBuilderHelper.closeOutputFile(fos);
     }
@@ -473,8 +469,8 @@ public class SIE4ReportBuilderRunner {
                 .append(shbtreeProfiler.getIdxNumber(false, false, 4, 1)).append(",")
                 .append(sifProfiler.getIdxNumber(false, false, 4, 1)).append("\n");
 
-        FileOutputStream fos = ReportBuilderHelper.openOutputFile(outputFilePath
-                + "sie4_select_query_profiled_pidx_cache_miss.txt");
+        FileOutputStream fos = ReportBuilderHelper
+                .openOutputFile(outputFilePath + "sie4_select_query_profiled_pidx_cache_miss.txt");
         fos.write(sb.toString().getBytes());
         ReportBuilderHelper.closeOutputFile(fos);
     }
@@ -505,8 +501,8 @@ public class SIE4ReportBuilderRunner {
                 .append(shbtreeProfiler.getIdxNumber(false, true, 3, 1)).append(",")
                 .append(sifProfiler.getIdxNumber(false, true, 3, 1)).append("\n");
 
-        FileOutputStream fos = ReportBuilderHelper.openOutputFile(outputFilePath
-                + "sie4_join_query_profiled_sidx_cache_miss.txt");
+        FileOutputStream fos = ReportBuilderHelper
+                .openOutputFile(outputFilePath + "sie4_join_query_profiled_sidx_cache_miss.txt");
         fos.write(sb.toString().getBytes());
         ReportBuilderHelper.closeOutputFile(fos);
     }
@@ -537,8 +533,8 @@ public class SIE4ReportBuilderRunner {
                 .append(shbtreeProfiler.getIdxNumber(false, true, 3, 2)).append(",")
                 .append(sifProfiler.getIdxNumber(false, true, 3, 2)).append("\n");
 
-        FileOutputStream fos = ReportBuilderHelper.openOutputFile(outputFilePath
-                + "sie4_join_query_profiled_pidx_cache_miss.txt");
+        FileOutputStream fos = ReportBuilderHelper
+                .openOutputFile(outputFilePath + "sie4_join_query_profiled_pidx_cache_miss.txt");
         fos.write(sb.toString().getBytes());
         ReportBuilderHelper.closeOutputFile(fos);
     }
@@ -569,8 +565,8 @@ public class SIE4ReportBuilderRunner {
                 .append(shbtreeProfiler.getIdxNumber(false, true, 3, 0)).append(",")
                 .append(sifProfiler.getIdxNumber(false, true, 3, 0)).append("\n");
 
-        FileOutputStream fos = ReportBuilderHelper.openOutputFile(outputFilePath
-                + "sie4_join_query_profiled_seed_pidx_cache_miss.txt");
+        FileOutputStream fos = ReportBuilderHelper
+                .openOutputFile(outputFilePath + "sie4_join_query_profiled_seed_pidx_cache_miss.txt");
         fos.write(sb.toString().getBytes());
         ReportBuilderHelper.closeOutputFile(fos);
     }
@@ -606,13 +602,13 @@ public class SIE4ReportBuilderRunner {
                 .append(shbtreeProfiler.getFalsePositives(false, 4)).append(",")
                 .append(sifProfiler.getFalsePositives(false, 4)).append("\n");
 
-        FileOutputStream fos = ReportBuilderHelper.openOutputFile(outputFilePath
-                + "sie4_select_query_profiled_false_positive_raw.txt");
+        FileOutputStream fos = ReportBuilderHelper
+                .openOutputFile(outputFilePath + "sie4_select_query_profiled_false_positive_raw.txt");
         fos.write(sb.toString().getBytes());
         ReportBuilderHelper.closeOutputFile(fos);
-        generateFalsePositive(outputFilePath + "sie4_select_query_profiled_false_positive_raw.txt", outputFilePath
-                + "sie4_select_query_result_count.txt", outputFilePath
-                + "sie4_select_query_profiled_false_positive.txt", false);
+        generateFalsePositive(outputFilePath + "sie4_select_query_profiled_false_positive_raw.txt",
+                outputFilePath + "sie4_select_query_result_count.txt",
+                outputFilePath + "sie4_select_query_profiled_false_positive.txt", false);
     }
 
     private void generateFalsePositive(String falsePositveFile, String queryResultCountFile, String outputFile,
@@ -645,8 +641,7 @@ public class SIE4ReportBuilderRunner {
             fps = brFalsePositive.readLine().split(",");
             rcs = brQueryResultCount.readLine().split(",");
             //false positive count
-            sb.append(radius[i])
-                    .append(",")
+            sb.append(radius[i]).append(",")
                     .append(((Double.parseDouble(fps[1]) * partitionCount) - Double.parseDouble(rcs[1]))
                             / partitionCount)
                     .append(",")
@@ -658,9 +653,9 @@ public class SIE4ReportBuilderRunner {
                     .append(",")
                     .append(((Double.parseDouble(fps[4]) * partitionCount) - Double.parseDouble(rcs[4]))
                             / partitionCount)
-                    .append(",")
-                    .append(((Double.parseDouble(fps[5]) * partitionCount) - Double.parseDouble(rcs[5]))
-                            / partitionCount).append("\n");
+                    .append(",").append(((Double.parseDouble(fps[5]) * partitionCount) - Double.parseDouble(rcs[5]))
+                            / partitionCount)
+                    .append("\n");
             //false positive rate
             //            sb.append(radius[i])
             //            .append(",").append(((Double.parseDouble(fps[1]) * partitionCount) - Double.parseDouble(rcs[1]))/(Double.parseDouble(fps[1]) * partitionCount))
@@ -704,14 +699,14 @@ public class SIE4ReportBuilderRunner {
                 .append(shbtreeProfiler.getFalsePositives(true, 3)).append(",")
                 .append(sifProfiler.getFalsePositives(true, 3)).append("\n");
 
-        FileOutputStream fos = ReportBuilderHelper.openOutputFile(outputFilePath
-                + "sie4_join_query_profiled_false_positive_raw.txt");
+        FileOutputStream fos = ReportBuilderHelper
+                .openOutputFile(outputFilePath + "sie4_join_query_profiled_false_positive_raw.txt");
         fos.write(sb.toString().getBytes());
         ReportBuilderHelper.closeOutputFile(fos);
 
-        generateFalsePositive(outputFilePath + "sie4_join_query_profiled_false_positive_raw.txt", outputFilePath
-                + "sie4_join_query_result_count.txt", outputFilePath + "sie4_join_query_profiled_false_positive.txt",
-                true);
+        generateFalsePositive(outputFilePath + "sie4_join_query_profiled_false_positive_raw.txt",
+                outputFilePath + "sie4_join_query_result_count.txt",
+                outputFilePath + "sie4_join_query_profiled_false_positive.txt", true);
     }
 
     public void generateQueryProfiledOperatorTime() throws Exception {
@@ -768,7 +763,8 @@ public class SIE4ReportBuilderRunner {
             sb.setLength(0);
             sb.append("# sie4 select query profiled operator time report\n");
             String[] st = null;
-            sb.append("operator,STREAM_SELECT,SORT_RUN_GEN,PIDX_SEARCH,STREAM_PROJECT,SIDX_SEARCH,ASSIGN,SORT_RUN_MERGER,TXN_JOB_COMMIT,DISTRIBUTE_RESULT,\n");
+            sb.append(
+                    "operator,STREAM_SELECT,SORT_RUN_GEN,PIDX_SEARCH,STREAM_PROJECT,SIDX_SEARCH,ASSIGN,SORT_RUN_MERGER,TXN_JOB_COMMIT,DISTRIBUTE_RESULT,\n");
             st = dhbtreeOprb.getOperatorTime(false, i, isIndexOnlyPlan, false).split("!");
             sb.append(st[0]);
             sb.append("dhbtree,").append(st[1]);
@@ -785,8 +781,8 @@ public class SIE4ReportBuilderRunner {
             sb.append(st[0]);
             sb.append("sif,").append(st[1]);
 
-            FileOutputStream fos = ReportBuilderHelper.openOutputFile(outputFilePath
-                    + "sie4_select_query_operator_profile_time_r" + i + ".txt");
+            FileOutputStream fos = ReportBuilderHelper
+                    .openOutputFile(outputFilePath + "sie4_select_query_operator_profile_time_r" + i + ".txt");
             fos.write(sb.toString().getBytes());
             ReportBuilderHelper.closeOutputFile(fos);
         }
@@ -796,7 +792,8 @@ public class SIE4ReportBuilderRunner {
             sb.setLength(0);
             sb.append("# sie4 join query profiled operator time report\n");
             String[] st = null;
-            sb.append("operator,STREAM_SELECT,SORT_RUN_GEN,INNER_PIDX_SEARCH,OUTER_PIDX_SEARCH,STREAM_PROJECT,INNER_SIDX_SEARCH,ASSIGN,SORT_RUN_MERGER,TXN_JOB_COMMIT,DISTRIBUTE_RESULT,\n");
+            sb.append(
+                    "operator,STREAM_SELECT,SORT_RUN_GEN,INNER_PIDX_SEARCH,OUTER_PIDX_SEARCH,STREAM_PROJECT,INNER_SIDX_SEARCH,ASSIGN,SORT_RUN_MERGER,TXN_JOB_COMMIT,DISTRIBUTE_RESULT,\n");
             st = dhbtreeOprb.getOperatorTime(true, i, isIndexOnlyPlan, false).split("!");
             sb.append(st[0]);
             sb.append("dhbtree,").append(st[1]);
@@ -814,8 +811,8 @@ public class SIE4ReportBuilderRunner {
             sb.append("sif,").append(st[1]);
 
             String outputFilePath = "/Users/kisskys/workspace/asterix_master/resultLog/MemBuf3g-DiskBuf3g-Lsev-Jvm7g-Lock0g/result-report/";
-            FileOutputStream fos = ReportBuilderHelper.openOutputFile(outputFilePath
-                    + "sie4_join_query_operator_profile_time_r" + i + ".txt");
+            FileOutputStream fos = ReportBuilderHelper
+                    .openOutputFile(outputFilePath + "sie4_join_query_operator_profile_time_r" + i + ".txt");
             fos.write(sb.toString().getBytes());
             ReportBuilderHelper.closeOutputFile(fos);
         }
@@ -867,8 +864,8 @@ public class SIE4ReportBuilderRunner {
             sb.append("sif,").append(sifOprb.getCacheMiss(false, i, isIndexOnlyPlan)).append("\n");
 
             String outputFilePath = "/Users/kisskys/workspace/asterix_master/resultLog/MemBuf3g-DiskBuf3g-Lsev-Jvm7g-Lock0g/result-report/";
-            FileOutputStream fos = ReportBuilderHelper.openOutputFile(outputFilePath + "sie4_select_query_cache_miss_r"
-                    + i + ".txt");
+            FileOutputStream fos = ReportBuilderHelper
+                    .openOutputFile(outputFilePath + "sie4_select_query_cache_miss_r" + i + ".txt");
             fos.write(sb.toString().getBytes());
             ReportBuilderHelper.closeOutputFile(fos);
         }
@@ -885,8 +882,8 @@ public class SIE4ReportBuilderRunner {
             sb.append("sif,").append(sifOprb.getCacheMiss(true, i, isIndexOnlyPlan)).append("\n");
 
             String outputFilePath = "/Users/kisskys/workspace/asterix_master/resultLog/MemBuf3g-DiskBuf3g-Lsev-Jvm7g-Lock0g/result-report/";
-            FileOutputStream fos = ReportBuilderHelper.openOutputFile(outputFilePath + "sie4_join_query_cache_miss_r"
-                    + i + ".txt");
+            FileOutputStream fos = ReportBuilderHelper
+                    .openOutputFile(outputFilePath + "sie4_join_query_cache_miss_r" + i + ".txt");
             fos.write(sb.toString().getBytes());
             ReportBuilderHelper.closeOutputFile(fos);
         }

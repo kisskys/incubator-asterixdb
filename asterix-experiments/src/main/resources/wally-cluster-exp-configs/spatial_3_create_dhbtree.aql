@@ -1,0 +1,2 @@
+use dataverse experiments;
+create index btreeLocation on Tweets(btree-extra-field1);

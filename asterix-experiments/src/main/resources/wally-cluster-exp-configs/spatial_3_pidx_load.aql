@@ -1,0 +1,20 @@
+use dataverse experiments;
+
+load dataset JoinSeedTweets
+using "org.apache.asterix.external.dataset.adapter.NCFileSystemAdapter"
+(("path"="130.149.249.52:///data/seok.kim/spatial-index-experiment/files/QuerySeedTweets10K-from-SyntheticTweets100M-psi27-pid0.adm"),("format"="adm"));
+
+
+/* for measurement */
+load dataset Tweets 
+using "org.apache.asterix.external.dataset.adapter.NCFileSystemAdapter"
+(("path"=
+"130.149.249.52:///data/seok.kim/spatial-index-experiment/files/SyntheticTweets1M-test.adm, 
+130.149.249.53:///data/seok.kim/spatial-index-experiment/files/SyntheticTweets1M-test.adm,
+130.149.249.54:///data/seok.kim/spatial-index-experiment/files/SyntheticTweets1M-test.adm,
+130.149.249.55:///data/seok.kim/spatial-index-experiment/files/SyntheticTweets1M-test.adm,
+130.149.249.56:///data/seok.kim/spatial-index-experiment/files/SyntheticTweets1M-test.adm,
+130.149.249.57:///data/seok.kim/spatial-index-experiment/files/SyntheticTweets1M-test.adm,
+130.149.249.58:///data/seok.kim/spatial-index-experiment/files/SyntheticTweets1M-test.adm,
+130.149.249.59:///data/seok.kim/spatial-index-experiment/files/SyntheticTweets1M-test.adm"),
+("format"="adm"));
